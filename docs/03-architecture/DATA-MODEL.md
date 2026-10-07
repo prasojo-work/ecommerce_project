@@ -114,7 +114,7 @@ gaps](../04-delivery/ROADMAP.md#known-gaps) rather than being silently dropped. 
 ## PII & privacy
 
 - PII: `user.email`, `user.full_name`, `address.*`, `order.shipping_address_snapshot`.
-- Hashing: passwords via Django's default (Argon2/PBKDF2). Tokens are never stored in the database (stateless JWT), except refresh-token blacklist entries on logout.
+- Hashing: passwords via Django's default PBKDF2-HMAC-SHA256 (Argon2id is the recommended upgrade — see `SECURITY-REVIEW.md` SEC-FIND-1.3). Tokens are never stored in the database (stateless JWT), except refresh-token blacklist entries on logout.
 - Backups/retention: Supabase free-tier automated backups; no PII shared with third parties except the (future) payment provider.
 
 ## Phase 2 hook (do not build now)

@@ -66,7 +66,7 @@ graph TB
 - **Framework:** Django Ninja (see `ADR-0002`) — schema-first with Pydantic, auto-generated OpenAPI.
 - **Conventions:**
   - Resources are plural nouns: `/products`, `/categories`, `/cart/items`, `/orders`.
-  - Pagination: `?page=&page_size=` → `{count, next, previous, results}`.
+  - Pagination: `?page=&page_size=` → `{count, page, page_size, results}`.
   - Errors: consistent envelope `{ "detail": "...", "code": "...", "errors": {...} }`.
   - Filtering/sorting via query params; validated with Pydantic.
 - **Representative endpoints:**
@@ -74,7 +74,7 @@ graph TB
 | Method | Path | Purpose | Auth |
 |---|---|---|---|
 | POST | `/api/v1/auth/register` | Create account | public |
-| POST | `/api/v1/auth/token` | Obtain access + refresh | public |
+| POST | `/api/v1/auth/login` | Obtain access + refresh | public |
 | POST | `/api/v1/auth/refresh` | Rotate access token | refresh |
 | GET | `/api/v1/auth/me` | Current user | access |
 | GET | `/api/v1/products` | List/search/filter | public |
@@ -95,15 +95,15 @@ sequenceDiagram
   participant W as Next.js
   participant A as Django API
   U->>W: email + password
-  W->>A: POST /auth/token
+  W->>A: POST /auth/login
   A-->>W: access (short) + refresh (long)
-  W->>W: store tokens (httpOnly cookie or secure storage)
+  W->>W: access token in memory; refresh in an httpOnly cookie
   W->>A: GET /orders  (Authorization: Bearer <access>)
   A-->>W: 200 OK
   Note over W,A: on 401 → POST /auth/refresh → retry once
 ```
 
-- Access token: short-lived (~15 min). Refresh token: longer (~7 days), rotated on use, blacklisted on logout.
+- Access token: short-lived (~15 min). Refresh token: longer (~14 days), rotated on use, blacklisted on logout.
 - Details and trade-offs: `ADR-0003`.
 
 ## 7. Consistency & data integrity
@@ -153,14 +153,14 @@ Details and rejected alternatives: `ADR-0005`.
 ## 11. Cross-cutting concerns
 
 - **Config:** environment variables only; `.env` locally, host secrets in the cloud. No secrets committed.
-- **Observability:** structured JSON logs with a request ID; error tracking hook point; `/health` endpoint.
+- **Observability:** structured JSON logs with a request ID (`core/logging.py`, `core/middleware.py`); `/health` endpoint. Error tracking is wired at deploy time — see `SECURITY-REVIEW.md` SEC-FIND-7.2.
 - **CORS:** allowlist the frontend origin only.
 - **Testing:** backend `pytest` (domain + API), frontend Vitest + Playwright for critical flows.
 - **CI:** GitHub Actions — lint, type-check, test, build on every push.
 
 ## 12. Decision records
 
-`ADR-0001` monorepo · `ADR-0002` API layer (Ninja) · `ADR-0003` auth (JWT) · `ADR-0004` mock payment · `ADR-0005` deployment · `ADR-0006` docs & change control. See [`../decisions/`](../decisions/).
+`ADR-0001` monorepo · `ADR-0002` API layer (Ninja) · `ADR-0003` auth (JWT) · `ADR-0004` mock payment · `ADR-0005` deployment · `ADR-0006` docs & change control · `ADR-0007` brand name · `ADR-0008` typing strategy · `ADR-0009` working mode · `ADR-0010` checkout (pricing, shipping, order numbers) · `ADR-0011` operator console. See [`../decisions/`](../decisions/).
 
 ## Quality checklist
 

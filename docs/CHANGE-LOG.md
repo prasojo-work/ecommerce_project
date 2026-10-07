@@ -72,3 +72,15 @@ Each entry:
 - **Impact:** Documentation only — no code, schema or scope change. Two previously invisible gaps are now recorded in the roadmap's *Known gaps*: `US-2.2` is missing its price-range filter, availability filter and "popularity" sort, and `US-3.3` is missing profile editing. Neither is delivered nor descoped yet; that is a decision for the founder.
 - **ADR:** None — this makes the documents match the code rather than changing a decision.
 
+---
+
+## v0.1.5 — 2026-10-07 — M6 security review: findings, hardening, and three corrected doc claims
+
+- **Change:** The M6 OWASP pass is documented in [`04-delivery/SECURITY-REVIEW.md`](04-delivery/SECURITY-REVIEW.md) (11 findings: 2 High, 5 Medium, 4 Low), the API hardening it forced is implemented, and three architectural claims that did not match the code are corrected:
+  - **Implemented:** a fail-fast guard on the placeholder secret key; anonymous rate limits on `login`/`register`; one error envelope for the whole API; request-id correlation on every response and log line. Recorded as `ADR-0012`.
+  - **`ARCHITECTURE.md`:** the login endpoint was documented as `/auth/token` but is `/auth/login` (both the endpoint table and the sequence diagram); the pagination shape was documented as `{count, next, previous, results}` but is `{count, page, page_size, results}`; the refresh-token lifetime was documented as ~7 days but is 14; §11's observability line now describes what exists (JSON logs + request id + `/health`) rather than an aspiration, with error tracking named as a deploy-time follow-up; §12 now lists `ADR-0007`…`ADR-0011`, which had been omitted.
+  - **`DATA-MODEL.md`:** password hashing was described as "Argon2/PBKDF2"; it is PBKDF2, with Argon2id named as the recommended upgrade (`SEC-FIND-1.3`).
+- **Reason:** The task brief makes these documents the source of truth and forbids undocumented drift. A source review against the OWASP Top 10 is an M6 exit criterion, and it is what surfaced the incorrect endpoint, pagination and lifetime claims — each of which a client implementer would have coded against.
+- **Impact:** One new backend module trio (`core/errors.py`, `core/logging.py`, `core/middleware.py`), hardening and throttle settings, and one new test file; no scope, schema or cost change. One new gap is recorded in the roadmap's *Known gaps*: the API has no cache layer, so M1's "catalog reads are cached" criterion is unmet as written. Five review findings remain open (one of them accepted for the MVP), tracked in the review's §5.
+- **ADR:** `ADR-0012`.
+

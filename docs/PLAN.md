@@ -1,6 +1,6 @@
 # Master Plan — NORDVIK (home-goods e-commerce)
 
-> **Status:** Living document · **Baseline version:** v0.1.2 (2026-10-07) · **Owner:** Founder (solo)
+> **Status:** Living document · **Baseline version:** v0.1.5 (2026-10-07) · **Owner:** Founder (solo)
 > This file always reflects the *current* agreed plan. History of changes lives in [`CHANGE-LOG.md`](CHANGE-LOG.md).
 
 ---

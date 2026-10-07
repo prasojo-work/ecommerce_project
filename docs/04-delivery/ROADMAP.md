@@ -40,9 +40,10 @@ Each milestone ends only when its **exit criteria** are met and its slice is com
   - **Deliverable:** manage products/variants/inventory/orders (`EPIC-7`).
   - **Exit criteria:** catalog and order status are manageable without touching the DB.
   - **Depends on:** M1, M4.
-- [ ] **PLAN-1.7 [M6 — Hardening]**
+- [ ] **PLAN-1.7 [M6 — Hardening]** — *in progress (2026-10-07); OWASP review done*
   - **Deliverable:** NFR pass — tests, accessibility, performance, security review.
   - **Exit criteria:** coverage on domain logic + critical flows; axe clean; Lighthouse ≥ 90 on key pages; OWASP review documented.
+  - **Progress:** the OWASP review is documented in [`SECURITY-REVIEW.md`](SECURITY-REVIEW.md), together with the API hardening it forced (`ADR-0012`). Still open before M6 can close: the accessibility (axe) pass, the Lighthouse run, and the critical-flow coverage owned by the deferred E2E suite.
   - **Depends on:** M4, M5.
 - [ ] **PLAN-1.8 [M7 — Deploy]**
   - **Deliverable:** live demo on Render + Supabase + Vercel; keep-alive ping; deploy docs.
@@ -81,6 +82,11 @@ quietly dropped. Each needs one founder decision: **deliver it, or amend the pla
       `order_item` actually enforce it. A natural fit for the M6 hardening pass.
 - [ ] **The `product_variant(product_id, is_active)` index does not exist.** Decide whether it is
       still wanted or remove it from the design.
+- [ ] **The API has no cache layer.** `ARCHITECTURE.md` §9 targets "API p95 < 400 ms (catalog,
+      cached)" and M1's exit criterion says "catalog reads are cached", but `config/settings.py`
+      defines no `CACHES` backend and `catalog/` contains no `cache` usage. Either the criterion is
+      meant to be satisfied by the Next.js fetch cache (then the wording should say so) or the M6
+      performance pass needs an API-side cache. Needs one founder decision.
 
 ## Definition of Done (every slice)
 
@@ -107,7 +113,7 @@ A slice is done only when **all** hold:
   - **Owner:** Founder. **Mitigation:** thin vertical slices, always demoable; milestone-based progress. **Status:** open.
 - [ ] **RISK-5 [Auth/security mistakes]**
   - **Probability/Impact:** Medium / High — a portfolio with an obvious hole backfires.
-  - **Owner:** Founder (Security hat). **Mitigation:** M6 security review; OWASP checklist. **Status:** open.
+  - **Owner:** Founder (Security hat). **Mitigation:** M6 security review — findings and residual risks documented in [`SECURITY-REVIEW.md`](SECURITY-REVIEW.md). **Status:** open — review complete (2026-10-07); two High findings fixed, five lower-severity items still open (see the review's index).
 - [ ] **RISK-6 [Technical debt from going fast]**
   - **Probability/Impact:** Medium / Medium. **Owner:** Founder (Tech Lead hat). **Mitigation:** DoD above; refactor slices tracked in the backlog. **Status:** open.
 
