@@ -91,13 +91,12 @@ export default function CartPage() {
             <span className="text-lg font-medium">Subtotal {formatIdr(cart?.subtotal ?? 0)}</span>
           </div>
 
-          <button
-            type="button"
-            disabled
-            className="mt-4 w-full cursor-not-allowed rounded-md bg-neutral-300 px-6 py-3 text-sm font-medium text-white sm:w-auto"
+          <Link
+            href="/checkout"
+            className="mt-4 inline-block w-full rounded-md bg-emerald-800 px-6 py-3 text-center text-sm font-medium text-white transition hover:bg-emerald-900 sm:w-auto"
           >
-            Checkout (coming soon)
-          </button>
+            Checkout
+          </Link>
         </>
       )}
     </div>

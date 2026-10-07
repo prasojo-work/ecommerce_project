@@ -18,6 +18,7 @@ export type CartState = {
   add: (variantId: number, quantity: number) => Promise<void>;
   update: (itemId: number, quantity: number) => Promise<void>;
   remove: (itemId: number) => Promise<void>;
+  refresh: () => Promise<void>;
 };
 
 const CartContext = createContext<CartState | null>(null);
@@ -63,12 +64,17 @@ export function CartProvider({ children }: { children: ReactNode }) {
     [accessToken],
   );
 
+  const refresh = useCallback(async () => {
+    if (!accessToken) return;
+    setCart(await fetchCart(accessToken));
+  }, [accessToken]);
+
   const visibleCart = accessToken ? cart : null;
   const count = visibleCart?.items.reduce((total, item) => total + item.quantity, 0) ?? 0;
 
   const value = useMemo<CartState>(
-    () => ({ cart: visibleCart, count, add, update, remove }),
-    [visibleCart, count, add, update, remove],
+    () => ({ cart: visibleCart, count, add, update, remove, refresh }),
+    [visibleCart, count, add, update, remove, refresh],
   );
 
   return <CartContext.Provider value={value}>{children}</CartContext.Provider>;

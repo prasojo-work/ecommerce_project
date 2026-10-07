@@ -19,6 +19,9 @@ export function HeaderNav() {
       </Link>
       {ready && user ? (
         <>
+          <Link href="/orders" className="text-neutral-700 hover:text-emerald-800">
+            Orders
+          </Link>
           <Link href="/account" className="text-neutral-700 hover:text-emerald-800">
             {user.full_name || user.email}
           </Link>

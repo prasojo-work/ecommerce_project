@@ -261,3 +261,133 @@ export function removeCartItem(accessToken: string, itemId: number): Promise<Car
     headers: bearer(accessToken),
   });
 }
+
+export type ShippingOption = {
+  code: string;
+  name: string;
+  cost: number;
+  eta: string;
+};
+
+export type ShippingOptions = {
+  subtotal: number;
+  currency: string;
+  free_shipping_threshold: number;
+  options: ShippingOption[];
+};
+
+export type OrderStatus =
+  | "pending_payment"
+  | "paid"
+  | "processing"
+  | "shipped"
+  | "completed"
+  | "cancelled";
+
+export type OrderItem = {
+  id: number;
+  variant_id: number | null;
+  product_title: string;
+  variant_name: string;
+  unit_price: number;
+  quantity: number;
+  line_total: number;
+};
+
+export type OrderAddress = {
+  recipient: string;
+  phone: string;
+  line1: string;
+  line2: string;
+  city: string;
+  province: string;
+  postal_code: string;
+  country: string;
+};
+
+export type Order = {
+  id: number;
+  number: string;
+  status: OrderStatus;
+  subtotal: number;
+  shipping_cost: number;
+  total: number;
+  currency: string;
+  shipping_method: string;
+  shipping_method_name: string;
+  shipping_address: OrderAddress;
+  items: OrderItem[];
+  created_at: string;
+};
+
+export type OrderSummary = {
+  id: number;
+  number: string;
+  status: OrderStatus;
+  total: number;
+  currency: string;
+  item_count: number;
+  created_at: string;
+};
+
+export type PaginatedOrders = {
+  count: number;
+  page: number;
+  page_size: number;
+  results: OrderSummary[];
+};
+
+export type OrderInput = {
+  address_id: number;
+  shipping_method: string;
+  idempotency_key: string;
+};
+
+export type PaymentStatus = "initiated" | "succeeded" | "failed" | "refunded";
+
+export type Payment = {
+  id: number;
+  order_number: string;
+  provider: string;
+  status: PaymentStatus;
+  amount: number;
+  provider_reference: string;
+  created_at: string;
+};
+
+export function fetchShippingOptions(accessToken: string): Promise<ShippingOptions> {
+  return requestJson<ShippingOptions>("/shipping/options", {
+    headers: bearer(accessToken),
+  });
+}
+
+export function createOrder(accessToken: string, input: OrderInput): Promise<Order> {
+  return requestJson<Order>("/orders", {
+    method: "POST",
+    headers: bearer(accessToken),
+    body: JSON.stringify(input),
+  });
+}
+
+export function fetchOrders(accessToken: string): Promise<PaginatedOrders> {
+  return requestJson<PaginatedOrders>("/orders", { headers: bearer(accessToken) });
+}
+
+export function fetchOrder(accessToken: string, number: string): Promise<Order> {
+  return requestJson<Order>(`/orders/${number}`, { headers: bearer(accessToken) });
+}
+
+export function payWithMock(
+  accessToken: string,
+  orderNumber: string,
+  simulateFailure = false,
+): Promise<Payment> {
+  return requestJson<Payment>("/payments/mock", {
+    method: "POST",
+    headers: bearer(accessToken),
+    body: JSON.stringify({
+      order_number: orderNumber,
+      simulate_failure: simulateFailure,
+    }),
+  });
+}
