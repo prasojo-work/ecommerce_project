@@ -65,8 +65,15 @@ function apiBaseUrl(): string {
   return typeof window === "undefined" ? INTERNAL_API_URL : PUBLIC_API_URL;
 }
 
+// Public catalog reads: safe to cache, and the API caches them too, so a repeat
+// render is cheap. Per-user reads use `requestJson` below, which passes no cache
+// option and so stays uncached.
+const CATALOG_REVALIDATE_SECONDS = 60;
+
 async function getJson<T>(path: string): Promise<T> {
-  const response = await fetch(`${apiBaseUrl()}${path}`, { cache: "no-store" });
+  const response = await fetch(`${apiBaseUrl()}${path}`, {
+    next: { revalidate: CATALOG_REVALIDATE_SECONDS, tags: ["catalog"] },
+  });
   if (!response.ok) {
     throw new Error(`API request failed (${response.status}) for ${path}`);
   }
@@ -90,7 +97,7 @@ export function fetchProducts(query: ProductQuery = {}): Promise<PaginatedProduc
 
 export async function fetchProduct(slug: string): Promise<ProductDetail | null> {
   const response = await fetch(`${apiBaseUrl()}/products/${slug}`, {
-    next: { revalidate: 60 },
+    next: { revalidate: CATALOG_REVALIDATE_SECONDS, tags: ["catalog"] },
   });
   if (response.status === 404) return null;
   if (!response.ok) throw new Error(`API request failed (${response.status})`);

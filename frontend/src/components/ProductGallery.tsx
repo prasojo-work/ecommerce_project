@@ -17,10 +17,13 @@ export function ProductGallery({ images, title }: { images: ProductImage[]; titl
   return (
     <div>
       <div className="relative aspect-square overflow-hidden rounded-md bg-neutral-100">
+        {/* The first image is this route's LCP, so preload it. Later picks swap
+            in on click, where lazy loading is what we want. */}
         <Image
           src={active.url}
           alt={active.alt || title}
           fill
+          priority={activeIndex === 0}
           sizes="(max-width: 1024px) 100vw, 50vw"
           className="object-cover"
         />

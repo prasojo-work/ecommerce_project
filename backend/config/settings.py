@@ -76,6 +76,21 @@ THROTTLE_REGISTER_RATE = env("THROTTLE_REGISTER_RATE", default="30/h")
 # address is the last X-Forwarded-For entry. Ninja uses this to key the throttles.
 NINJA_NUM_PROXIES = env.int("NINJA_NUM_PROXIES", default=1)
 
+# Caching (`ADR-0013`). Catalog reads are cached in `catalog/cache.py`, and the
+# rate limits above are counted here. Both are per process — correct for the
+# single-worker free tier, and the reason the two share this setting: pointing
+# CACHE_URL at a shared backend (`redis://…`) fixes both at once.
+CACHE_URL = env("CACHE_URL", default="")
+if CACHE_URL:
+    CACHES = {"default": env.cache_url("CACHE_URL")}
+else:
+    CACHES = {
+        "default": {
+            "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
+            "LOCATION": "nordvik",
+        }
+    }
+
 AUTH_USER_MODEL = "accounts.User"
 
 # JWT authentication (access + refresh) — see ADR-0003.

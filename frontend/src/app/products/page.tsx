@@ -52,8 +52,12 @@ export default async function ProductsPage({
         <p className="text-neutral-600">No products match your search.</p>
       ) : (
         <div className="grid grid-cols-2 gap-6 sm:grid-cols-3 lg:grid-cols-4">
-          {data.results.map((product) => (
-            <ProductCard key={product.id} product={product} />
+          {data.results.map((product, index) => (
+            <ProductCard
+              key={product.id}
+              product={product}
+              priority={index === 0}
+            />
           ))}
         </div>
       )}
