@@ -28,7 +28,7 @@ Each milestone ends only when its **exit criteria** are met and its slice is com
   - **Deliverable:** register/login/refresh, profile, addresses (`EPIC-3`).
   - **Exit criteria:** JWT flow works end to end; protected endpoints reject anonymous requests.
   - **Depends on:** M0.
-- [ ] **PLAN-1.4 [M3 — Cart]**
+- [x] **PLAN-1.4 [M3 — Cart]** — *complete (2026-10-07)*
   - **Deliverable:** server-side cart for logged-in users (`EPIC-4`).
   - **Exit criteria:** cart persists across sessions/devices; quantity math correct.
   - **Depends on:** M1, M2.

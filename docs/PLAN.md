@@ -28,7 +28,7 @@ NORDVIK is **portfolio-as-simulated-business**: the strategy is researched as if
 ### MVP (Phase 1 — the store works end to end)
 - [x] Catalog: categories, products, variants, images, stock.
 - [x] Browse: category listing, product detail, search + filter + sort.
-- [ ] Cart: add/update/remove, persisted server-side for logged-in users.
+- [x] Cart: add/update/remove, persisted server-side for logged-in users.
 - [ ] Checkout: address, shipping method (simulated), payment (**mock/sandbox**).
 - [ ] Orders: order history + order detail for the customer.
 - [x] Accounts: register, login (JWT access + refresh), profile, addresses.
