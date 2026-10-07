@@ -33,6 +33,15 @@ DEBUG = env.bool("DJANGO_DEBUG", default=False)
 ALLOWED_HOSTS = env.list("DJANGO_ALLOWED_HOSTS")
 CORS_ALLOWED_ORIGINS = env.list("CORS_ALLOWED_ORIGINS")
 
+AUTH_USER_MODEL = "accounts.User"
+
+# JWT authentication (access + refresh) — see ADR-0003.
+JWT_SECRET_KEY = env("JWT_SECRET_KEY", default=SECRET_KEY)
+ACCESS_TOKEN_TTL_SECONDS = 15 * 60
+REFRESH_TOKEN_TTL_SECONDS = 14 * 24 * 60 * 60
+REFRESH_COOKIE_NAME = "nordvik_refresh"
+REFRESH_COOKIE_SECURE = not DEBUG
+
 # Application definition
 
 INSTALLED_APPS = [
@@ -43,6 +52,7 @@ INSTALLED_APPS = [
     "django.contrib.messages",
     "django.contrib.staticfiles",
     "corsheaders",
+    "accounts",
     "core",
     "catalog",
 ]

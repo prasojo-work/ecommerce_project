@@ -8,6 +8,7 @@ dependencies = [
     "django-environ>=0.14.0",
     "django-ninja>=1.7.1",
     "psycopg[binary]>=3.3.6",
+    "pyjwt>=2.15.1",
 ]
 
 [dependency-groups]
