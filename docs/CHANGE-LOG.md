@@ -49,3 +49,15 @@ Each entry:
 - **Reason:** Chat-rendered code containing `${...}` template literals and literal angle-bracket markup was mangled on paste (surfacing as `MATH1` / `HTML11`), corrupting files and failing builds. The founder also elected to review working increments rather than transcribe them.
 - **Impact:** No change to scope, architecture, timeline, or cost. Changes *how* work is produced and verified; each increment now ends in a green gate and a commit.
 - **ADR:** `ADR-0009`.
+
+---
+
+## v0.1.3 — 2026-10-07 — M4 clarifications: shipping selection and order numbering
+
+- **Change:** Two clarifications to the data model, decided while building M4 (checkout & orders):
+  - `order` gains `shipping_method` and `shipping_method_name`. Shipping options are defined in code, not in a table; standard delivery is free at or above Rp 500.000.
+  - The `order.number` format is fixed as `NDV-<YYYY>-<zero-padded pk>` (e.g. `NDV-2026-000123`).
+- **Reason:** `DATA-MODEL.md` enumerates `order` with only a `shipping_cost` column, yet `ARCHITECTURE.md` §4 assigns "shipping" to the `orders` app and `UX.md` requires shipping *options with cost and ETA* before payment. Separately, `DATA-MODEL.md` describes `order.number` only as a "human ref, unique" and fixes no format.
+- **Impact:** Two additive `order` columns and one generated field format. No change to scope, endpoints, or cost.
+- **ADR:** `ADR-0010`.
+

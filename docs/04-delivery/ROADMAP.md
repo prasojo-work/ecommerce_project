@@ -32,7 +32,7 @@ Each milestone ends only when its **exit criteria** are met and its slice is com
   - **Deliverable:** server-side cart for logged-in users (`EPIC-4`).
   - **Exit criteria:** cart persists across sessions/devices; quantity math correct.
   - **Depends on:** M1, M2.
-- [ ] **PLAN-1.5 [M4 — Checkout & orders]**
+- [x] **PLAN-1.5 [M4 — Checkout & orders]** — *complete (2026-10-07)*
   - **Deliverable:** address → shipping → mock payment → order + history (`EPIC-5`, `EPIC-6`).
   - **Exit criteria:** a full purchase completes; stock decremented under lock; order is an immutable snapshot; duplicate submit is idempotent.
   - **Depends on:** M3.

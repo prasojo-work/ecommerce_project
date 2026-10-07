@@ -67,14 +67,14 @@ erDiagram
 
 ### `orders`
 
-- [ ] **DATA-4.1 `order`**
-  - `id` PK · `number` (human ref, unique) · `user_id` FK→user · `status` (`pending_payment`/`paid`/`processing`/`shipped`/`completed`/`cancelled`) · `subtotal` · `shipping_cost` · `total` · `currency` · `shipping_address_snapshot` (JSONB) · `idempotency_key` (unique) · `created_at` · `updated_at`
-- [ ] **DATA-4.2 `order_item`**
+- [x] **DATA-4.1 `order`**
+  - `id` PK · `number` (human ref `NDV-YYYY-NNNNNN`, unique) · `user_id` FK→user · `status` (`pending_payment`/`paid`/`processing`/`shipped`/`completed`/`cancelled`) · `subtotal` · `shipping_cost` · `total` · `currency` · `shipping_method` · `shipping_method_name` · `shipping_address_snapshot` (JSONB) · `idempotency_key` (unique) · `created_at` · `updated_at`
+- [x] **DATA-4.2 `order_item`**
   - `id` PK · `order_id` FK→order · `variant_id` FK→product_variant (nullable on delete) · `product_title_snapshot` · `variant_name_snapshot` · `unit_price` (BIGINT) · `quantity` · `line_total` (BIGINT)
 
 ### `payments`
 
-- [ ] **DATA-5.1 `payment`**
+- [x] **DATA-5.1 `payment`**
   - `id` PK · `order_id` FK→order (unique) · `provider` (`mock`/`stripe`/`midtrans`) · `status` (`initiated`/`succeeded`/`failed`/`refunded`) · `amount` (BIGINT) · `provider_reference` · `created_at`
 
 ---

@@ -82,7 +82,8 @@ graph TB
 | GET | `/api/v1/categories` | Category tree | public |
 | GET/POST/PATCH/DELETE | `/api/v1/cart/items` | Cart operations | access |
 | POST | `/api/v1/orders` | Create order from cart | access |
-| GET | `/api/v1/orders` / `/{id}` | Order history/detail | access |
+| GET | `/api/v1/orders` / `/{number}` | Order history/detail | access |
+| GET | `/api/v1/shipping/options` | Shipping options with cost + ETA | access |
 | POST | `/api/v1/payments/mock` | Simulate payment | access |
 | GET | `/api/v1/health` | Liveness/readiness | public |
 
