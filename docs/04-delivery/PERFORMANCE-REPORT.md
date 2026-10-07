@@ -25,22 +25,31 @@ console, which is Django admin and not a public page.
 
 ## 2. Result
 
-All three routes clear the M6 bar of **Lighthouse ≥ 90**, and the two LCP
-regressions found in the first pass were fixed (see §3.2).
+All three routes clear the M6 bar of **Lighthouse ≥ 90 on performance**, and all
+three now score **100 on accessibility**. Final state, after both this pass and
+the accessibility pass:
 
-| Route | Performance | Accessibility | Best practices | SEO |
-|---|---|---|---|---|
-| `/` | 97 | 100 | 96 | 100 |
-| `/products` | 96 | 98 | 96 | 100 |
-| `/products/{slug}` | 97 | 100 | 96 | 100 |
+| Route | Performance | Accessibility | Best practices | SEO | LCP | TBT | CLS |
+|---|---|---|---|---|---|---|---|
+| `/` | 97 | 100 | 96 | 100 | 1.91 s | 170 ms | 0 |
+| `/products` | 96 | 100 | 96 | 100 | 2.56 s | 100 ms | 0 |
+| `/products/{slug}` | 99 | 100 | 96 | 100 | 1.89 s | 100 ms | 0 |
 
-Core Web Vitals, and what each was before this pass:
+The LCP regression this pass set out to fix, measured as a controlled before/after
+pair on the same pair of builds:
 
-| Route | LCP | TBT | CLS | Speed Index |
-|---|---|---|---|---|
-| `/` | 1.77 s → **1.76 s** | 220 ms → **190 ms** | 0 | 0.78 s |
-| `/products` | 2.74 s → **2.52 s** | 120 ms | 0 | 1.56 s → **0.77 s** |
-| `/products/{slug}` | 3.03 s → **2.53 s** | 220 ms → **110 ms** | 0 | 1.50 s → **0.76 s** |
+| Route | LCP | TBT | Speed Index |
+|---|---|---|---|
+| `/` | 1.77 s → 1.76 s | 220 ms → 190 ms | 0.78 s (unchanged) |
+| `/products` | 2.74 s → **2.52 s** | 120 ms (unchanged) | 1.56 s → **0.77 s** |
+| `/products/{slug}` | 3.03 s → **2.53 s** | 220 ms → **110 ms** | 1.50 s → **0.76 s** |
+
+**Read the second table, not the absolute figures, for the effect of the fix.**
+Lighthouse results vary between runs on this machine — LCP especially, because the
+Next.js image optimiser caches downstream images locally, so a later run measures a
+warm image cache rather than a cold one. A third run put the detail route at
+1.89 s against the 2.53 s above. The *deltas within a matched pair* are the signal;
+any single absolute number is not.
 
 ## 3. What was changed
 

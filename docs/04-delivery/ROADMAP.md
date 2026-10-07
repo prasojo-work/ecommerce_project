@@ -43,7 +43,7 @@ Each milestone ends only when its **exit criteria** are met and its slice is com
 - [ ] **PLAN-1.7 [M6 — Hardening]** — *in progress (2026-10-07); OWASP review done*
   - **Deliverable:** NFR pass — tests, accessibility, performance, security review.
   - **Exit criteria:** coverage on domain logic + critical flows; axe clean; Lighthouse ≥ 90 on key pages; OWASP review documented.
-  - **Progress:** the OWASP review is documented in [`SECURITY-REVIEW.md`](SECURITY-REVIEW.md) with the API hardening it forced (`ADR-0012`); the performance pass is documented in [`PERFORMANCE-REPORT.md`](PERFORMANCE-REPORT.md) with the catalog cache it forced (`ADR-0013`). Still open before M6 can close: the accessibility (axe) pass, and the critical-flow coverage owned by the deferred E2E suite.
+  - **Progress:** the OWASP review is documented in [`SECURITY-REVIEW.md`](SECURITY-REVIEW.md) with the API hardening it forced (`ADR-0012`); the performance pass in [`PERFORMANCE-REPORT.md`](PERFORMANCE-REPORT.md) with the catalog cache it forced (`ADR-0013`); and the accessibility pass in [`ACCESSIBILITY-REPORT.md`](ACCESSIBILITY-REPORT.md), which is axe-clean across nine routes. Still open before M6 can close: the **manual keyboard pass** that `ARCHITECTURE.md` §9 pairs with axe, and the critical-flow coverage owned by the deferred E2E suite.
   - **Depends on:** M4, M5.
 - [ ] **PLAN-1.8 [M7 — Deploy]**
   - **Deliverable:** live demo on Render + Supabase + Vercel; keep-alive ping; deploy docs.

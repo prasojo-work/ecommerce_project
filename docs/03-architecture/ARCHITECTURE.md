@@ -133,7 +133,7 @@ No synchronous call chains deeper than API → DB in Phase 1.
 | Availability | best-effort (free tier) | uptime ping; documented trade-off `ADR-0005` |
 | Latency | API p95 < 400 ms (catalog, cached); LCP < 2.5 s | [`scripts/lighthouse-audit.sh`](../../scripts/lighthouse-audit.sh) + `PERFORMANCE-REPORT.md` |
 | Security | OWASP Top 10 mitigated; secrets out of repo | [`SECURITY-REVIEW.md`](../04-delivery/SECURITY-REVIEW.md) + secret scan |
-| Accessibility | WCAG 2.1 AA | axe + manual keyboard pass |
+| Accessibility | WCAG 2.1 AA | [`frontend/scripts/axe-audit.mjs`](../../frontend/scripts/axe-audit.mjs) + manual keyboard pass (outstanding) |
 
 ## 10. Deployment topology
 

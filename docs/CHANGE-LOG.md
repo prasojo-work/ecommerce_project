@@ -96,3 +96,15 @@ Each entry:
 - **Impact:** No scope, schema or cost change. Adds a cache module, a signal module, a `CACHES` setting, a development-audit script (`scripts/lighthouse-audit.sh`) and seven tests. The roadmap's caching gap closes. The LCP target is **marginal rather than met** on the two image-led routes, because the remaining cost is the remote demo imagery — recorded in the report rather than papered over.
 - **ADR:** `ADR-0013`.
 
+---
+
+## v0.1.7 — 2026-10-07 — M6 accessibility pass: axe clean across nine routes
+
+- **Change:** The accessibility pass is documented in [`04-delivery/ACCESSIBILITY-REPORT.md`](04-delivery/ACCESSIBILITY-REPORT.md), and three defect classes it found are fixed:
+  - **Links inside prose were distinguished by colour alone** (`link-in-text-block`, *serious*). Every in-prose link is now permanently underlined rather than only on hover — which also removes an affordance that never existed on touch. Fixed across cart, checkout, orders, account, order detail and the shared auth form, not only the two routes the first pass visited.
+  - **`/products` skipped a heading level** — `<h1>Shop</h1>` followed by `<h3>` product titles, a broken outline for anyone navigating by heading. The card title is now an `<h2>`.
+  - **The detail page rendered two unnamed `<nav>` landmarks**, indistinguishable from each other. Each is now labelled: `Main`, `Breadcrumb`, `Pagination`.
+- **Reason:** M6's exit criteria require the accessibility check to be clean, and `ARCHITECTURE.md` §9 names **axe** specifically. axe runs a wider rule set than the subset embedded in Lighthouse's accessibility category, so a 98 score would not by itself have demonstrated the criterion.
+- **Impact:** Presentation-only changes; no scope, schema or cost change. Adds `frontend/scripts/axe-audit.mjs` and two frontend dev dependencies (`axe-core`, `puppeteer-core`) so the criterion is reproducible and can gate CI. Result: **axe reports 0 violations across nine routes** and Lighthouse accessibility is 100 on all three audited routes. The **manual keyboard pass** that §9 pairs with axe remains outstanding, and is recorded as such rather than assumed.
+- **ADR:** None — this is conformance to an existing standard, not a decision with alternatives.
+
