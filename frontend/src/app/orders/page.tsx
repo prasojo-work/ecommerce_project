@@ -40,7 +40,7 @@ export default function OrdersPage() {
         <h1 className="text-2xl font-semibold tracking-tight">Orders</h1>
         <p className="mt-2 text-neutral-600">
           Please{" "}
-          <Link href="/login" className="text-emerald-800 hover:underline">
+          <Link href="/login" className="text-emerald-800 underline hover:text-emerald-900">
             sign in
           </Link>{" "}
           to see your orders.
@@ -58,7 +58,7 @@ export default function OrdersPage() {
       ) : orders.length === 0 ? (
         <p className="mt-4 text-neutral-600">
           You have not placed an order yet.{" "}
-          <Link href="/products" className="text-emerald-800 hover:underline">
+          <Link href="/products" className="text-emerald-800 underline hover:text-emerald-900">
             Continue shopping
           </Link>
           .

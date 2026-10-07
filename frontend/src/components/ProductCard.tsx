@@ -28,7 +28,7 @@ export function ProductCard({
       <p className="mt-3 text-xs tracking-wide text-neutral-500 uppercase">
         {product.category.name}
       </p>
-      <h3 className="text-sm font-medium text-neutral-900">{product.title}</h3>
+      <h2 className="text-sm font-medium text-neutral-900">{product.title}</h2>
       <p className="mt-1 text-sm text-neutral-600">From {formatIdr(product.price_from)}</p>
     </Link>
   );

@@ -15,7 +15,7 @@ export function ProductDetailView({ product }: { product: ProductDetail }) {
 
   return (
     <div>
-      <nav className="mb-6 text-sm text-neutral-500">
+      <nav aria-label="Breadcrumb" className="mb-6 text-sm text-neutral-500">
         <Link href="/products" className="hover:text-emerald-800">
           Shop
         </Link>

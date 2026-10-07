@@ -10,7 +10,7 @@ export function HeaderNav() {
   const { count } = useCart();
 
   return (
-    <nav className="flex items-center gap-6 text-sm">
+    <nav aria-label="Main" className="flex items-center gap-6 text-sm">
       <Link href="/products" className="text-neutral-700 hover:text-emerald-800">
         Shop
       </Link>

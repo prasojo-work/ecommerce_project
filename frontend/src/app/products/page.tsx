@@ -63,7 +63,7 @@ export default async function ProductsPage({
       )}
 
       {totalPages > 1 ? (
-        <nav className="mt-10 flex items-center justify-center gap-4 text-sm">
+        <nav aria-label="Pagination" className="mt-10 flex items-center justify-center gap-4 text-sm">
           {page > 1 ? (
             <Link
               href={`/products${buildCatalogQuery({ ...filters, page: page - 1 })}`}

@@ -85,7 +85,7 @@ export default function CheckoutPage() {
         <h1 className="text-2xl font-semibold tracking-tight">Checkout</h1>
         <p className="mt-2 text-neutral-600">
           Please{" "}
-          <Link href="/login" className="text-emerald-800 hover:underline">
+          <Link href="/login" className="text-emerald-800 underline hover:text-emerald-900">
             sign in
           </Link>{" "}
           to check out.
@@ -100,7 +100,7 @@ export default function CheckoutPage() {
         <h1 className="text-2xl font-semibold tracking-tight">Checkout</h1>
         <p className="mt-2 text-neutral-600">
           Your cart is empty.{" "}
-          <Link href="/products" className="text-emerald-800 hover:underline">
+          <Link href="/products" className="text-emerald-800 underline hover:text-emerald-900">
             Continue shopping
           </Link>
           .
@@ -119,7 +119,7 @@ export default function CheckoutPage() {
           {addresses.length === 0 ? (
             <p className="mt-2 text-sm text-neutral-600">
               No saved address yet.{" "}
-              <Link href="/account" className="text-emerald-800 hover:underline">
+              <Link href="/account" className="text-emerald-800 underline hover:text-emerald-900">
                 Add one in your account
               </Link>{" "}
               first.

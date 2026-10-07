@@ -90,14 +90,14 @@ export function AuthForm({ mode }: { mode: "login" | "register" }) {
         {isRegister ? (
           <>
             Already have an account?{" "}
-            <Link href="/login" className="text-emerald-800 hover:underline">
+            <Link href="/login" className="text-emerald-800 underline hover:text-emerald-900">
               Sign in
             </Link>
           </>
         ) : (
           <>
             New here?{" "}
-            <Link href="/register" className="text-emerald-800 hover:underline">
+            <Link href="/register" className="text-emerald-800 underline hover:text-emerald-900">
               Create an account
             </Link>
           </>

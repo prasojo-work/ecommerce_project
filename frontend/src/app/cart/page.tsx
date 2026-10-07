@@ -21,7 +21,7 @@ export default function CartPage() {
         <h1 className="text-2xl font-semibold tracking-tight">Cart</h1>
         <p className="mt-2 text-neutral-600">
           Please{" "}
-          <Link href="/login" className="text-emerald-800 hover:underline">
+          <Link href="/login" className="text-emerald-800 underline hover:text-emerald-900">
             sign in
           </Link>{" "}
           to use your cart.
@@ -39,7 +39,7 @@ export default function CartPage() {
       {items.length === 0 ? (
         <p className="mt-4 text-neutral-600">
           Your cart is empty.{" "}
-          <Link href="/products" className="text-emerald-800 hover:underline">
+          <Link href="/products" className="text-emerald-800 underline hover:text-emerald-900">
             Continue shopping
           </Link>
           .
