@@ -18,6 +18,7 @@ from accounts.models import Address, User
 from catalog.models import Category, Product, ProductVariant
 
 PASSWORD = "secret-pass-123"
+STAFF_PASSWORD = "operator-pass-123"
 
 
 @pytest.fixture(autouse=True)
@@ -52,6 +53,27 @@ def address(db: Any, shopper: User) -> Address:
         province="West Java",
         postal_code="40111",
     )
+
+
+@pytest.fixture
+def staff(db: Any) -> User:
+    """The store operator (`P3`).
+
+    `is_staff` only opens `/admin/`; per-model pages also need permissions. The
+    operator is the founder who owns the store, so the account is the superuser.
+    """
+    return User.objects.create_superuser(
+        email="operator@example.com",
+        password=STAFF_PASSWORD,
+        full_name="Store operator",
+    )
+
+
+@pytest.fixture
+def staff_client(staff: User) -> Client:
+    client = Client()
+    client.force_login(staff)
+    return client
 
 
 @pytest.fixture

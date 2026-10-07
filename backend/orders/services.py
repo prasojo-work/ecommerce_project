@@ -128,6 +128,68 @@ def create_order_from_cart(
     return order, True
 
 
+# Fulfilment state machine. `paid` is only reachable through the `payments`
+# context; cancellation returns reserved stock to the catalog.
+#
+# These keys and targets are plain strings rather than `Order.Status` members:
+# Pyright infers a `TextChoices` member as a tuple because of Django's `Choices`
+# metaclass (ADR-0008), so the members cannot be passed where a `str` is
+# expected. `test_the_transition_map_covers_every_status` keeps this map in step
+# with the enum.
+ALLOWED_TRANSITIONS: dict[str, tuple[str, ...]] = {
+    "pending_payment": ("paid", "cancelled"),
+    "paid": ("processing", "cancelled"),
+    "processing": ("shipped", "cancelled"),
+    "shipped": ("completed",),
+    "completed": (),
+    "cancelled": (),
+}
+
+
+class InvalidTransitionError(Exception):
+    """Raised when a status change would break the fulfilment state machine."""
+
+    def __init__(self, number: str, current: str, target: str) -> None:
+        self.number = number
+        self.current = current
+        self.target = target
+        super().__init__(f"Order {number} cannot move from {current} to {target}.")
+
+
+def can_transition(current: str, target: str) -> bool:
+    """True if the state machine permits moving `current` to `target`."""
+    return target in ALLOWED_TRANSITIONS.get(current, ())
+
+
+@transaction.atomic
+def transition_order(order: Order, target: str) -> Order:
+    """Move an order to `target`, or raise if the state machine forbids it."""
+    if not can_transition(order.status, target):
+        raise InvalidTransitionError(order.number, order.status, target)
+    order.status = target
+    order.save(update_fields=["status", "updated_at"])
+    return order
+
+
+@transaction.atomic
+def cancel_order(order: Order) -> Order:
+    """Cancel an order and hand its reserved stock back to the catalog.
+
+    Refuses orders that have already shipped, and because `cancelled` is a
+    terminal state a second call cannot restock the same units twice.
+    """
+    locked = Order.objects.select_for_update().get(pk=order.pk)
+    if not can_transition(locked.status, "cancelled"):
+        raise InvalidTransitionError(locked.number, locked.status, "cancelled")
+    for item in locked.items.all():
+        if item.variant_id is None:
+            continue
+        variant = ProductVariant.objects.select_for_update().get(pk=item.variant_id)
+        variant.stock_qty += item.quantity
+        variant.save(update_fields=["stock_qty"])
+    return transition_order(locked, "cancelled")
+
+
 def get_order_for_payment(*, user: User, number: str) -> Order | None:
     """Published read used by the `payments` context."""
     return Order.objects.filter(number=number, user=user).first()
@@ -135,7 +197,6 @@ def get_order_for_payment(*, user: User, number: str) -> Order | None:
 
 def mark_order_paid(order: Order) -> Order:
     """Published write used by the `payments` context."""
-    if order.status == Order.Status.PENDING_PAYMENT:
-        order.status = Order.Status.PAID
-        order.save(update_fields=["status", "updated_at"])
-    return order
+    if not can_transition(order.status, "paid"):
+        return order
+    return transition_order(order, "paid")
