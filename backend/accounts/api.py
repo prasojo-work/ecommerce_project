@@ -9,7 +9,7 @@ from django.utils import timezone
 from ninja import Router, Status
 from ninja.errors import HttpError
 
-from accounts.auth import JWTAuth
+from accounts.auth import jwt_auth
 from accounts.models import Address, RefreshToken, User
 from accounts.schemas import (
     AccessTokenOut,
@@ -23,7 +23,6 @@ from accounts.schemas import (
 from accounts.tokens import decode_token, issue_access_token, issue_refresh_token
 
 router = Router(tags=["accounts"])
-jwt_auth = JWTAuth()
 
 REFRESH_COOKIE_PATH = "/api/v1/auth"
 

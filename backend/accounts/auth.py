@@ -14,3 +14,6 @@ class JWTAuth(HttpBearer):
         if payload is None:
             return None
         return User.objects.filter(pk=payload.get("sub"), is_active=True).first()
+
+
+jwt_auth = JWTAuth()
