@@ -10,8 +10,16 @@ from ninja import Router, Status
 from ninja.errors import HttpError
 
 from accounts.auth import JWTAuth
-from accounts.models import RefreshToken, User
-from accounts.schemas import AccessTokenOut, LoginIn, RegisterIn, UserOut
+from accounts.models import Address, RefreshToken, User
+from accounts.schemas import (
+    AccessTokenOut,
+    AddressIn,
+    AddressOut,
+    AddressPatch,
+    LoginIn,
+    RegisterIn,
+    UserOut,
+)
 from accounts.tokens import decode_token, issue_access_token, issue_refresh_token
 
 router = Router(tags=["accounts"])
@@ -97,3 +105,57 @@ def logout(request: Any, response: HttpResponse) -> Status[None]:
 def me(request: Any) -> UserOut:
     user = request.auth
     return UserOut(id=user.id, email=user.email, full_name=user.full_name)
+
+
+def _address_out(address: Address) -> AddressOut:
+    return AddressOut(
+        id=address.id,
+        recipient=address.recipient,
+        phone=address.phone,
+        line1=address.line1,
+        line2=address.line2,
+        city=address.city,
+        province=address.province,
+        postal_code=address.postal_code,
+        country=address.country,
+        is_default=address.is_default,
+    )
+
+
+def _owned_address(request: Any, address_id: int) -> Address:
+    address = Address.objects.filter(pk=address_id, user=request.auth).first()
+    if address is None:
+        raise HttpError(404, "Address not found.")
+    return address
+
+
+@router.get("/addresses", auth=jwt_auth, response=list[AddressOut])
+def list_addresses(request: Any) -> list[AddressOut]:
+    addresses = Address.objects.filter(user=request.auth)
+    return [_address_out(address) for address in addresses]
+
+
+@router.post("/addresses", auth=jwt_auth, response={201: AddressOut})
+def create_address(request: Any, payload: AddressIn) -> Status[AddressOut]:
+    address = Address.objects.create(user=request.auth, **payload.model_dump())
+    return Status(201, _address_out(address))
+
+
+@router.get("/addresses/{address_id}", auth=jwt_auth, response=AddressOut)
+def get_address(request: Any, address_id: int) -> AddressOut:
+    return _address_out(_owned_address(request, address_id))
+
+
+@router.patch("/addresses/{address_id}", auth=jwt_auth, response=AddressOut)
+def update_address(request: Any, address_id: int, payload: AddressPatch) -> AddressOut:
+    address = _owned_address(request, address_id)
+    for field, value in payload.model_dump(exclude_unset=True).items():
+        setattr(address, field, value)
+    address.save()
+    return _address_out(address)
+
+
+@router.delete("/addresses/{address_id}", auth=jwt_auth, response={204: None})
+def delete_address(request: Any, address_id: int) -> Status[None]:
+    _owned_address(request, address_id).delete()
+    return Status(204, None)
