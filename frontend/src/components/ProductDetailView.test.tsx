@@ -16,6 +16,10 @@ vi.mock("next/image", () => ({
   default: ({ src, alt }: { src: string; alt: string }) => <img src={src} alt={alt} />,
 }));
 
+vi.mock("@/components/AddToCart", () => ({
+  AddToCart: () => <button type="button">Add to cart</button>,
+}));
+
 const product: ProductDetail = {
   id: 1,
   title: "Nordvik Sofa",
@@ -72,8 +76,8 @@ describe("ProductDetailView", () => {
     expect(screen.getByText("Out of stock")).toBeInTheDocument();
   });
 
-  it("renders a disabled add-to-cart button", () => {
+  it("renders the add-to-cart control", () => {
     render(<ProductDetailView product={product} />);
-    expect(screen.getByRole("button", { name: /add to cart/i })).toBeDisabled();
+    expect(screen.getByRole("button", { name: /add to cart/i })).toBeInTheDocument();
   });
 });

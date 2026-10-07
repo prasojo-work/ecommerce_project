@@ -208,3 +208,56 @@ export async function deleteAddress(accessToken: string, id: number): Promise<vo
     headers: bearer(accessToken),
   });
 }
+
+export type CartItem = {
+  id: number;
+  variant_id: number;
+  product_title: string;
+  product_slug: string;
+  variant_name: string;
+  image: string | null;
+  unit_price: number;
+  quantity: number;
+  line_total: number;
+};
+
+export type Cart = {
+  items: CartItem[];
+  subtotal: number;
+  currency: string;
+};
+
+export function fetchCart(accessToken: string): Promise<Cart> {
+  return requestJson<Cart>("/cart", { headers: bearer(accessToken) });
+}
+
+export function addCartItem(
+  accessToken: string,
+  variantId: number,
+  quantity: number,
+): Promise<Cart> {
+  return requestJson<Cart>("/cart/items", {
+    method: "POST",
+    headers: bearer(accessToken),
+    body: JSON.stringify({ variant_id: variantId, quantity }),
+  });
+}
+
+export function updateCartItem(
+  accessToken: string,
+  itemId: number,
+  quantity: number,
+): Promise<Cart> {
+  return requestJson<Cart>(`/cart/items/${itemId}`, {
+    method: "PATCH",
+    headers: bearer(accessToken),
+    body: JSON.stringify({ quantity }),
+  });
+}
+
+export function removeCartItem(accessToken: string, itemId: number): Promise<Cart> {
+  return requestJson<Cart>(`/cart/items/${itemId}`, {
+    method: "DELETE",
+    headers: bearer(accessToken),
+  });
+}

@@ -1,5 +1,6 @@
 import Link from "next/link";
 
+import { AddToCart } from "@/components/AddToCart";
 import { ProductGallery } from "@/components/ProductGallery";
 import type { ProductDetail } from "@/lib/api";
 import { formatIdr } from "@/lib/format";
@@ -57,13 +58,7 @@ export function ProductDetailView({ product }: { product: ProductDetail }) {
             </div>
           ) : null}
 
-          <button
-            type="button"
-            disabled
-            className="mt-8 w-full cursor-not-allowed rounded-md bg-neutral-300 px-6 py-3 text-sm font-medium text-white sm:w-auto"
-          >
-            Add to cart (coming soon)
-          </button>
+          <AddToCart variants={product.variants.filter((variant) => variant.is_active)} />
         </div>
       </div>
     </div>
