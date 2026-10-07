@@ -53,6 +53,18 @@ Each milestone ends only when its **exit criteria** are met and its slice is com
   - **Exit criteria:** defined in a *future* plan revision (deliberately not detailed yet).
   - **Depends on:** M7, and on the plan being re-baselined to include it.
 
+## Deferred workstreams
+
+Work that is planned and deliberately **not** started yet. Each entry names its owner milestone and
+the trigger that starts it.
+
+- [ ] **E2E test suite (Playwright)** — *planned (2026-10-07), deferred*
+  - **Deliverable:** browser-driven tests for the critical journeys in [`E2E-TEST-PLAN.md`](E2E-TEST-PLAN.md).
+  - **Trigger:** M1–M5 complete and the MVP feature set frozen.
+  - **Owner milestone:** M6 — this is the "critical flows" coverage in M6's exit criteria.
+  - **Blocked on:** a `seed_demo` management command and an isolated, resettable E2E database
+    (see the plan's §4). Neither is built yet.
+
 ## Definition of Done (every slice)
 
 A slice is done only when **all** hold:
