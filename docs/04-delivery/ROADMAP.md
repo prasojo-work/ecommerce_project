@@ -24,7 +24,7 @@ Each milestone ends only when its **exit criteria** are met and its slice is com
   - **Deliverable:** categories, products, variants, images; list + detail + search/filter/sort (`EPIC-1`, `EPIC-2`).
   - **Exit criteria:** a shopper can browse and find a product; pagination works; catalog reads are cached.
   - **Depends on:** M0.
-- [ ] **PLAN-1.3 [M2 — Accounts & auth]**
+- [x] **PLAN-1.3 [M2 — Accounts & auth]** — *complete (2026-10-07)*
   - **Deliverable:** register/login/refresh, profile, addresses (`EPIC-3`).
   - **Exit criteria:** JWT flow works end to end; protected endpoints reject anonymous requests.
   - **Depends on:** M0.
