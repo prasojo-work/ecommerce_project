@@ -35,35 +35,39 @@
 > Format: `As a <persona>, I want <capability>, so that <benefit>.` Acceptance criteria are given as Given/When/Then.
 
 ### EPIC-1 · Catalog & merchandising
-- [ ] **US-1.1** As a shopper I want to browse products by category so I can find things for a room.
+- [x] **US-1.1** As a shopper I want to browse products by category so I can find things for a room.
   - *Given* products exist in a category, *when* I open the category page, *then* I see a paginated grid with name, price, and thumbnail.
-- [ ] **US-1.2** As a shopper I want a product detail page so I can judge an item before buying.
+- [x] **US-1.2** As a shopper I want a product detail page so I can judge an item before buying.
   - *Given* I open a product, *then* I see gallery images, price, description, variants (size/colour), and stock status.
 - [x] **US-1.3** As an admin I want to create/edit/archive products and variants so I can manage the catalog.
 
 ### EPIC-2 · Discovery
-- [ ] **US-2.1** As a shopper I want to search by keyword so I can find a specific item.
+- [x] **US-2.1** As a shopper I want to search by keyword so I can find a specific item.
 - [ ] **US-2.2** As a shopper I want to filter (category, price range, availability) and sort (price, newest, popularity) so I can narrow results.
   - *Given* filters are applied, *then* URL reflects them (shareable, back-button-safe).
+  - *Delivered:* the category filter, sorting by price (both directions), newest and title, and shareable URLs.
+  - *Not delivered:* the **price-range filter**, the **availability filter** and the **"popularity" sort**.
 
 ### EPIC-3 · Accounts & authentication
-- [ ] **US-3.1** As a visitor I want to register with email + password so I can check out and track orders.
-- [ ] **US-3.2** As a registered shopper I want to log in and stay logged in across visits (JWT access + refresh).
+- [x] **US-3.1** As a visitor I want to register with email + password so I can check out and track orders.
+- [x] **US-3.2** As a registered shopper I want to log in and stay logged in across visits (JWT access + refresh).
 - [ ] **US-3.3** As a shopper I want to manage my profile and delivery addresses.
+  - *Delivered:* delivery addresses — list, create, edit, delete, with exactly one default per shopper.
+  - *Not delivered:* **profile editing**. `GET /api/v1/auth/me` reads the profile; there is no update endpoint.
 
 ### EPIC-4 · Cart
-- [ ] **US-4.1** As a shopper I want to add/update/remove items so I can assemble an order.
-- [ ] **US-4.2** As a logged-in shopper I want my cart persisted server-side so it survives across devices.
+- [x] **US-4.1** As a shopper I want to add/update/remove items so I can assemble an order.
+- [x] **US-4.2** As a logged-in shopper I want my cart persisted server-side so it survives across devices.
   - *Given* I'm logged in, *when* I add an item, *then* it appears in my server cart and the header count updates.
 
 ### EPIC-5 · Checkout
-- [ ] **US-5.1** As a shopper I want to enter/choose a delivery address so the order ships correctly.
-- [ ] **US-5.2** As a shopper I want to see shipping cost and total **before** paying so there are no surprises (directly targets the ~92% abandonment benchmark).
-- [ ] **US-5.3** As a shopper I want to pay with a **mock/sandbox** method so I can complete an order in the demo.
-  - *Given* I confirm, *then* a payment record with status `paid` (sandbox) is created and an order is generated.
+- [x] **US-5.1** As a shopper I want to enter/choose a delivery address so the order ships correctly.
+- [x] **US-5.2** As a shopper I want to see shipping cost and total **before** paying so there are no surprises (directly targets the ~92% abandonment benchmark).
+- [x] **US-5.3** As a shopper I want to pay with a **mock/sandbox** method so I can complete an order in the demo.
+  - *Given* I confirm, *then* a `payment` record with status `succeeded` (sandbox) is created and the order moves to `paid`.
 
 ### EPIC-6 · Orders
-- [ ] **US-6.1** As a shopper I want to see my order history and order detail so I know what I bought and its status.
+- [x] **US-6.1** As a shopper I want to see my order history and order detail so I know what I bought and its status.
 
 ### EPIC-7 · Admin
 - [x] **US-7.1** As an admin I want to view and update order status so I can process orders.

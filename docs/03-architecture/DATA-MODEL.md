@@ -19,6 +19,7 @@
 ```mermaid
 erDiagram
   USER ||--o{ ADDRESS : has
+  USER ||--o{ REFRESH_TOKEN : blacklists
   USER ||--o| CART : owns
   USER ||--o{ ORDER : places
   CATEGORY ||--o{ CATEGORY : parent_of
@@ -47,22 +48,22 @@ erDiagram
 
 ### `catalog`
 
-- [ ] **DATA-2.1 `category`**
+- [x] **DATA-2.1 `category`**
   - `id` PK · `parent_id` FK→category (nullable) · `name` · `slug` (unique) · `position` · `is_active`
-- [ ] **DATA-2.2 `product`**
+- [x] **DATA-2.2 `product`**
   - `id` PK · `category_id` FK→category · `title` · `slug` (unique, indexed) · `description` · `brand` · `status` (`draft`/`active`/`archived`) · `base_price` (BIGINT, smallest unit) · `currency` (default `IDR`) · `created_at` · `updated_at`
-- [ ] **DATA-2.3 `product_variant`**
+- [x] **DATA-2.3 `product_variant`**
   - `id` PK · `product_id` FK→product · `sku` (unique) · `name` (e.g. "Oak / 120cm") · `attributes` (JSONB) · `price` (BIGINT; overrides base) · `stock_qty` (int) · `is_active`
   - *Stock lives here (single writer). Decremented under row lock at checkout.*
-- [ ] **DATA-2.4 `product_image`**
+- [x] **DATA-2.4 `product_image`**
   - `id` PK · `product_id` FK→product · `url` · `alt` · `position`
 
 ### `cart`
 
-- [ ] **DATA-3.1 `cart`**
+- [x] **DATA-3.1 `cart`**
   - `id` PK · `user_id` FK→user (unique; one active cart per user) · `created_at` · `updated_at`
-- [ ] **DATA-3.2 `cart_item`**
-  - `id` PK · `cart_id` FK→cart · `variant_id` FK→product_variant · `quantity` (int, ≥1) · `unit_price_snapshot` (BIGINT)
+- [x] **DATA-3.2 `cart_item`**
+  - `id` PK · `cart_id` FK→cart · `variant_id` FK→product_variant · `quantity` (int, ≥1) · `unit_price_snapshot` (BIGINT) · `created_at` · `updated_at`
   - *Unique constraint on `(cart_id, variant_id)`.*
 
 ### `orders`
@@ -83,9 +84,24 @@ erDiagram
 
 - Unique: `user.email`, `category.slug`, `product.slug`, `product_variant.sku`, `order.number`, `order.idempotency_key`, `payment.order_id`.
 - Composite unique: `cart_item (cart_id, variant_id)`.
-- Indexes: `product(status, category_id)`, `product_variant(product_id, is_active)`, `order(user_id, created_at desc)`.
-- Check constraints: `quantity >= 1`, `stock_qty >= 0`, monetary columns `>= 0`.
+- Indexes: `product(status, category_id)`, `order(user_id, created_at desc)`, plus Django's automatic index on every foreign key. The drawn-up `product_variant(product_id, is_active)` composite index is **not** created — see the reconciliation note below.
+- Check constraints: `cart_item.quantity >= 1`; `stock_qty >= 0` (enforced by `PositiveIntegerField`); monetary columns `>= 0` on `order` and `order_item`. The catalog and cart money columns carry no such check — see the reconciliation note below.
 - Foreign-key delete rules: catalog → `PROTECT` (do not orphan order history); `cart_item` → `CASCADE` from `cart`.
+
+### Reconciliation notes — 2026-10-07
+
+Bringing this document in line with the code (every table above is now built) surfaced two places
+where the design intent above was never implemented:
+
+1. **Money constraints are not enforced everywhere.** `product.base_price`, `product_variant.price`
+   and `cart_item.unit_price_snapshot` are plain `BIGINT` with no database check, so a negative
+   price can be saved — including from the admin console. The `>= 0` intent currently holds only
+   for `order` and `order_item`.
+2. **The `product_variant(product_id, is_active)` index was never created.**
+
+Neither affects the correctness of the money flow as shipped. Both are tracked as [known
+gaps](../04-delivery/ROADMAP.md#known-gaps) rather than being silently dropped. See
+[`CHANGE-LOG.md`](../CHANGE-LOG.md), v0.1.4.
 
 ---
 

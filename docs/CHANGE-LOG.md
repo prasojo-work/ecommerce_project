@@ -61,3 +61,14 @@ Each entry:
 - **Impact:** Two additive `order` columns and one generated field format. No change to scope, endpoints, or cost.
 - **ADR:** `ADR-0010`.
 
+---
+
+## v0.1.4 — 2026-10-07 — Documentation reconciled with the code
+
+- **Change:** An audit of every story and every table against the implementation, run before starting M6:
+  - `SCOPE.md`: the story checkboxes now reflect reality across M1–M5, and **`US-5.3`'s acceptance criterion was corrected**. It promised a payment record "with status `paid`", but `paid` is an *order* status (`DATA-4.1`) while the payment status is `succeeded` (`DATA-5.1`). The code was already correct; the story was wrong.
+  - `DATA-MODEL.md`: the catalog, cart, accounts, orders and payments tables are all now marked built, and two design claims that were never implemented are corrected — the unenforced money check constraints on the catalog and cart columns, and the missing `product_variant(product_id, is_active)` index.
+- **Reason:** The task brief makes these documents the source of truth and forbids undocumented drift. The checkboxes had gone stale at every milestone boundary since M1, and `US-5.3` directly contradicted `DATA-5.1`.
+- **Impact:** Documentation only — no code, schema or scope change. Two previously invisible gaps are now recorded in the roadmap's *Known gaps*: `US-2.2` is missing its price-range filter, availability filter and "popularity" sort, and `US-3.3` is missing profile editing. Neither is delivered nor descoped yet; that is a decision for the founder.
+- **ADR:** None — this makes the documents match the code rather than changing a decision.
+

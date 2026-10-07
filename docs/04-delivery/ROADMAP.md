@@ -65,6 +65,23 @@ the trigger that starts it.
   - **Blocked on:** a `seed_demo` management command and an isolated, resettable E2E database
     (see the plan's §4). Neither is built yet.
 
+## Known gaps
+
+Found by auditing the documentation against the code on 2026-10-07 and recorded here rather than
+quietly dropped. Each needs one founder decision: **deliver it, or amend the plan to descope it.**
+
+- [ ] **`US-2.2` is only partly delivered.** The catalog filters by category and sorts by price,
+      newest and title, but there is **no price-range filter, no availability filter and no
+      "popularity" sort** (`catalog/schemas.py`, `catalog/api.py`).
+- [ ] **`US-3.3` is only partly delivered.** Delivery addresses are full CRUD, but there is **no
+      profile editing** — `GET /api/v1/auth/me` is read-only.
+- [ ] **Money check constraints are missing** on `product.base_price`, `product_variant.price` and
+      `cart_item.unit_price_snapshot`, so a negative price can be saved (including from the admin
+      console). `DATA-MODEL.md` claims `>= 0` for all monetary columns; only `order` and
+      `order_item` actually enforce it. A natural fit for the M6 hardening pass.
+- [ ] **The `product_variant(product_id, is_active)` index does not exist.** Decide whether it is
+      still wanted or remove it from the design.
+
 ## Definition of Done (every slice)
 
 A slice is done only when **all** hold:
