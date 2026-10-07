@@ -11,6 +11,7 @@ import json
 from typing import Any
 
 import pytest
+from django.core.cache import cache
 from django.http import HttpResponse
 from django.test import Client
 
@@ -25,6 +26,12 @@ STAFF_PASSWORD = "operator-pass-123"
 def fast_password_hasher(settings: Any) -> None:
     """Hash at test speed; PBKDF2 otherwise dominates the suite runtime."""
     settings.PASSWORD_HASHERS = ["django.contrib.auth.hashers.MD5PasswordHasher"]
+
+
+@pytest.fixture(autouse=True)
+def reset_throttle_cache() -> None:
+    """The rate limiter counts in the cache, which outlives a single test."""
+    cache.clear()
 
 
 @pytest.fixture

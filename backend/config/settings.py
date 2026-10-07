@@ -13,6 +13,7 @@ https://docs.djangoproject.com/en/6.1/ref/settings/
 from pathlib import Path
 
 import environ
+from django.core.exceptions import ImproperlyConfigured
 
 env = environ.Env()
 
@@ -26,7 +27,23 @@ if _env_file.exists():
 # See https://docs.djangoproject.com/en/6.1/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = env("DJANGO_SECRET_KEY")
+#
+# A `.env.example` copied verbatim deploys cleanly and runs on a committed key,
+# which would let anyone forge an access token or sign a session cookie. Refuse
+# to start on the placeholder (`SEC-FIND-1.1` in `docs/04-delivery/SECURITY-REVIEW.md`).
+_PLACEHOLDER_SECRET_KEY = "change-me"
+
+
+def require_real_secret_key(value: str) -> str:
+    if value == _PLACEHOLDER_SECRET_KEY:
+        raise ImproperlyConfigured(
+            "DJANGO_SECRET_KEY is still the .env.example placeholder. Generate one with:\n"
+            '  python -c "import secrets; print(secrets.token_urlsafe(48))"'
+        )
+    return value
+
+
+SECRET_KEY = require_real_secret_key(env("DJANGO_SECRET_KEY"))
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = env.bool("DJANGO_DEBUG", default=False)
@@ -34,10 +51,37 @@ ALLOWED_HOSTS = env.list("DJANGO_ALLOWED_HOSTS")
 CORS_ALLOWED_ORIGINS = env.list("CORS_ALLOWED_ORIGINS")
 CORS_ALLOW_CREDENTIALS = True
 
+# Transport and browser hardening (`SECURITY-REVIEW.md`). Inert while DEBUG is
+# on, so local http development over compose is unaffected; in production the API
+# is served over TLS by the host, which terminates and forwards the scheme.
+SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+SECURE_SSL_REDIRECT = not DEBUG
+SECURE_HSTS_SECONDS = 0 if DEBUG else 365 * 24 * 60 * 60
+SECURE_HSTS_INCLUDE_SUBDOMAINS = not DEBUG
+SECURE_HSTS_PRELOAD = not DEBUG
+SECURE_CONTENT_TYPE_NOSNIFF = True
+SECURE_REFERRER_POLICY = "same-origin"
+SESSION_COOKIE_SECURE = not DEBUG
+CSRF_COOKIE_SECURE = not DEBUG
+X_FRAME_OPTIONS = "DENY"
+
+# Rate limits for the endpoints an anonymous caller can hit freely
+# (`SEC-FIND-3.1`). Django Ninja parses "<count>/<period>"; the period is one of
+# s, m, h, d. The E2E suite raises these so many users can register from a single
+# address — see E2E-TEST-PLAN.md §5.
+THROTTLE_LOGIN_RATE = env("THROTTLE_LOGIN_RATE", default="10/5m")
+THROTTLE_REGISTER_RATE = env("THROTTLE_REGISTER_RATE", default="30/h")
+
+# The host terminates TLS and forwards exactly one proxy hop, so the client
+# address is the last X-Forwarded-For entry. Ninja uses this to key the throttles.
+NINJA_NUM_PROXIES = env.int("NINJA_NUM_PROXIES", default=1)
+
 AUTH_USER_MODEL = "accounts.User"
 
 # JWT authentication (access + refresh) — see ADR-0003.
-JWT_SECRET_KEY = env("JWT_SECRET_KEY", default=SECRET_KEY)
+# Falls back to DJANGO_SECRET_KEY. An empty value counts as unset, so a stray
+# `JWT_SECRET_KEY=` cannot silently sign tokens with an empty secret.
+JWT_SECRET_KEY = env("JWT_SECRET_KEY", default="") or SECRET_KEY
 ACCESS_TOKEN_TTL_SECONDS = 15 * 60
 REFRESH_TOKEN_TTL_SECONDS = 14 * 24 * 60 * 60
 REFRESH_COOKIE_NAME = "nordvik_refresh"
@@ -62,6 +106,8 @@ INSTALLED_APPS = [
 ]
 
 MIDDLEWARE = [
+    # First, so every log line emitted further down the stack carries the id.
+    "core.middleware.RequestIDMiddleware",
     "django.middleware.security.SecurityMiddleware",
     "corsheaders.middleware.CorsMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
@@ -142,6 +188,27 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/6.1/howto/static-files/
 
 STATIC_URL = "static/"
+
+
+# Logging — one JSON object per line, each tagged with the request id.
+
+LOGGING = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "filters": {"request_id": {"()": "core.logging.RequestIDFilter"}},
+    "formatters": {"json": {"()": "core.logging.JsonFormatter"}},
+    "handlers": {
+        "console": {
+            "class": "logging.StreamHandler",
+            "formatter": "json",
+            "filters": ["request_id"],
+        },
+    },
+    "root": {
+        "handlers": ["console"],
+        "level": env("DJANGO_LOG_LEVEL", default="INFO"),
+    },
+}
 
 
 # Email

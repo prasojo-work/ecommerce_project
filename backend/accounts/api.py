@@ -8,6 +8,7 @@ from django.http import HttpResponse
 from django.utils import timezone
 from ninja import Router, Status
 from ninja.errors import HttpError
+from ninja.throttling import AnonRateThrottle
 
 from accounts.auth import jwt_auth
 from accounts.models import Address, RefreshToken, User
@@ -50,7 +51,11 @@ def _access_token_out(user: User) -> AccessTokenOut:
     )
 
 
-@router.post("/auth/register", response={201: AccessTokenOut})
+@router.post(
+    "/auth/register",
+    response={201: AccessTokenOut},
+    throttle=AnonRateThrottle(settings.THROTTLE_REGISTER_RATE),
+)
 def register(
     request: Any, payload: RegisterIn, response: HttpResponse
 ) -> Status[AccessTokenOut]:
@@ -63,7 +68,11 @@ def register(
     return Status(201, _access_token_out(user))
 
 
-@router.post("/auth/login", response=AccessTokenOut)
+@router.post(
+    "/auth/login",
+    response=AccessTokenOut,
+    throttle=AnonRateThrottle(settings.THROTTLE_LOGIN_RATE),
+)
 def login(request: Any, payload: LoginIn, response: HttpResponse) -> AccessTokenOut:
     user = authenticate(request, username=payload.email, password=payload.password)
     if user is None:

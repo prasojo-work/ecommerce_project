@@ -10,6 +10,9 @@ venv/
 .mypy_cache/
 .basedpyright/
 
+# Local databases — never commit data
+*.sqlite3
+
 # Node / Next.js
 node_modules/
 .next/
