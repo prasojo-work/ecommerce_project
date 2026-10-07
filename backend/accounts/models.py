@@ -74,3 +74,21 @@ class Address(models.Model):
         super().save(*args, **kwargs)
         if self.is_default:
             type(self).objects.filter(user=self.user).exclude(pk=self.pk).update(is_default=False)
+
+
+class RefreshToken(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="refresh_tokens")
+    jti = models.UUIDField(unique=True)
+    expires_at = models.DateTimeField()
+    revoked_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self) -> str:
+        return f"{self.user.email} ({self.jti})"
+
+    @property
+    def is_active(self) -> bool:
+        return self.revoked_at is None and self.expires_at > timezone.now()

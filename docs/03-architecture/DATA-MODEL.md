@@ -38,10 +38,12 @@ erDiagram
 
 ### `accounts`
 
-- [ ] **DATA-1.1 `user`** (custom user model, email as the identifier)
+- [x] **DATA-1.1 `user`** (custom user model, email as the identifier)
   - `id` PK · `email` (unique, indexed) · `password` (hashed) · `full_name` · `is_active` · `is_staff` · `date_joined`
-- [ ] **DATA-1.2 `address`**
+- [x] **DATA-1.2 `address`**
   - `id` PK · `user_id` FK→user · `recipient` · `phone` · `line1` · `line2` · `city` · `province` · `postal_code` · `country` (default `ID`) · `is_default`
+- [x] **DATA-1.3 `refresh_token`** (JWT refresh rotation + logout blacklist — see `ADR-0003`)
+  - `id` PK · `user_id` FK→user · `jti` (unique) · `expires_at` · `revoked_at` (nullable) · `created_at`
 
 ### `catalog`
 
