@@ -20,7 +20,7 @@ Each milestone ends only when its **exit criteria** are met and its slice is com
   - **Deliverable:** monorepo skeleton; both apps boot locally via Docker Compose; CI runs lint/type-check/tests.
   - **Exit criteria:** `docker compose up` serves the API `/health` and a Next.js page; CI is green.
   - **Depends on:** —
-- [ ] **PLAN-1.2 [M1 — Catalog & browse]**
+- [x] **PLAN-1.2 [M1 — Catalog & browse]** — *complete (2026-10-07)*
   - **Deliverable:** categories, products, variants, images; list + detail + search/filter/sort (`EPIC-1`, `EPIC-2`).
   - **Exit criteria:** a shopper can browse and find a product; pagination works; catalog reads are cached.
   - **Depends on:** M0.

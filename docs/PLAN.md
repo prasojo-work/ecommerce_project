@@ -1,6 +1,6 @@
 # Master Plan — NORDVIK (home-goods e-commerce)
 
-> **Status:** Living document · **Baseline version:** v0.1.1 (2026-10-04) · **Owner:** Founder (solo)
+> **Status:** Living document · **Baseline version:** v0.1.2 (2026-10-07) · **Owner:** Founder (solo)
 > This file always reflects the *current* agreed plan. History of changes lives in [`CHANGE-LOG.md`](CHANGE-LOG.md).
 
 ---
@@ -26,8 +26,8 @@ NORDVIK is **portfolio-as-simulated-business**: the strategy is researched as if
 ## 3. Scope
 
 ### MVP (Phase 1 — the store works end to end)
-- [ ] Catalog: categories, products, variants, images, stock.
-- [ ] Browse: category listing, product detail, search + filter + sort.
+- [x] Catalog: categories, products, variants, images, stock.
+- [x] Browse: category listing, product detail, search + filter + sort.
 - [ ] Cart: add/update/remove, persisted server-side for logged-in users.
 - [ ] Checkout: address, shipping method (simulated), payment (**mock/sandbox**).
 - [ ] Orders: order history + order detail for the customer.
@@ -90,7 +90,7 @@ Detail, dependencies, and sequencing in [`04-delivery/ROADMAP.md`](04-delivery/R
 
 - **Solo developer wearing many hats.** Each `the_team/` role is used as a lens during planning; every decision is owned by the founder.
 - **Planning-first.** No application code until the relevant slice of the plan is baselined.
-- **Teaching mode.** The founder writes all code. The assistant proposes each file (exact path + full code) and the exact commands to run and verify; the founder types, runs, and reports back.
+- **Assistant-authored, founder-reviewed.** Work proceeds in small increments. The assistant writes the code directly, keeps it passing all quality gates (`ruff`, `basedpyright`, ESLint, `tsc`, tests, build), adds unit tests, and commits each increment; the founder reviews the increment and decides whether to continue or request changes. (Superseded the earlier "teaching mode" — see `ADR-0009`.)
 
 ## 8. Governance — how the plan changes
 
@@ -128,3 +128,4 @@ Full register in [`04-delivery/ROADMAP.md`](04-delivery/ROADMAP.md#risk-register
 |---|---|---|
 | v0.1.0 | 2026-10-04 | Initial baseline established. |
 | v0.1.1 | 2026-10-04 | Brand name `NORDVIK` approved (`ADR-0007`). |
+| v0.1.2 | 2026-10-07 | Delivery approach: assistant authors code; founder reviews; commit per increment (`ADR-0009`). |

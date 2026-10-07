@@ -40,3 +40,12 @@ Each entry:
 - **Reason:** Founder approval after review.
 - **Impact:** Documentation no longer marked "working title"; the name becomes the storefront/UI brand. No change to scope, architecture, or timeline.
 - **ADR:** `ADR-0007`.
+
+---
+
+## v0.1.2 — 2026-10-07 — Delivery approach changed (assistant-authored increments)
+
+- **Change:** The delivery approach changed from "teaching mode" (the founder transcribes every file the assistant proposes) to **assistant-authored, founder-reviewed** increments: the assistant writes the code directly, keeps it passing all quality gates, adds unit tests, and commits each increment; the founder reviews and directs.
+- **Reason:** Chat-rendered code containing `${...}` template literals and literal angle-bracket markup was mangled on paste (surfacing as `MATH1` / `HTML11`), corrupting files and failing builds. The founder also elected to review working increments rather than transcribe them.
+- **Impact:** No change to scope, architecture, timeline, or cost. Changes *how* work is produced and verified; each increment now ends in a green gate and a commit.
+- **ADR:** `ADR-0009`.
