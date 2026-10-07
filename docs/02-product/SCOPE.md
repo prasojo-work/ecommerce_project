@@ -39,7 +39,7 @@
   - *Given* products exist in a category, *when* I open the category page, *then* I see a paginated grid with name, price, and thumbnail.
 - [ ] **US-1.2** As a shopper I want a product detail page so I can judge an item before buying.
   - *Given* I open a product, *then* I see gallery images, price, description, variants (size/colour), and stock status.
-- [ ] **US-1.3** As an admin I want to create/edit/archive products and variants so I can manage the catalog.
+- [x] **US-1.3** As an admin I want to create/edit/archive products and variants so I can manage the catalog.
 
 ### EPIC-2 · Discovery
 - [ ] **US-2.1** As a shopper I want to search by keyword so I can find a specific item.
@@ -66,8 +66,8 @@
 - [ ] **US-6.1** As a shopper I want to see my order history and order detail so I know what I bought and its status.
 
 ### EPIC-7 · Admin
-- [ ] **US-7.1** As an admin I want to view and update order status so I can process orders.
-- [ ] **US-7.2** As an admin I want inventory/stock control so I can avoid overselling.
+- [x] **US-7.1** As an admin I want to view and update order status so I can process orders.
+- [x] **US-7.2** As an admin I want inventory/stock control so I can avoid overselling.
 
 ---
 

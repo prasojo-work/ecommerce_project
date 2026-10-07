@@ -32,7 +32,7 @@ NORDVIK is **portfolio-as-simulated-business**: the strategy is researched as if
 - [x] Checkout: address, shipping method (simulated), payment (**mock/sandbox**).
 - [x] Orders: order history + order detail for the customer.
 - [x] Accounts: register, login (JWT access + refresh), profile, addresses.
-- [ ] Admin: manage products, categories, inventory, and orders.
+- [x] Admin: manage products, categories, inventory, and orders.
 - [ ] Foundations: CI, tests, lint/type checks, Docker Compose, deploy to free tier.
 
 ### Phase 2 (deferred until the store is solid)

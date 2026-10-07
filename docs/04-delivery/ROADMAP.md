@@ -36,7 +36,7 @@ Each milestone ends only when its **exit criteria** are met and its slice is com
   - **Deliverable:** address → shipping → mock payment → order + history (`EPIC-5`, `EPIC-6`).
   - **Exit criteria:** a full purchase completes; stock decremented under lock; order is an immutable snapshot; duplicate submit is idempotent.
   - **Depends on:** M3.
-- [ ] **PLAN-1.6 [M5 — Admin]**
+- [x] **PLAN-1.6 [M5 — Admin]** — *complete (2026-10-07)*
   - **Deliverable:** manage products/variants/inventory/orders (`EPIC-7`).
   - **Exit criteria:** catalog and order status are manageable without touching the DB.
   - **Depends on:** M1, M4.
