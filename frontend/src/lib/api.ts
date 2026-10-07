@@ -96,3 +96,115 @@ export async function fetchProduct(slug: string): Promise<ProductDetail | null> 
   if (!response.ok) throw new Error(`API request failed (${response.status})`);
   return (await response.json()) as ProductDetail;
 }
+
+export type AuthTokens = {
+  access_token: string;
+  token_type: string;
+  expires_in: number;
+};
+
+export type CurrentUser = {
+  id: number;
+  email: string;
+  full_name: string;
+};
+
+export type Address = {
+  id: number;
+  recipient: string;
+  phone: string;
+  line1: string;
+  line2: string;
+  city: string;
+  province: string;
+  postal_code: string;
+  country: string;
+  is_default: boolean;
+};
+
+export type AddressInput = Omit<Address, "id">;
+
+export class ApiError extends Error {
+  status: number;
+
+  constructor(status: number, message: string) {
+    super(message);
+    this.name = "ApiError";
+    this.status = status;
+  }
+}
+
+async function errorMessage(response: Response): Promise<string> {
+  try {
+    const body = (await response.json()) as { detail?: string };
+    return body.detail ?? `Request failed (${response.status})`;
+  } catch {
+    return `Request failed (${response.status})`;
+  }
+}
+
+async function requestJson<T>(path: string, init: RequestInit = {}): Promise<T> {
+  const response = await fetch(`${apiBaseUrl()}${path}`, {
+    ...init,
+    credentials: "include",
+    headers: {
+      "content-type": "application/json",
+      ...(init.headers as Record<string, string> | undefined),
+    },
+  });
+  if (!response.ok) {
+    throw new ApiError(response.status, await errorMessage(response));
+  }
+  return (await response.json()) as T;
+}
+
+function bearer(accessToken: string): Record<string, string> {
+  return { authorization: `Bearer ${accessToken}` };
+}
+
+export function registerUser(input: {
+  email: string;
+  password: string;
+  full_name: string;
+}): Promise<AuthTokens> {
+  return requestJson<AuthTokens>("/auth/register", {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
+}
+
+export function loginUser(input: { email: string; password: string }): Promise<AuthTokens> {
+  return requestJson<AuthTokens>("/auth/login", { method: "POST", body: JSON.stringify(input) });
+}
+
+export function refreshSession(): Promise<AuthTokens> {
+  return requestJson<AuthTokens>("/auth/refresh", { method: "POST" });
+}
+
+export function fetchMe(accessToken: string): Promise<CurrentUser> {
+  return requestJson<CurrentUser>("/auth/me", { headers: bearer(accessToken) });
+}
+
+export async function logoutUser(): Promise<void> {
+  await fetch(`${apiBaseUrl()}/auth/logout`, { method: "POST", credentials: "include" });
+}
+
+export function fetchAddresses(accessToken: string): Promise<Address[]> {
+  return requestJson<Address[]>("/addresses", { headers: bearer(accessToken) });
+}
+
+export function createAddress(accessToken: string, input: AddressInput): Promise<Address> {
+  return requestJson<Address>("/addresses", {
+    method: "POST",
+    headers: bearer(accessToken),
+    body: JSON.stringify(input),
+  });
+}
+
+export async function deleteAddress(accessToken: string, id: number): Promise<void> {
+  await fetch(`${apiBaseUrl()}/addresses/${id}`, {
+    method: "DELETE",
+    credentials: "include",
+    headers: bearer(accessToken),
+  });
+}
