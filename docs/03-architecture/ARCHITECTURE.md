@@ -122,7 +122,7 @@ sequenceDiagram
 | Payment (mock) | error | Order stays `pending_payment`; user can retry; no partial order |
 | API | cold start (free tier) | UI shows a loading skeleton; keep-alive ping minimizes this |
 | Auth token | expired | silent refresh, retry once, then redirect to login |
-| Catalog read | slow | served from cache where possible; pagination bounds payloads |
+| Catalog read | slow | served from the API cache (`catalog/cache.py`, `ADR-0013`); pagination bounds payloads |
 
 No synchronous call chains deeper than API → DB in Phase 1.
 
@@ -131,8 +131,8 @@ No synchronous call chains deeper than API → DB in Phase 1.
 | Attribute | Target | Validated by |
 |---|---|---|
 | Availability | best-effort (free tier) | uptime ping; documented trade-off `ADR-0005` |
-| Latency | API p95 < 400 ms (catalog, cached); LCP < 2.5 s | load test / Lighthouse |
-| Security | OWASP Top 10 mitigated; secrets out of repo | review + scan |
+| Latency | API p95 < 400 ms (catalog, cached); LCP < 2.5 s | [`scripts/lighthouse-audit.sh`](../../scripts/lighthouse-audit.sh) + `PERFORMANCE-REPORT.md` |
+| Security | OWASP Top 10 mitigated; secrets out of repo | [`SECURITY-REVIEW.md`](../04-delivery/SECURITY-REVIEW.md) + secret scan |
 | Accessibility | WCAG 2.1 AA | axe + manual keyboard pass |
 
 ## 10. Deployment topology

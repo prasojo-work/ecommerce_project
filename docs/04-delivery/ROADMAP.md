@@ -43,7 +43,7 @@ Each milestone ends only when its **exit criteria** are met and its slice is com
 - [ ] **PLAN-1.7 [M6 — Hardening]** — *in progress (2026-10-07); OWASP review done*
   - **Deliverable:** NFR pass — tests, accessibility, performance, security review.
   - **Exit criteria:** coverage on domain logic + critical flows; axe clean; Lighthouse ≥ 90 on key pages; OWASP review documented.
-  - **Progress:** the OWASP review is documented in [`SECURITY-REVIEW.md`](SECURITY-REVIEW.md), together with the API hardening it forced (`ADR-0012`). Still open before M6 can close: the accessibility (axe) pass, the Lighthouse run, and the critical-flow coverage owned by the deferred E2E suite.
+  - **Progress:** the OWASP review is documented in [`SECURITY-REVIEW.md`](SECURITY-REVIEW.md) with the API hardening it forced (`ADR-0012`); the performance pass is documented in [`PERFORMANCE-REPORT.md`](PERFORMANCE-REPORT.md) with the catalog cache it forced (`ADR-0013`). Still open before M6 can close: the accessibility (axe) pass, and the critical-flow coverage owned by the deferred E2E suite.
   - **Depends on:** M4, M5.
 - [ ] **PLAN-1.8 [M7 — Deploy]**
   - **Deliverable:** live demo on Render + Supabase + Vercel; keep-alive ping; deploy docs.
@@ -82,11 +82,11 @@ quietly dropped. Each needs one founder decision: **deliver it, or amend the pla
       `order_item` actually enforce it. A natural fit for the M6 hardening pass.
 - [ ] **The `product_variant(product_id, is_active)` index does not exist.** Decide whether it is
       still wanted or remove it from the design.
-- [ ] **The API has no cache layer.** `ARCHITECTURE.md` §9 targets "API p95 < 400 ms (catalog,
-      cached)" and M1's exit criterion says "catalog reads are cached", but `config/settings.py`
-      defines no `CACHES` backend and `catalog/` contains no `cache` usage. Either the criterion is
-      meant to be satisfied by the Next.js fetch cache (then the wording should say so) or the M6
-      performance pass needs an API-side cache. Needs one founder decision.
+- [x] **The API has no cache layer.** *Decided and closed (2026-10-07).* `ADR-0013` adds an
+      API-side cache for catalog reads, because the shop route is dynamic by design (it reads
+      `searchParams`) and so cannot be route-cached in Next.js. Measured on the seeded catalogue:
+      the listing went from ~37 ms to ~1.8 ms on a warm cache, with a test asserting zero SQL
+      queries on a repeat read.
 
 ## Definition of Done (every slice)
 

@@ -84,3 +84,15 @@ Each entry:
 - **Impact:** One new backend module trio (`core/errors.py`, `core/logging.py`, `core/middleware.py`), hardening and throttle settings, and one new test file; no scope, schema or cost change. One new gap is recorded in the roadmap's *Known gaps*: the API has no cache layer, so M1's "catalog reads are cached" criterion is unmet as written. Five review findings remain open (one of them accepted for the MVP), tracked in the review's §5.
 - **ADR:** `ADR-0012`.
 
+---
+
+## v0.1.6 — 2026-10-07 — M6 performance pass: the catalog cache and the LCP fix
+
+- **Change:** The M6 performance pass is documented in [`04-delivery/PERFORMANCE-REPORT.md`](04-delivery/PERFORMANCE-REPORT.md), and it settled the caching question the previous audit left open:
+  - **Decided (`ADR-0013`):** catalog reads are cached **in the API**, not in Next.js. The shop route reads `searchParams` and sets `force-dynamic`, so it cannot be route-cached; the API is the only layer that can serve it cheaply. `catalog/cache.py` caches the reads behind a version token that every catalog write bumps, so invalidation is O(1) and never needs `delete_pattern()`. Measured: the listing went from ~37 ms to ~1.8 ms on a warm cache.
+  - **Frontend:** public catalog fetches moved from `cache: "no-store"` to `next: { revalidate: 60, tags: ["catalog"] }`, making the intent explicit. Per-user reads stay uncached.
+  - **Fixed:** the image that *is* the LCP on `/products` and `/products/{slug}` was lazy-loaded. Both routes now preload it. Detail LCP 3.03 s → 2.53 s, and its performance score 91 → 97.
+- **Reason:** M6's exit criteria require Lighthouse ≥ 90 on key pages, and the roadmap carried an open gap: M1's "catalog reads are cached" criterion was unmet and `ARCHITECTURE.md` §9 assumed a cached catalog path that did not exist.
+- **Impact:** No scope, schema or cost change. Adds a cache module, a signal module, a `CACHES` setting, a development-audit script (`scripts/lighthouse-audit.sh`) and seven tests. The roadmap's caching gap closes. The LCP target is **marginal rather than met** on the two image-led routes, because the remaining cost is the remote demo imagery — recorded in the report rather than papered over.
+- **ADR:** `ADR-0013`.
+
