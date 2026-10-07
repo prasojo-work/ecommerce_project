@@ -16,7 +16,7 @@
 
 Each milestone ends only when its **exit criteria** are met and its slice is committed and green in CI.
 
-- [ ] **PLAN-1.1 [M0 — Foundations]**
+- [x] **PLAN-1.1 [M0 — Foundations]** — *complete (2026-10-05)*
   - **Deliverable:** monorepo skeleton; both apps boot locally via Docker Compose; CI runs lint/type-check/tests.
   - **Exit criteria:** `docker compose up` serves the API `/health` and a Next.js page; CI is green.
   - **Depends on:** —

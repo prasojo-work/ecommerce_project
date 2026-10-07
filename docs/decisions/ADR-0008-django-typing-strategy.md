@@ -35,3 +35,10 @@ Do **not** add a Django stub package for now. Instead:
 ## Reversibility
 
 **High.** Adding a stub package later is a dependency + config change, not a rewrite.
+
+## Update — 2026-10-05: concrete configuration
+
+Implementing this decision surfaced that basedpyright, with `useLibraryCodeForTypes` at its default (`true`), reads Django's *untyped source* and infers nonsense — e.g. `models.BooleanField(default=True)` flagged as not assignable to `type[NOT_PROVIDED]`, and `__str__` returning a `CharField`. The configuration that realizes "untyped libraries become `Any`, `py.typed` libraries stay typed":
+
+- `[tool.basedpyright] useLibraryCodeForTypes = false` — Django and django-environ are treated as `Any`; Django Ninja (which ships `py.typed`) stays fully typed.
+- `exclude = ["**/migrations"]` (basedpyright) and `[tool.ruff] extend-exclude = ["**/migrations"]` — generated migrations are excluded from both tools.
