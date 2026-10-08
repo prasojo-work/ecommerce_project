@@ -25,15 +25,16 @@ console, which is Django admin and not a public page.
 
 ## 2. Result
 
-All three routes clear the M6 bar of **Lighthouse ≥ 90 on performance**, and all
-three now score **100 on accessibility**. Final state, after both this pass and
-the accessibility pass:
+All three routes clear the M6 bar of **Lighthouse ≥ 90 on performance**, and every
+category is now ≥ 96 — with **accessibility, best practices and SEO all at 100**.
+Final state, after the performance pass, the accessibility pass and the
+console-error fix in §4:
 
 | Route | Performance | Accessibility | Best practices | SEO | LCP | TBT | CLS |
 |---|---|---|---|---|---|---|---|
-| `/` | 97 | 100 | 96 | 100 | 1.91 s | 170 ms | 0 |
-| `/products` | 96 | 100 | 96 | 100 | 2.56 s | 100 ms | 0 |
-| `/products/{slug}` | 99 | 100 | 96 | 100 | 1.89 s | 100 ms | 0 |
+| `/` | 97 | 100 | 100 | 100 | 1.87 s | 180 ms | 0 |
+| `/products` | 96 | 100 | 100 | 100 | 2.73 s | 100 ms | 0 |
+| `/products/{slug}` | 96 | 100 | 100 | 100 | 2.58 s | 100 ms | 0 |
 
 The LCP regression this pass set out to fix, measured as a controlled before/after
 pair on the same pair of builds:
@@ -45,11 +46,11 @@ pair on the same pair of builds:
 | `/products/{slug}` | 3.03 s → **2.53 s** | 220 ms → **110 ms** | 1.50 s → **0.76 s** |
 
 **Read the second table, not the absolute figures, for the effect of the fix.**
-Lighthouse results vary between runs on this machine — LCP especially, because the
-Next.js image optimiser caches downstream images locally, so a later run measures a
-warm image cache rather than a cold one. A third run put the detail route at
-1.89 s against the 2.53 s above. The *deltas within a matched pair* are the signal;
-any single absolute number is not.
+Lighthouse results vary between runs on this machine — LCP and the performance
+figure especially, because the Next.js image optimiser caches downstream images
+locally, so a later run measures a warm image cache rather than a cold one. A
+third run put the detail route at 1.89 s against the 2.53 s above. The *deltas
+within a matched pair* are the signal; any single absolute number is not.
 
 ## 3. What was changed
 
@@ -89,19 +90,33 @@ Effect: detail LCP 3.03 s → **2.53 s** and Speed Index 1.50 s → **0.76 s**;
 listing LCP 2.74 s → **2.52 s** and Speed Index 1.56 s → **0.77 s**; the detail
 page's performance score went 91 → 97.
 
-## 4. Findings that are *not* fixed
+## 4. Findings, and where they stand
 
 Recorded rather than silently dropped, in the same spirit as `SECURITY-REVIEW.md`.
 
-1. **A guaranteed 401 on every anonymous page load.** `AuthProvider` calls
-   `POST /auth/refresh` on mount to restore a session, but anonymous visitors have
-   no refresh cookie, so the call always fails with 401 — a wasted request (which
-   on the free tier may wake a sleeping API) and a console error, which is the one
-   thing costing `best-practices` its last 4 points on all three routes.
-   **Recommended fix:** have the API also set a non-sensitive, JS-readable marker
-   cookie whenever it sets the refresh cookie, and clear it on logout; the client
-   then only attempts the refresh when the marker is present. Deliberately left
-   out of this pass — it changes auth behaviour and deserves its own tested slice.
+1. **A guaranteed 401 on every anonymous page load — *fixed*.** The provider asked
+   the API for a session on every mount, which for an anonymous visitor was a
+   certain 401: one wasted request per page view (on the free tier, one that may
+   also wake a sleeping API) plus a browser console error — the single item
+   costing `best-practices` its last 4 points on all three audited routes.
+   The fix is a **client-side session hint** (`nordvik.session` in
+   `localStorage`): `"1"` after a sign-in or a successful restore, `"0"` after a
+   definitive 401, and absent when this browser has never been asked. A first
+   visit still probes once; every later visit skips the request entirely. A
+   non-401 failure deliberately leaves the hint untouched, so a flaky connection
+   cannot sign the user out of the UI.
+   **This supersedes the marker-cookie fix recommended in the first version of
+   this report, which could not have worked:** the refresh cookie is httpOnly
+   *and* belongs to the API's origin (`127.0.0.1:8000` in development, a different
+   domain in production), so client JavaScript can never read a cookie the API
+   sets. Recorded, because the wrong recommendation is the instructive part.
+   **Both halves proved necessary.** The client hint alone fixed repeat visits but
+   not Lighthouse, which always measures a cold profile and so always saw the first
+   visit's 401; the 204 alone still left a wasted request on every page view.
+   Together, measured in a real browser: a fresh profile makes **one** request
+   (`POST /auth/refresh` → `204`, preflight gone) with **no console error**, and
+   every later visit makes none. `best-practices` went **96 → 100** on all three
+   routes.
 2. **Total Blocking Time of 110–190 ms.** This is React hydration of the
    application shell plus the header/cart providers, measured under 4× CPU
    throttling. It is inside the "good" band (< 200 ms) but leaves little room.

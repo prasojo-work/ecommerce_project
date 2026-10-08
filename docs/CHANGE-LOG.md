@@ -108,3 +108,16 @@ Each entry:
 - **Impact:** Presentation-only changes; no scope, schema or cost change. Adds `frontend/scripts/axe-audit.mjs` and two frontend dev dependencies (`axe-core`, `puppeteer-core`) so the criterion is reproducible and can gate CI. Result: **axe reports 0 violations across nine routes** and Lighthouse accessibility is 100 on all three audited routes. The **manual keyboard pass** that §9 pairs with axe remains outstanding, and is recorded as such rather than assumed.
 - **ADR:** None — this is conformance to an existing standard, not a decision with alternatives.
 
+---
+
+## v0.1.8 — 2026-10-07 — Stop the guaranteed 401 on every anonymous page load
+
+- **Change:** two halves, because either one alone leaves the finding open:
+  1. **The API stops calling "no session" an error.** `POST /auth/refresh` now answers **204 No Content** when no refresh cookie is present, instead of 401. A token that *is* present but revoked or unusable still gets a 401. Without this, a first-time visitor's browser console showed a red 401 on every visit to the site — and Lighthouse always measures a first visit, so the `best-practices` score never improved.
+  2. **The client stops asking when it already knows the answer.** `AuthProvider` keeps a **client-side session hint** (`nordvik.session` in `localStorage`): `"1"` after a sign-in or a successful restore, `"0"` once the API has reported no session, and absent when this browser has never been asked. A first visit probes once; every later visit skips the request entirely.
+  The refresh call also drops its `content-type` header — it has no body — which keeps it a CORS "simple" request and removes the preflight round trip.
+- **Reason:** an anonymous visitor has no refresh cookie, so the mount-time `POST /auth/refresh` was certain to 401 — one wasted request per page view (on the free tier, one that may also wake a sleeping API) and a browser console error, which was the single item costing Lighthouse `best-practices` its last 4 points on all three audited routes.
+- **Impact:** One API contract change (`/auth/refresh` answers 204 for "no cookie"; 401 is reserved for a token that is present but unusable) plus a client-side change. No schema, migration or dependency change, and the refresh token stays httpOnly — the hint holds no secret, only whether *this browser* has signed in. A non-401 failure deliberately leaves the hint alone, so a flaky connection cannot sign the user out of the UI. Verified in a real browser: a fresh profile makes one `204` request and logs no console error, repeat visits make none, and Lighthouse `best-practices` goes **96 → 100** on all three audited routes. Adds seven client tests and three API tests.
+- **Note:** supersedes the marker-cookie approach the performance report first recommended. That approach could not work: the refresh cookie belongs to the API's origin and the client is cross-origin to it, so `document.cookie` would never have exposed it.
+- **ADR:** None — fixing a defect in the existing design, not choosing between alternatives.
+
