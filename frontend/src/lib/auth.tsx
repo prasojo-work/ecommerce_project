@@ -4,6 +4,7 @@ import type { ReactNode } from "react";
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 
 import {
+  ApiError,
   type CurrentUser,
   fetchMe,
   loginUser,
@@ -23,29 +24,79 @@ export type AuthState = {
 
 const AuthContext = createContext<AuthState | null>(null);
 
+// Whether this browser might hold a session. The refresh cookie is httpOnly *and*
+// belongs to the API's origin, so client JavaScript cannot see it — and asking
+// anyway costs a guaranteed 401 on every anonymous page load. This is only a
+// hint: `null` means "not asked yet", so a first visit still probes once, and a
+// definitive 401 records "0" so later visits stay quiet.
+const SESSION_HINT_KEY = "nordvik.session";
+const SESSION_HINT_NONE = "0";
+const SESSION_HINT_PRESENT = "1";
+
+function readSessionHint(): string | null {
+  try {
+    return window.localStorage.getItem(SESSION_HINT_KEY);
+  } catch {
+    return null; // Storage unavailable — probe rather than assume signed out.
+  }
+}
+
+function writeSessionHint(hint: string): void {
+  try {
+    window.localStorage.setItem(SESSION_HINT_KEY, hint);
+  } catch {
+    // Storage unavailable; the next load simply probes again.
+  }
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<CurrentUser | null>(null);
   const [accessToken, setAccessToken] = useState<string | null>(null);
   const [ready, setReady] = useState(false);
 
   const applyAccessToken = useCallback(async (token: string) => {
+    writeSessionHint(SESSION_HINT_PRESENT);
     setAccessToken(token);
     setUser(await fetchMe(token));
   }, []);
 
   useEffect(() => {
     let active = true;
-    refreshSession()
-      .then(async (tokens) => {
-        const me = await fetchMe(tokens.access_token);
-        if (!active) return;
-        setAccessToken(tokens.access_token);
-        setUser(me);
+
+    // The hint check sits inside the async body so the effect never calls
+    // setState synchronously (`react-hooks/set-state-in-effect`).
+    const restoreSession = async () => {
+      if (readSessionHint() === SESSION_HINT_NONE) {
+        return null; // Asked before; this browser had no session then.
+      }
+      const tokens = await refreshSession();
+      if (tokens === null) {
+        writeSessionHint(SESSION_HINT_NONE);
+        return null; // The API answered 204: this browser has no session.
+      }
+      const me = await fetchMe(tokens.access_token);
+      writeSessionHint(SESSION_HINT_PRESENT);
+      return { tokens, me };
+    };
+
+    restoreSession()
+      .then((session) => {
+        if (!active || session === null) return;
+        setAccessToken(session.tokens.access_token);
+        setUser(session.me);
       })
-      .catch(() => undefined)
+      .catch((error: unknown) => {
+        // Only a definitive 401 means the session is gone. A network blip must
+        // not clear the hint, or a flaky connection would sign the user out of
+        // the UI on the next load.
+        if (error instanceof ApiError && error.status === 401) {
+          writeSessionHint(SESSION_HINT_NONE);
+        }
+      })
       .finally(() => {
         if (active) setReady(true);
       });
+
     return () => {
       active = false;
     };
@@ -69,6 +120,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const logout = useCallback(async () => {
     await logoutUser();
+    writeSessionHint(SESSION_HINT_NONE);
     setAccessToken(null);
     setUser(null);
   }, []);

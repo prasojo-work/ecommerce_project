@@ -81,10 +81,16 @@ def login(request: Any, payload: LoginIn, response: HttpResponse) -> AccessToken
     return _access_token_out(user)
 
 
-@router.post("/auth/refresh", response=AccessTokenOut)
-def refresh(request: Any, response: HttpResponse) -> AccessTokenOut:
+@router.post("/auth/refresh", response={200: AccessTokenOut, 204: None})
+def refresh(request: Any, response: HttpResponse) -> Status[AccessTokenOut] | Status[None]:
     raw = request.COOKIES.get(settings.REFRESH_COOKIE_NAME)
-    payload = decode_token(raw, "refresh") if raw else None
+    if not raw:
+        # An anonymous client asking whether it has a session. That is a normal
+        # state, not a failure: answering 401 here logs a browser console error on
+        # every first visit to the site (`PERFORMANCE-REPORT.md` §4). A token that
+        # *is* present but unusable still gets a 401 below.
+        return Status(204, None)
+    payload = decode_token(raw, "refresh")
     if payload is None:
         raise HttpError(401, "A valid refresh token is required.")
     stored = RefreshToken.objects.filter(jti=payload["jti"], revoked_at__isnull=True).first()
@@ -94,7 +100,7 @@ def refresh(request: Any, response: HttpResponse) -> AccessTokenOut:
     stored.revoked_at = timezone.now()
     stored.save(update_fields=["revoked_at"])
     _set_refresh_cookie(response, issue_refresh_token(user))
-    return _access_token_out(user)
+    return Status(200, _access_token_out(user))
 
 
 @router.post("/auth/logout", response={204: None})

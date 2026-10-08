@@ -184,8 +184,28 @@ export function loginUser(input: { email: string; password: string }): Promise<A
   return requestJson<AuthTokens>("/auth/login", { method: "POST", body: JSON.stringify(input) });
 }
 
-export function refreshSession(): Promise<AuthTokens> {
-  return requestJson<AuthTokens>("/auth/refresh", { method: "POST" });
+/**
+ * Restores a session from the httpOnly refresh cookie.
+ *
+ * Resolves to `null` when this browser has no session — the API answers 204 rather
+ * than 401, because "no refresh cookie" is a normal state for an anonymous visitor
+ * and a 401 logs a browser console error on every first visit.
+ *
+ * Deliberately not `requestJson`: no body means no `content-type`, which keeps the
+ * request "simple" and avoids a CORS preflight.
+ */
+export async function refreshSession(): Promise<AuthTokens | null> {
+  const response = await fetch(`${apiBaseUrl()}/auth/refresh`, {
+    method: "POST",
+    credentials: "include",
+  });
+  if (response.status === 204) {
+    return null;
+  }
+  if (!response.ok) {
+    throw new ApiError(response.status, await errorMessage(response));
+  }
+  return (await response.json()) as AuthTokens;
 }
 
 export function fetchMe(accessToken: string): Promise<CurrentUser> {

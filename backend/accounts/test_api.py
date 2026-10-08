@@ -71,20 +71,46 @@ def test_me_requires_authentication(client):
 
 
 @pytest.mark.django_db
-def test_refresh_rotates_and_logout_revokes(client):
+def test_refresh_without_a_cookie_reports_no_session(client):
+    # 204, not 401: an anonymous visitor has no session, which is not an error. A
+    # 401 here is what logged a console error on every first page load.
+    response = client.post("/api/v1/auth/refresh")
+
+    assert response.status_code == 204
+
+
+@pytest.mark.django_db
+def test_refresh_rotates_the_token(client):
     User.objects.create_user(email="shopper@example.com", password="secret-pass-123")
     post_json(
         client,
         "/api/v1/auth/login",
         {"email": "shopper@example.com", "password": "secret-pass-123"},
     )
+    issued = client.cookies["nordvik_refresh"].value
 
     refreshed = client.post("/api/v1/auth/refresh")
+
     assert refreshed.status_code == 200
     assert "access_token" in refreshed.json()
+    assert client.cookies["nordvik_refresh"].value != issued
+
+
+@pytest.mark.django_db
+def test_logout_revokes_the_token_and_clears_the_cookie(client):
+    User.objects.create_user(email="shopper@example.com", password="secret-pass-123")
+    post_json(
+        client,
+        "/api/v1/auth/login",
+        {"email": "shopper@example.com", "password": "secret-pass-123"},
+    )
+    stolen = client.cookies["nordvik_refresh"].value
 
     logged_out = client.post("/api/v1/auth/logout")
-    assert logged_out.status_code == 204
 
-    after_logout = client.post("/api/v1/auth/refresh")
-    assert after_logout.status_code == 401
+    assert logged_out.status_code == 204
+    assert client.cookies["nordvik_refresh"].value == ""
+
+    # Replaying the revoked cookie must still be refused — that is what 401 is for.
+    client.cookies["nordvik_refresh"] = stolen
+    assert client.post("/api/v1/auth/refresh").status_code == 401
