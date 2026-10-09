@@ -170,6 +170,34 @@ cd backend && DATABASE_URL=postgres://lysheim:lysheim@localhost:55432/lysheim uv
 docker rm -f lysheim-pg
 ```
 
+### M0 — seed command (M0.8)
+
+Run it:
+
+```bash
+cd backend
+uv run python manage.py seed            # idempotent; safe to re-run
+uv run python manage.py seed --reset    # clears seeded rows first
+```
+
+Verify it:
+
+```bash
+# prints "No seeders registered yet: nothing to seed or reset." until M1.2 registers the catalog
+uv run python manage.py seed
+
+# the flag is documented
+uv run python manage.py seed --help
+
+# the command's contract is covered by tests
+uv run pytest tests/test_seed.py -q
+```
+
+Note: the seeders themselves arrive with the catalog at `M1.2`. They are registered in
+`core/seeding.py`, run in registration order inside a single transaction, and each must be
+idempotent — that is what makes a bare `manage.py seed` safe to re-run. `--reset` calls the
+optional `clear` hook of each step in reverse order before seeding.
+
 ## 7. Deployment (M7)
 
 > Filled in at M7 — Render, Vercel, Supabase steps, environment variables, and the production

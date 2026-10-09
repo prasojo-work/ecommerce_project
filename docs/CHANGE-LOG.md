@@ -6,6 +6,44 @@
 
 ## History
 
+### 2026-10-10 — v0.1.9 — M0.8 seed command skeleton landed
+
+**Context.** The last M0 increment: a seeding entry point that later milestones fill in, so the
+command's contract is fixed before there is any data to seed.
+
+**What was added.**
+
+- `core/seeding.py` — a registry of `SeedStep` entries. A step carries a `name`, an idempotent
+  `run` callable, and an optional `clear` hook used by `--reset`.
+- `core/management/commands/seed.py` — `manage.py seed`. Runs every registered step in
+  registration order inside a single transaction; `--reset` calls each `clear` hook first, in
+  reverse registration order.
+- `tests/test_seed.py` — nine tests covering ordering, the `--reset` hook, steps with no
+  `clear`, the empty-registry path, fail-fast, and the registry's snapshot semantics.
+
+**Decisions taken.**
+
+- **A registry, not hard-coded seeding.** With no models until `M1.1`, the only way to make the
+  two properties the roadmap asks for — *idempotent* and `--reset` — real and testable is for
+  the command to execute something. The registry is that seam: `M1.2` registers the catalog
+  seeders without touching the command.
+- **One transaction for the whole run.** A failure part-way through leaves neither a
+  half-seeded database nor, under `--reset`, a wiped-but-unfilled one. The run aborts instead of
+  reporting success, which `test_a_failing_step_aborts_the_run` pins.
+- **`clear` hooks run in reverse registration order**, so rows are deleted before the rows they
+  depend on.
+- **Idempotency is a contract on each step, not something the command can enforce.** The
+  skeleton proves the command's mechanics; every real seeder is responsible for its own
+  re-runnability, and `M1.2` must cover that with its own tests.
+
+**Impact.** Every M0 increment has landed, and `uv run python manage.py seed` runs with and
+without `--reset`. Backend gates green — `ruff format --check` (26 files), `ruff check`,
+`basedpyright` (0 errors), `pytest` (17 passed, up from 8).
+
+The M0 milestone row stays `[~]` rather than `[x]`: its exit criteria include "CI passes", and
+the `M0.9` workflows have not yet run on GitHub, because pushing is the founder's call
+(`WORKING-AGREEMENT.md` §1.4). M0 closes once the first push goes green.
+
 ### 2026-10-10 — v0.1.8 — M0.9 continuous integration landed
 
 **Context.** With the compose stack proven, M0.9 wired the quality gates into GitHub Actions so

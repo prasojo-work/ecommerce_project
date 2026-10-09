@@ -41,7 +41,7 @@ Status legend: `[ ]` planned · `[~]` in progress · `[x]` done.
 - [x] `M0.5` `/healthz` endpoint + JSON logging + request-id middleware.
 - [x] `M0.6` `.env.example`, `django-environ` wiring, secrets excluded from git.
 - [x] `M0.7` `compose.yml` (Postgres + API + web) with a one-command start.
-- [ ] `M0.8` `seed` management command skeleton (idempotent, `--reset`).
+- [x] `M0.8` `seed` management command skeleton (idempotent, `--reset`).
 - [x] `M0.9` GitHub Actions CI: path-filtered jobs for backend and frontend gates.
 
 ### M1 — Catalog & browse
