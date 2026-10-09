@@ -40,7 +40,7 @@ Status legend: `[ ]` planned · `[~]` in progress · `[x]` done.
 - [x] `M0.4` Test harness: `pytest` (backend), `vitest` (frontend), one trivial test each.
 - [x] `M0.5` `/healthz` endpoint + JSON logging + request-id middleware.
 - [x] `M0.6` `.env.example`, `django-environ` wiring, secrets excluded from git.
-- [ ] `M0.7` `compose.yml` (Postgres + API + web) with a one-command start.
+- [x] `M0.7` `compose.yml` (Postgres + API + web) with a one-command start.
 - [ ] `M0.8` `seed` management command skeleton (idempotent, `--reset`).
 - [ ] `M0.9` GitHub Actions CI: path-filtered jobs for backend and frontend gates.
 

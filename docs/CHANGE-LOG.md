@@ -6,6 +6,40 @@
 
 ## History
 
+### 2026-10-09 — v0.1.7 — M0.7 compose stack landed
+
+**Context.** Both apps booted on the host; M0.7 made the whole system start with one command so
+a reviewer can run the demo without installing Python, Node, or Postgres.
+
+**What was added.**
+
+- `compose.yml` — Postgres 17, the API, and the web app, with health-gated start ordering and a
+  named `db-data` volume. Every connection value comes from the environment with a local
+  default, so `docker compose up --build` needs no `.env` file.
+- `backend/Dockerfile` — `python:3.13-slim` with `uv`; dependencies install from the lockfile
+  into `/opt/venv` in a cached layer, then the source is copied. Runs Uvicorn on the ASGI app.
+- `frontend/Dockerfile` — multi-stage Node 24 with `pnpm`; dependencies install from the
+  lockfile, `pnpm build` runs in the builder, and the runner starts the built app.
+- `backend/.dockerignore`, `frontend/.dockerignore` — keep host artefacts (`.venv`,
+  `node_modules`, `.next`, `db.sqlite3`) and the local `.env` out of the build context.
+
+**Decisions taken.**
+
+- The API container runs `manage.py migrate --noinput` before Uvicorn. Migrations are
+  idempotent, so a fresh volume needs no manual step and a restart is harmless.
+- The Postgres port is **not** published to the host by default. Only database clients need it,
+  and leaving it closed avoids a collision on a machine that already runs Postgres; the entry
+  ships commented in `compose.yml`.
+- The web image runs the **production** build (`pnpm build` → `pnpm start`) rather than
+  `pnpm dev`, so the container exercises the artefact that actually ships. A Next.js
+  `standalone` output would shrink the image further, but it interacts badly with `pnpm`'s
+  symlinked `node_modules`; that optimisation is deferred until image size matters.
+- No source bind-mounts. Compose is the "does the whole system work together" path; the fast
+  edit loop stays on the host (`uv run uvicorn --reload`, `pnpm dev`), as the runbook documents.
+
+**Impact.** `docker compose up --build` brings up all three services from a clean checkout.
+Remaining M0 items: `M0.9` CI, then `M0.8` seed command.
+
 ### 2026-10-09 — v0.1.6 — M0 frontend skeleton landed
 
 **Context.** With the backend skeleton committed, M0 continued with the Next.js application so

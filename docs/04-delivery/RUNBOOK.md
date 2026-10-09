@@ -110,6 +110,32 @@ pnpm typecheck && pnpm lint && pnpm format:check && pnpm test && pnpm build
 Note: `pnpm typecheck` runs `next typegen` first. Next 16 generates the route and layout types
 that `tsc` needs, so typecheck fails on a fresh checkout without that step.
 
+### M0 — compose stack (M0.7)
+
+Run it:
+
+```bash
+# from the repository root
+docker compose up --build
+```
+
+Verify it:
+
+```bash
+# 200 with {"status": "ok", ...}
+curl -fsS http://localhost:8000/healthz
+
+# 200, rendering the LYSHEIM placeholder
+curl -fsS http://localhost:3000 | grep -o LYSHEIM
+
+# three services up; db and api report healthy
+docker compose ps
+```
+
+Note: the API waits for Postgres to report healthy before it migrates, and the web container
+waits on the API health endpoint, so a cold `up` finishes a few seconds after the last image
+builds. Re-run with `--build` after changing a manifest or lockfile; otherwise layers are cached.
+
 ## 7. Deployment (M7)
 
 > Filled in at M7 — Render, Vercel, Supabase steps, environment variables, and the production

@@ -1,0 +1,65 @@
+# LYSHEIM local stack — Postgres + API + web.
+# One-command start from the repository root:  docker compose up --build
+# See docs/04-delivery/RUNBOOK.md section 2.
+
+name: lysheim
+
+services:
+  db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-lysheim}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-lysheim}
+      POSTGRES_DB: ${POSTGRES_DB:-lysheim}
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    # Uncomment to reach the database from a host client (psql, DBeaver, …).
+    # ports:
+    #   - "5432:5432"
+
+  api:
+    build:
+      context: ./backend
+    environment:
+      DJANGO_ENV: dev
+      DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY:-insecure-development-key-change-me}
+      DJANGO_DEBUG: "true"
+      DJANGO_LOG_LEVEL: INFO
+      DJANGO_ALLOWED_HOSTS: localhost,127.0.0.1,api
+      DATABASE_URL: postgres://${POSTGRES_USER:-lysheim}:${POSTGRES_PASSWORD:-lysheim}@db:5432/${POSTGRES_DB:-lysheim}
+      CORS_ALLOWED_ORIGINS: http://localhost:3000
+    command: >
+      sh -c "python manage.py migrate --noinput &&
+             uvicorn config.asgi:application --host 0.0.0.0 --port 8000"
+    ports:
+      - "8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/healthz')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+
+  web:
+    build:
+      context: ./frontend
+      args:
+        NEXT_PUBLIC_API_BASE_URL: ${NEXT_PUBLIC_API_BASE_URL:-http://localhost:8000}
+    environment:
+      NEXT_PUBLIC_API_BASE_URL: ${NEXT_PUBLIC_API_BASE_URL:-http://localhost:8000}
+    ports:
+      - "3000:3000"
+    depends_on:
+      api:
+        condition: service_healthy
+
+volumes:
+  db-data:
