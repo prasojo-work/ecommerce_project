@@ -1,12 +1,13 @@
 #!/usr/bin/env python
 """Django management entrypoint."""
 
-import os
 import sys
+
+from config.env import configure_settings
 
 
 def main() -> None:
-    os.environ.setdefault("DJANGO_SETTINGS_MODULE", "config.settings.dev")
+    configure_settings()
     from django.core.management import execute_from_command_line
 
     execute_from_command_line(sys.argv)

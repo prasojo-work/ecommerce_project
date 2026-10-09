@@ -1,9 +1,9 @@
 """ASGI entrypoint (served with Uvicorn; see ADR-0006)."""
 
-import os
+from config.env import configure_settings
 
-from django.core.asgi import get_asgi_application
+configure_settings()
 
-os.environ.setdefault("DJANGO_SETTINGS_MODULE", "config.settings.dev")
+from django.core.asgi import get_asgi_application  # noqa: E402
 
 application = get_asgi_application()
