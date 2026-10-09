@@ -35,9 +35,9 @@ Status legend: `[ ]` planned · `[~]` in progress · `[x]` done.
 ### M0 — Foundations
 
 - [x] `M0.1` Backend scaffold: `uv` project, Django 6, Django Ninja, settings split by env.
-- [ ] `M0.2` Frontend scaffold: Next.js (App Router, TypeScript strict), `pnpm`, design tokens → `globals.css`.
-- [ ] `M0.3` Root tooling: `ruff` + `basedpyright` (standard) config; ESLint + Prettier; `.editorconfig`.
-- [ ] `M0.4` Test harness: `pytest` (backend), `vitest` (frontend), one trivial test each.
+- [x] `M0.2` Frontend scaffold: Next.js (App Router, TypeScript strict), `pnpm`, design tokens → `globals.css`.
+- [x] `M0.3` Root tooling: `ruff` + `basedpyright` (standard) config; ESLint + Prettier; `.editorconfig`.
+- [x] `M0.4` Test harness: `pytest` (backend), `vitest` (frontend), one trivial test each.
 - [x] `M0.5` `/healthz` endpoint + JSON logging + request-id middleware.
 - [x] `M0.6` `.env.example`, `django-environ` wiring, secrets excluded from git.
 - [ ] `M0.7` `compose.yml` (Postgres + API + web) with a one-command start.

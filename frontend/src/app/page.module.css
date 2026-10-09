@@ -1,0 +1,22 @@
+.main {
+  display: flex;
+  flex-direction: column;
+  gap: var(--lys-space-4);
+  align-items: flex-start;
+  max-width: 72rem;
+  margin: 0 auto;
+  padding: var(--lys-space-16) var(--lys-space-6);
+}
+
+.title {
+  margin: 0;
+  font-size: var(--lys-fs-5xl);
+  letter-spacing: -0.02em;
+}
+
+.lede {
+  max-width: var(--lys-measure);
+  margin: 0;
+  color: var(--lys-muted);
+  font-size: var(--lys-fs-lg);
+}

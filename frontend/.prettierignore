@@ -1,0 +1,9 @@
+node_modules/
+.next/
+out/
+build/
+coverage/
+pnpm-lock.yaml
+next-env.d.ts
+# Prose is not code; keep Markdown untouched so hand-written docs do not churn.
+*.md

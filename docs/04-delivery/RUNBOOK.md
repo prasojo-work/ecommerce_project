@@ -86,6 +86,30 @@ uv run ruff format --check . && uv run ruff check . && uv run basedpyright && uv
 Note: `/healthz` echoes a caller-supplied `X-Request-ID`; supply your own to trace a request
 across the JSON logs.
 
+### M0 — frontend skeleton
+
+Run it:
+
+```bash
+cd frontend
+pnpm install
+cp .env.example .env.local
+pnpm dev
+```
+
+Verify it:
+
+```bash
+# 200, rendering the LYSHEIM placeholder; the API is expected on :8000
+curl -s http://localhost:3000 | grep -o 'LYSHEIM'
+
+# gates — all must pass
+pnpm typecheck && pnpm lint && pnpm format:check && pnpm test && pnpm build
+```
+
+Note: `pnpm typecheck` runs `next typegen` first. Next 16 generates the route and layout types
+that `tsc` needs, so typecheck fails on a fresh checkout without that step.
+
 ## 7. Deployment (M7)
 
 > Filled in at M7 — Render, Vercel, Supabase steps, environment variables, and the production

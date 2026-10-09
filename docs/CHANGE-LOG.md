@@ -6,6 +6,42 @@
 
 ## History
 
+### 2026-10-09 — v0.1.6 — M0 frontend skeleton landed
+
+**Context.** With the backend skeleton committed, M0 continued with the Next.js application so
+both apps boot and the quality gates cover both sides.
+
+**What was added.**
+
+- `frontend/` — Next.js 16.4 (App Router, RSC, Turbopack) with TypeScript `strict`, managed by
+  `pnpm`.
+- The design tokens from `UX.md` §2 are now the single source of truth in
+  `src/app/globals.css` (the `--lys-*` custom properties), with a minimal base layer: warm
+  canvas, ink text, a visible `:focus-visible` ring, and image defaults.
+- `src/app/layout.tsx` — `lang="en"`, Inter through `next/font`, LYSHEIM metadata.
+- `src/app/page.tsx` — a minimal branded placeholder (one `<h1>`, one `<main>` landmark).
+- Tooling: ESLint 9 flat config (`core-web-vitals` + `typescript` + `eslint-config-prettier`),
+  Prettier, `vitest`, and a root `.editorconfig`.
+- Gate scripts: `typecheck`, `lint`, `format:check`, `test`, `build`.
+- `src/lib/config.ts` — `getApiBaseUrl()` reads `NEXT_PUBLIC_API_BASE_URL` with a localhost
+  fallback, covered by two tests.
+- `frontend/.env.example` documenting `NEXT_PUBLIC_API_BASE_URL`.
+
+**Decisions taken.**
+
+- **No styling framework.** The docs specify design tokens in `globals.css` and never mention
+  Tailwind, so the scaffold uses plain CSS with `--lys-*` tokens plus CSS Modules. Adopting a
+  CSS framework is deferred to its own ADR before the catalog UI is built at `M1.5`.
+- `typecheck` runs `next typegen && tsc --noEmit` — Next 16 generates `LayoutProps` and the
+  route types, so a bare `tsc --noEmit` fails on a fresh checkout.
+- The vitest config uses the `.mts` extension so Vite loads it as ESM.
+- `@types/node` raised to `^24` to match the Node runtime and satisfy `vitest@5`'s peer range.
+
+**Impact.** Both applications boot. Backend gates unchanged and green. Frontend gates green:
+`lint`, `format:check`, `vitest` (2 passed), `typecheck`, `build` (4 static pages). Boot smoke
+test: `GET /` returns 200 and renders `LYSHEIM`. Remaining M0 items: `M0.7` compose, `M0.8`
+seed command, `M0.9` CI.
+
 ### 2026-10-09 — v0.1.5 — M0 backend skeleton landed
 
 **Context.** Planning closed at v0.1.4. M0 (foundations) began with the backend skeleton —
