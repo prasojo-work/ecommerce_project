@@ -144,7 +144,7 @@ See `ADR-0002`.
 
 ## 9. Top risks
 
-Full register in `04-delivery/ROADMAP.md` (Stage 4). Headlines:
+Full register in [`04-delivery/RISK-REGISTER.md`](04-delivery/RISK-REGISTER.md). Headlines:
 
 - `RISK-1` **Scope creep** — e-commerce can absorb infinite features. Mitigation: hard MVP
   boundary + change control.
@@ -163,7 +163,7 @@ Full register in `04-delivery/ROADMAP.md` (Stage 4). Headlines:
 - Business: [`01-business/STRATEGY.md`](01-business/STRATEGY.md)
 - Product: [`02-product/SCOPE.md`](02-product/SCOPE.md), [`02-product/UX.md`](02-product/UX.md)
 - Architecture: [`03-architecture/ARCHITECTURE.md`](03-architecture/ARCHITECTURE.md), [`03-architecture/DATA-MODEL.md`](03-architecture/DATA-MODEL.md), [`03-architecture/API.md`](03-architecture/API.md)
-- Delivery: `04-delivery/ROADMAP.md` (Stage 4)
+- Delivery: [`04-delivery/ROADMAP.md`](04-delivery/ROADMAP.md), [`04-delivery/RISK-REGISTER.md`](04-delivery/RISK-REGISTER.md), [`04-delivery/RUNBOOK.md`](04-delivery/RUNBOOK.md)
 - QA: `05-qa/` (scenarios + results)
 - Process: [`WORKING-AGREEMENT.md`](WORKING-AGREEMENT.md)
 - Decisions: [`decisions/`](decisions/)
@@ -178,3 +178,4 @@ Full register in `04-delivery/ROADMAP.md` (Stage 4). Headlines:
 | v0.1.0 | 2026-10-09 | Initial baseline re-established after the project reset. Brand `LYSHEIM`; working agreement; Stage 0/1 docs. |
 | v0.1.1 | 2026-10-09 | Product scope and UX baselined (Stage 2). |
 | v0.1.2 | 2026-10-09 | Architecture, data model, and API contract baselined (Stage 3); ADR-0005..0012. |
+| v0.1.3 | 2026-10-09 | Delivery roadmap, risk register, and runbook baselined (Stage 4). |

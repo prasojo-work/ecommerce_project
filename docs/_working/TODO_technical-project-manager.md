@@ -53,3 +53,22 @@
 ## Commands / Artifacts
 
 - Tracking artifacts: this repo's `docs/` (plan, scope, roadmap, ADRs). No external tracker.
+
+## Stage 4 — Delivery planning (roadmap)
+
+- [x] **PLAN-1..PLAN-9 [Workstreams]** — carried into `ROADMAP.md` as milestones `M0`–`M8`
+  with concrete increments.
+- [x] **Risk register** — expanded to `RISK-1..9` in
+  [`../04-delivery/RISK-REGISTER.md`](../04-delivery/RISK-REGISTER.md); reviewed at every
+  milestone gate.
+- [x] **RACI** — recorded in [`../04-delivery/ROADMAP.md`](../04-delivery/ROADMAP.md) §5
+  (solo founder accountable; hats consulted; assistant responsible; reviewer informed).
+- [x] **Definition of Done** — per increment and per milestone (`ROADMAP.md` §6).
+- [x] **Runbook** — skeleton created at [`../04-delivery/RUNBOOK.md`](../04-delivery/RUNBOOK.md);
+  grows one entry per increment.
+- [x] **Change control** — `ADR-0002` procedure reaffirmed; scope changes are the top
+  delivery risk (`RISK-1`).
+
+## Commands / Artifacts (continued)
+
+- Schedule: no fixed calendar; sequencing and dependencies are in `ROADMAP.md` §4.

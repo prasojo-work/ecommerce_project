@@ -6,6 +6,23 @@
 
 ## History
 
+### 2026-10-09 — v0.1.3 — Delivery plan baselined
+
+**Context.** Stage 4 (delivery) turned the workstreams into a sequenced, incremented roadmap
+and formalised delivery governance.
+
+**What was added.**
+
+- `04-delivery/ROADMAP.md` — milestones `M0`–`M8` with concrete increments, sequencing and
+  dependencies, RACI, Definition of Done, and change control.
+- `04-delivery/RISK-REGISTER.md` — the full register `RISK-1..9`, reviewed at every milestone
+  gate.
+- `04-delivery/RUNBOOK.md` — the runbook skeleton, filled in one entry per increment.
+- `_working/TODO_technical-lead.md` — raw technical-lead file; `_working/TODO_technical-project-manager.md`
+  extended with the Stage 4 items.
+
+**Impact.** `PLAN.md` re-baselined to v0.1.3. No application code written yet.
+
 ### 2026-10-09 — v0.1.2 — Architecture baselined
 
 **Context.** Stage 3 (architecture) produced the system, domain, and API designs and closed
