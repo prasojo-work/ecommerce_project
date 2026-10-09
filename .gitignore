@@ -1,0 +1,34 @@
+# Python / Django
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.sqlite3
+/media/
+/staticfiles/
+.ruff_cache/
+.mypy_cache/
+.basedpyright/
+.pytest_cache/
+htmlcov/
+.coverage
+
+# Node / Next.js
+node_modules/
+.next/
+out/
+dist/
+coverage/
+.pnpm-store/
+*.tsbuildinfo
+
+# Environment — never commit real secrets
+.env
+.env.*
+!.env.example
+
+# Editors / OS
+.DS_Store
+*.log
+.idea/
+.vscode/
