@@ -136,6 +136,40 @@ Note: the API waits for Postgres to report healthy before it migrates, and the w
 waits on the API health endpoint, so a cold `up` finishes a few seconds after the last image
 builds. Re-run with `--build` after changing a manifest or lockfile; otherwise layers are cached.
 
+### M0 — continuous integration (M0.9)
+
+Run it — the founder pushes; the assistant only ever commits locally (see
+[`../WORKING-AGREEMENT.md`](../WORKING-AGREEMENT.md) §1.4):
+
+```bash
+git push origin main          # or open a pull request
+```
+
+The workflows are path-filtered: the backend job runs only for `backend/**` and the frontend
+job only for `frontend/**`. A docs-only change runs neither.
+
+Verify it:
+
+```bash
+# the gates CI runs, backend
+cd backend && uv run ruff format --check . && uv run ruff check . && uv run basedpyright && uv run pytest
+
+# the gates CI runs, frontend
+cd frontend && pnpm typecheck && pnpm lint && pnpm format:check && pnpm test && pnpm build
+
+# validate the workflow files themselves, without pushing
+docker run --rm -v "$(pwd):/repo" -w /repo rhysd/actionlint:latest -color .github/workflows/*.yml
+```
+
+Note: the backend job provisions PostgreSQL 17 and sets `DATABASE_URL`, so the suite runs on the
+same engine as `compose.yml` instead of the SQLite fallback. To reproduce that locally:
+
+```bash
+docker run -d --name lysheim-pg -e POSTGRES_USER=lysheim -e POSTGRES_PASSWORD=lysheim -e POSTGRES_DB=lysheim -p 55432:5432 postgres:17-alpine
+cd backend && DATABASE_URL=postgres://lysheim:lysheim@localhost:55432/lysheim uv run pytest
+docker rm -f lysheim-pg
+```
+
 ## 7. Deployment (M7)
 
 > Filled in at M7 — Render, Vercel, Supabase steps, environment variables, and the production

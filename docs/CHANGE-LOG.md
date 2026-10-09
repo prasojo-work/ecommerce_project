@@ -6,7 +6,46 @@
 
 ## History
 
-### 2026-10-09 — v0.1.7 — M0.7 compose stack landed
+### 2026-10-10 — v0.1.8 — M0.9 continuous integration landed
+
+**Context.** With the compose stack proven, M0.9 wired the quality gates into GitHub Actions so
+a push or a pull request is checked without anyone running the commands by hand.
+
+**What was added.**
+
+- `.github/workflows/backend.yml` — `ruff format --check`, `ruff check`, `basedpyright`, and
+  `pytest`, on Python provisioned by `uv` from the lockfile.
+- `.github/workflows/frontend.yml` — `pnpm typecheck`, `lint`, `format:check`, `test`, and
+  `build`, on Node 24 with the pnpm store cached.
+- Both are path-filtered (`backend/**` and `frontend/**`), so a change to one app does not run
+  the other's gates; each also re-runs when its own workflow file changes.
+
+**Decisions taken.**
+
+- **Native path filters across two workflows.** The roadmap asks for "path-filtered jobs".
+  Job-level filtering inside a single workflow needs a third-party action such as
+  `dorny/paths-filter`; two workflows using `on.push.paths` / `on.pull_request.paths` reach the
+  same result with no extra dependency. The trade-off is that a docs-only change reports no
+  checks at all instead of a green skip. Acceptable while `main` is unprotected.
+- **The backend job runs a real PostgreSQL service.** Settings fall back to SQLite only when
+  `DATABASE_URL` is empty, so leaving it unset would have tested an engine the project never
+  deploys on. The job provisions PostgreSQL 17 — the same version as `compose.yml`.
+- **Actions are pinned to major tags** (`checkout@v6`, `setup-uv@v8`, `pnpm/action-setup@v4`,
+  `setup-node@v7`) rather than commit SHAs. Major tags are the ecosystem norm and stay readable;
+  SHA pinning is the stronger supply-chain posture and is worth revisiting before the project
+  faces real customers.
+- `pnpm` is pinned to `12.3.4` in the workflow to match `packageManager` in
+  `frontend/package.json`; the two must move together.
+- Concurrency groups cancel a superseded run on the same ref, so a quick second push does not
+  queue behind the first.
+
+**Impact.** The CI configuration is complete and was validated locally with `actionlint`, and
+the backend suite was re-run against PostgreSQL 17 before the commit. The workflows have
+**not** executed on GitHub — the working agreement has the assistant commit locally and the
+founder decide when code reaches GitHub — so the M0 exit criterion "CI passes" stays unverified
+until the first push. M0 is down to `M0.8` (seed command).
+
+### 2026-10-10 — v0.1.7 — M0.7 compose stack landed
 
 **Context.** Both apps booted on the host; M0.7 made the whole system start with one command so
 a reviewer can run the demo without installing Python, Node, or Postgres.

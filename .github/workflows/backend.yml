@@ -1,0 +1,71 @@
+name: Backend CI
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "backend/**"
+      - ".github/workflows/backend.yml"
+  pull_request:
+    paths:
+      - "backend/**"
+      - ".github/workflows/backend.yml"
+
+# A newer push to the same ref cancels the still-running check.
+concurrency:
+  group: backend-${{ github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    working-directory: backend
+
+jobs:
+  gates:
+    name: Formatting, lint, types, tests
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: lysheim
+          POSTGRES_PASSWORD: lysheim
+          POSTGRES_DB: lysheim
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U lysheim -d lysheim"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      # The suite runs against PostgreSQL, the engine compose and production use. Settings
+      # fall back to SQLite only when DATABASE_URL is empty, so this keeps CI honest.
+      DATABASE_URL: postgres://lysheim:lysheim@localhost:5432/lysheim
+      DJANGO_SECRET_KEY: ci-not-a-real-secret
+      DJANGO_DEBUG: "true"
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: astral-sh/setup-uv@v8
+        with:
+          enable-cache: true
+          cache-dependency-glob: backend/uv.lock
+
+      - name: Install dependencies
+        run: uv sync --frozen
+
+      - name: Formatting
+        run: uv run ruff format --check .
+
+      - name: Lint
+        run: uv run ruff check .
+
+      - name: Types
+        run: uv run basedpyright
+
+      - name: Tests
+        run: uv run pytest
