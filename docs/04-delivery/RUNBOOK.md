@@ -58,6 +58,34 @@ curl -fsS http://localhost:8000/healthz
 Each increment's commit message and the assistant's report state exactly what to run. This
 section accumulates one short entry per increment as they land.
 
+### M0 — backend skeleton
+
+Run it:
+
+```bash
+cd backend
+uv sync
+cp .env.example .env        # optional — without it, dev settings + SQLite are used
+uv run python manage.py migrate
+uv run uvicorn config.asgi:application --port 8000
+```
+
+Verify it:
+
+```bash
+# 200 with {"status": "ok", "request_id": "..."} and an X-Request-ID response header
+curl -i http://localhost:8000/healthz
+
+# 200 — the generated OpenAPI schema (human-readable UI at /api/v1/docs)
+curl -o /dev/null -w '%{http_code}\n' http://localhost:8000/api/v1/openapi.json
+
+# gates — 4 passed
+uv run ruff format --check . && uv run ruff check . && uv run basedpyright && uv run pytest
+```
+
+Note: `/healthz` echoes a caller-supplied `X-Request-ID`; supply your own to trace a request
+across the JSON logs.
+
 ## 7. Deployment (M7)
 
 > Filled in at M7 — Render, Vercel, Supabase steps, environment variables, and the production

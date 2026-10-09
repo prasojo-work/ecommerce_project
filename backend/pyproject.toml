@@ -1,0 +1,55 @@
+[project]
+name = "lysheim-backend"
+version = "0.1.0"
+description = "LYSHEIM API — Django 6, Django Ninja, PostgreSQL"
+requires-python = ">=3.12"
+dependencies = [
+    "django>=6.0,<6.2",
+    "django-ninja>=1.4",
+    "django-environ>=0.12",
+    "psycopg[binary]>=3.2",
+    "uvicorn[standard]>=0.34",
+]
+
+[dependency-groups]
+dev = [
+    "ruff>=0.13",
+    "basedpyright>=1.31",
+    "django-stubs>=5.2",
+    "pytest>=8.4",
+    "pytest-django>=4.11",
+]
+
+[tool.uv]
+package = false
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+extend-exclude = ["**/migrations"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "C4", "SIM", "RUF", "DJ", "S"]
+ignore = ["E501"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["config", "core", "accounts", "catalog", "cart", "orders", "payments"]
+
+[tool.ruff.lint.per-file-ignores]
+"config/settings/*.py" = ["S105", "S106", "S311", "F403", "F405"]
+"tests/**" = ["S101", "S105", "S106"]
+
+[tool.pytest.ini_options]
+DJANGO_SETTINGS_MODULE = "config.settings.dev"
+pythonpath = ["."]
+testpaths = ["tests"]
+addopts = "-q"
+
+[tool.basedpyright]
+typeCheckingMode = "standard"
+pythonVersion = "3.12"
+include = ["config", "core", "tests"]
+exclude = ["**/migrations", "**/__pycache__"]
+
+[tool.django-stubs]
+django_settings_module = "config.settings.dev"

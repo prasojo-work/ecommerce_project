@@ -6,6 +6,35 @@
 
 ## History
 
+### 2026-10-09 — v0.1.5 — M0 backend skeleton landed
+
+**Context.** Planning closed at v0.1.4. M0 (foundations) began with the backend skeleton —
+the Django 6 + Django Ninja service every later increment builds on.
+
+**What was added.**
+
+- `backend/` — a `uv`-managed project: `config/` (settings split `base`/`dev`/`prod`, URL
+  config, Ninja API instance, ASGI and WSGI entrypoints), `core/` (request-ID middleware,
+  health view, JSON log formatter), `manage.py`, `pyproject.toml`, `uv.lock`, `.env.example`,
+  `README.md`.
+- `GET /healthz` returns `{"status": "ok", "request_id": ...}` and always sets an
+  `X-Request-ID` response header, echoing a caller-supplied value when present.
+- API surface under `/api/v1`: `GET /api/v1/openapi.json` and `GET /api/v1/docs`.
+- `tests/` — four pytest tests covering the health contract and the OpenAPI schema.
+- Configuration is environment-only (`django-environ`), with a SQLite fallback so a bare
+  checkout and the test suite run without infrastructure; PostgreSQL is used via
+  `DATABASE_URL`.
+
+**Decisions taken.**
+
+- `uvicorn[standard]` added as a runtime dependency — it serves both local runs and the
+  Render deploy, and `uv run uvicorn config.asgi:application` is the documented run command.
+
+**Impact.** First application code in the fresh-start repository. All gates green:
+`ruff format --check` (19 files), `ruff check`, `basedpyright` (0 errors), `pytest` (4
+passed). ASGI smoke test: `/healthz` → `200`, `/api/v1/openapi.json` → `200`. `PLAN.md` is
+unchanged at v0.1.4.
+
 ### 2026-10-09 — v0.1.4 — Quality standards baselined (planning phase complete)
 
 **Context.** Stage 5 (cross-cutting) produced the security, review, and collaboration
