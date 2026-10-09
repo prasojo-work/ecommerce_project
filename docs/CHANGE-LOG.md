@@ -6,6 +6,30 @@
 
 ## History
 
+### 2026-10-09 — v0.1.2 — Architecture baselined
+
+**Context.** Stage 3 (architecture) produced the system, domain, and API designs and closed
+the three product decisions deferred from Stage 2.
+
+**What was added.**
+
+- `03-architecture/ARCHITECTURE.md` — C4 context, container, and component views; bounded
+  contexts; integration flow; NFR architecture; deployment topology; a Phase 2 data-platform
+  outline.
+- `03-architecture/DATA-MODEL.md` — ERD, tables, enumerations, indexes, money handling,
+  migration and seeding strategy.
+- `03-architecture/API.md` — REST contract, conventions, error envelope, and endpoints.
+- `decisions/ADR-0005..0012` — API style, async & tasks, operator console, cart & guest
+  merge, auth & tokens, mock-first payments, deployment stack, and image licensing.
+- `_working/TODO_*` — raw system-architect, backend, frontend, data-engineer, and
+  cloud-engineer files.
+
+**Decisions closed.** `D1` → Django admin as the v1 operator console (`ADR-0007`). `D2` →
+server-side cart with a guest cookie merged on login (`ADR-0008`). `D3` → in-memory access
+token plus an httpOnly refresh cookie (`ADR-0009`).
+
+**Impact.** `PLAN.md` re-baselined to v0.1.2. No application code written yet.
+
 ### 2026-10-09 — v0.1.1 — Product scope baselined
 
 **Context.** Stage 2 (product) produced the curated scope and UX documents.
