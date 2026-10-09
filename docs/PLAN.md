@@ -132,6 +132,9 @@ Detail, dependencies, and sequencing land in `04-delivery/ROADMAP.md` (Stage 4).
   decides whether to continue. See [`WORKING-AGREEMENT.md`](WORKING-AGREEMENT.md) and
   `ADR-0004`.
 
+> **Planning status:** Stages 0–5 are complete. The next step is **M0** (foundations), the
+> first code increment.
+
 ## 8. Governance — how the plan changes
 
 Simulated start-up: the plan is expected to move. Changes are handled deliberately:
@@ -165,6 +168,7 @@ Full register in [`04-delivery/RISK-REGISTER.md`](04-delivery/RISK-REGISTER.md).
 - Architecture: [`03-architecture/ARCHITECTURE.md`](03-architecture/ARCHITECTURE.md), [`03-architecture/DATA-MODEL.md`](03-architecture/DATA-MODEL.md), [`03-architecture/API.md`](03-architecture/API.md)
 - Delivery: [`04-delivery/ROADMAP.md`](04-delivery/ROADMAP.md), [`04-delivery/RISK-REGISTER.md`](04-delivery/RISK-REGISTER.md), [`04-delivery/RUNBOOK.md`](04-delivery/RUNBOOK.md)
 - QA: `05-qa/` (scenarios + results)
+- Quality: [`06-quality/SECURITY-BASELINE.md`](06-quality/SECURITY-BASELINE.md), [`06-quality/CODE-REVIEW-STANDARD.md`](06-quality/CODE-REVIEW-STANDARD.md), [`06-quality/AGENT-TOPOLOGY.md`](06-quality/AGENT-TOPOLOGY.md)
 - Process: [`WORKING-AGREEMENT.md`](WORKING-AGREEMENT.md)
 - Decisions: [`decisions/`](decisions/)
 - Change history: [`CHANGE-LOG.md`](CHANGE-LOG.md)
@@ -179,3 +183,4 @@ Full register in [`04-delivery/RISK-REGISTER.md`](04-delivery/RISK-REGISTER.md).
 | v0.1.1 | 2026-10-09 | Product scope and UX baselined (Stage 2). |
 | v0.1.2 | 2026-10-09 | Architecture, data model, and API contract baselined (Stage 3); ADR-0005..0012. |
 | v0.1.3 | 2026-10-09 | Delivery roadmap, risk register, and runbook baselined (Stage 4). |
+| v0.1.4 | 2026-10-09 | Security baseline, code-review standard, and agent topology baselined (Stage 5). Planning phase complete. |

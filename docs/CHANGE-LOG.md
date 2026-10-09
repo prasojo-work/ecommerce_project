@@ -6,6 +6,25 @@
 
 ## History
 
+### 2026-10-09 — v0.1.4 — Quality standards baselined (planning phase complete)
+
+**Context.** Stage 5 (cross-cutting) produced the security, review, and collaboration
+standards, closing the planning phase.
+
+**What was added.**
+
+- `06-quality/SECURITY-BASELINE.md` — scope and data classification, trust boundaries, a
+  STRIDE threat model, twelve findings (`SEC-FIND-1.1..12`) with risk and remediation, a
+  secure-configuration baseline, detection/incident-response, and privacy handling.
+- `06-quality/CODE-REVIEW-STANDARD.md` — the review ritual, severity levels, and the checklist
+  that must pass before any commit.
+- `06-quality/AGENT-TOPOLOGY.md` — the founder/assistant/tester-agent topology, handoff
+  contracts, communication protocol, memory model, failure recovery, and evaluation signals.
+- `_working/TODO_cybersecurity.md`, `TODO_code-reviewer.md`, `TODO_multi-agent-orchestrator.md`.
+
+**Impact.** `PLAN.md` re-baselined to v0.1.4. **The planning phase (Stages 0–5) is complete.**
+No application code written yet; the next step is M0 (foundations).
+
 ### 2026-10-09 — v0.1.3 — Delivery plan baselined
 
 **Context.** Stage 4 (delivery) turned the workstreams into a sequenced, incremented roadmap
