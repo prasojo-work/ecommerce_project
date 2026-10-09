@@ -20,7 +20,7 @@ Status legend: `[ ]` planned · `[~]` in progress · `[x]` done.
 
 | ID | Milestone | Outcome | Exit criteria | Status |
 |---|---|---|---|---|
-| M0 | Foundations | Both apps boot, gates wired, CI green | `docker compose up` runs API + web; CI passes | `[ ]` |
+| M0 | Foundations | Both apps boot, gates wired, CI green | `docker compose up` runs API + web; CI passes | `[~]` |
 | M1 | Catalog & browse | Products visible and navigable | Browse → PDP works with seeded data | `[ ]` |
 | M2 | Accounts & auth | Register/login works | JWT flow + refresh exercised by tests | `[ ]` |
 | M3 | Cart | Server-side cart for guests + users | Add/update/remove + merge on login | `[ ]` |
@@ -34,12 +34,12 @@ Status legend: `[ ]` planned · `[~]` in progress · `[x]` done.
 
 ### M0 — Foundations
 
-- [ ] `M0.1` Backend scaffold: `uv` project, Django 6, Django Ninja, settings split by env.
+- [x] `M0.1` Backend scaffold: `uv` project, Django 6, Django Ninja, settings split by env.
 - [ ] `M0.2` Frontend scaffold: Next.js (App Router, TypeScript strict), `pnpm`, design tokens → `globals.css`.
 - [ ] `M0.3` Root tooling: `ruff` + `basedpyright` (standard) config; ESLint + Prettier; `.editorconfig`.
 - [ ] `M0.4` Test harness: `pytest` (backend), `vitest` (frontend), one trivial test each.
-- [ ] `M0.5` `/healthz` endpoint + JSON logging + request-id middleware.
-- [ ] `M0.6` `.env.example`, `django-environ` wiring, secrets excluded from git.
+- [x] `M0.5` `/healthz` endpoint + JSON logging + request-id middleware.
+- [x] `M0.6` `.env.example`, `django-environ` wiring, secrets excluded from git.
 - [ ] `M0.7` `compose.yml` (Postgres + API + web) with a one-command start.
 - [ ] `M0.8` `seed` management command skeleton (idempotent, `--reset`).
 - [ ] `M0.9` GitHub Actions CI: path-filtered jobs for backend and frontend gates.
