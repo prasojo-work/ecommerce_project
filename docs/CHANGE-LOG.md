@@ -6,6 +6,24 @@
 
 ## History
 
+### 2026-10-09 — v0.1.1 — Product scope baselined
+
+**Context.** Stage 2 (product) produced the curated scope and UX documents.
+
+**What was added.**
+
+- `02-product/SCOPE.md` — personas, epics `EPIC-1..7`, user stories with acceptance
+  criteria, in/out of scope, NFRs `NFR-1..9`, and the v1 Definition of Done. Three open
+  decisions (`D1` operator-console form, `D2` guest cart, `D3` token storage) are deferred to
+  Stage 3.
+- `02-product/UX.md` — visual language and design tokens, information architecture, key
+  flows, states matrix, component inventory, accessibility and responsive requirements, and
+  the validation plan.
+- `_working/TODO_technical-project-manager.md`, `_working/TODO_ui-ux.md` — raw agent files.
+
+**Impact.** No change to the plan itself; product detail elaborated. `PLAN.md` re-baselined
+to v0.1.1. No application code written yet.
+
 ### 2026-10-09 — v0.1.0 — Project reset and re-baseline
 
 **Context.** The repository previously contained a complete earlier iteration of this

@@ -161,7 +161,7 @@ Full register in `04-delivery/ROADMAP.md` (Stage 4). Headlines:
 ## 10. Document index
 
 - Business: [`01-business/STRATEGY.md`](01-business/STRATEGY.md)
-- Product: `02-product/SCOPE.md`, `02-product/UX.md` (Stage 2)
+- Product: [`02-product/SCOPE.md`](02-product/SCOPE.md), [`02-product/UX.md`](02-product/UX.md)
 - Architecture: `03-architecture/ARCHITECTURE.md`, `03-architecture/DATA-MODEL.md` (Stage 3)
 - Delivery: `04-delivery/ROADMAP.md` (Stage 4)
 - QA: `05-qa/` (scenarios + results)
@@ -176,3 +176,4 @@ Full register in `04-delivery/ROADMAP.md` (Stage 4). Headlines:
 | Version | Date | Summary |
 |---|---|---|
 | v0.1.0 | 2026-10-09 | Initial baseline re-established after the project reset. Brand `LYSHEIM`; working agreement; Stage 0/1 docs. |
+| v0.1.1 | 2026-10-09 | Product scope and UX baselined (Stage 2). |
