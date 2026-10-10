@@ -6,6 +6,48 @@
 
 ## History
 
+### 2026-10-10 — v0.1.15 — BY-ND images dropped; reverse-relation typing recorded
+
+**Context.** Three founder decisions taken immediately after `v0.1.14`. The first reverses a
+decision recorded there, and is recorded here rather than by editing that entry, because this
+file is append-only.
+
+**What changed.**
+
+- **No `BY-ND` image ships.** `v0.1.14` shipped the bed frame, bookshelf, and dining table under
+  `BY-ND-2.0`, on the grounds that `ADR-0012` permits that licence when the work is never
+  altered. That reading is correct, but it hands every future layout a constraint that nothing
+  checks: a grid which crops or resizes one of those files has created a derivative, and no gate
+  would catch it. All three are now dropped — files removed from `frontend/public/images/`
+  (49 → 46 images, 3.4 MB → 3.2 MB) and their keywords removed from the curation, so 54 of the
+  100 source keywords ship rather than 51. Every vendored image is `BY`, `BY-SA`, `PDM`, or
+  `CC0`, and safe to crop and resize.
+- **Products fall 49 → 46 and variants 100 → 95.** "Dining Room" seeds two products now, and
+  "Bedroom" and "Storage" one fewer each. `SEED` is untouched, but removing curated entries
+  shifts the order that the every-tenth out-of-stock rule counts along; the number of
+  out-of-stock products stays five, which the tests assert.
+- **`ALLOWED_LICENCES` no longer admits `BY-ND-2.0`**, and
+  `test_no_derivative_restricted_image_ships` fails if one ever reappears, so the reversal
+  cannot be undone by accident.
+- **`ADR-0014` records the reverse foreign-key strategy: query explicitly.** `basedpyright`
+  cannot see accessors such as `product.images` — django-stubs supplies reverse relations
+  through a *mypy* plugin, and pyright has no plugin mechanism — so code reaches relations
+  through the manager (`ProductImage.objects.filter(product=product)`), which stays fully typed.
+  Relation names as strings are allowed where the query wants them
+  (`prefetch_related("images")`); casting a reverse accessor is not. The alternative was
+  replacing the type checker, which `M0` had settled.
+- **Single-image products stand, by decision.** The source set holds exactly one image per
+  keyword, so `M1.6`'s gallery renders one image per product for now. Multi-image galleries are
+  deferred deliberately, not overlooked.
+- Counts in `ROADMAP.md`, `RUNBOOK.md`, and the `seed_data.py` docstring follow the new curation.
+
+**Impact.** `manage.py seed` builds the 46-product catalogue in one command and stays safe to
+re-run. Gates green: `ruff format --check` (34 files), `ruff check`, `basedpyright` (0 errors),
+`makemigrations --check` (no drift — the curation change needed no migration), and 49 tests
+passing on both SQLite and PostgreSQL 17. The CLI was exercised against a real PostgreSQL 17
+database with the same result every time: `migrate`, `seed`, a second `seed` leaving the counts
+untouched, and `seed --reset`, each ending at 7 / 46 / 95 / 46 / 46.
+
 ### 2026-10-10 — v0.1.14 — M1.2 catalog seed landed
 
 **Context.** `M1.2` turns the `M1.1` schema into a browsable catalog and settles the

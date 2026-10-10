@@ -2,8 +2,14 @@
 
 Curated by hand from the reference image set in `some_source/` (`ADR-0012`). The source set
 covers a whole house — appliances, cleaning tools, kitchenware — and this store sells furniture,
-lighting, textiles, and decor, so 51 of the 100 keywords are deliberately not shipped and their
+lighting, textiles, and decor, so 54 of the 100 keywords are deliberately not shipped and their
 images are not vendored into `frontend/public/images/`.
+
+**No `BY-ND` image ships.** That licence forbids derivatives, and a product grid cannot promise
+never to crop or resize what it displays, so the three `BY-ND` keywords in the source set — bed
+frame, bookshelf, and dining table — are excluded along with the rest. `ADR-0012` prefers `BY`,
+`BY-SA`, and `PDM`; `CC0` sits alongside them. Every shipped image is therefore safe to crop and
+resize.
 
 This mapping is the single place curation is expressed. The seed command, the vendored image set,
 and `M1.9`'s credits page all derive from it, so they cannot disagree.
@@ -22,19 +28,16 @@ CATALOG: dict[str, tuple[str, ...]] = {
         "wooden bench",
     ),
     "Dining Room": (
-        "dining table",
         "dining chair",
         "bar stool",
     ),
     "Bedroom": (
-        "bed frame",
         "mattress",
         "bedside table",
         "wardrobe",
         "chest of drawers",
     ),
     "Storage": (
-        "bookshelf",
         "shelving unit",
         "wall shelf",
         "storage box",

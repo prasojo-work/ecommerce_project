@@ -257,6 +257,7 @@ Run it:
 
 ```bash
 cd backend
+uv run python manage.py migrate
 uv run python manage.py seed           # idempotent, safe to re-run without --reset
 uv run python manage.py seed --reset   # clears the catalog first
 ```
@@ -266,7 +267,7 @@ Verify it:
 ```bash
 uv run pytest tests/test_catalog_seed.py -q
 
-# 7 49 100 49 49 — categories, products, variants, images, credits
+# 7 46 95 46 46 — categories, products, variants, images, credits
 uv run python -c "import os, django; os.environ.setdefault('DJANGO_SETTINGS_MODULE','config.settings.dev'); django.setup(); from catalog.models import Category, Product, ProductVariant, ProductImage, ImageCredit; print(Category.objects.count(), Product.objects.count(), ProductVariant.objects.count(), ProductImage.objects.count(), ImageCredit.objects.count())"
 ```
 
@@ -281,11 +282,11 @@ Notes:
   `ProductImage.path` is the root-relative URL the client requests.
 - `--reset` clears the **whole** catalog, not just seeded rows, because nothing distinguishes a
   seeded product from an operator-created one. At `M5` that becomes a way to delete real work.
-- **Three shipped images are `BY-ND`** — bed frame, bookshelf, and dining table. `ADR-0012` allows
-  them only if they are never altered, so no layer may crop, resize, or re-render them; the
-  vendored files are the originals byte for byte. If a layout needs a different aspect ratio,
-  replace the image rather than edit it. `tests/test_catalog_seed.py` pins the exact set so any
-  change to curation is deliberate.
+- **No `BY-ND` image ships.** `ADR-0012` prefers `BY`, `BY-SA`, and `PDM`, and `BY-ND` forbids
+  derivatives — something a product grid cannot promise never to create. The three `BY-ND`
+  keywords in the source set (bed frame, bookshelf, dining table) are therefore excluded with
+  everything else that does not fit, and every vendored image is safe to crop and resize.
+  `tests/test_catalog_seed.py` fails if a licence outside the allowed set ever appears.
 
 ## 7. Deployment (M7)
 
@@ -305,7 +306,8 @@ Notes:
 - **`basedpyright` cannot see reverse foreign-key accessors** such as `category.children` or
   `product.images`. django-stubs implements reverse relations in a *mypy* plugin, and pyright
   has no Django plugin, so the checker reports `reportAttributeAccessIssue` on attributes that
-  are real at runtime. Work around it by querying explicitly
-  (`ProductImage.objects.filter(product=product)`) or by passing relation names as strings
-  (`prefetch_related("images")`). **Open decision:** the durable strategy is not recorded yet
-  and needs an ADR before `M1.3` writes the first serializer that traverses a relation.
+  are real at runtime. **The convention is to query explicitly** —
+  `ProductImage.objects.filter(product=product)` rather than `product.images.all()`. Relation names
+  as strings are also fine (`prefetch_related("images")`, `filter(images__isnull=False)`) and avoid
+  N+1. Never `cast` a reverse accessor. See
+  [`../decisions/ADR-0014-reverse-relations-under-basedpyright.md`](../decisions/ADR-0014-reverse-relations-under-basedpyright.md).

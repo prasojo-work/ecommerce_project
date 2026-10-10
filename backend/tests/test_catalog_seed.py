@@ -12,11 +12,9 @@ pytestmark = pytest.mark.django_db
 
 CURATED_KEYWORDS = [kw for keywords in seed_data.CATALOG.values() for kw in keywords]
 
-# `ADR-0012` allows BY-ND images only if they are never altered. `catalog/seeders.py` carries the
-# no-crop constraint; this pins the exact set so a change to curation is a deliberate one.
-BY_ND_IMAGES = {"/images/bed-frame.webp", "/images/bookshelf.webp", "/images/dining-table.webp"}
-
-ALLOWED_LICENCES = {"BY-2.0", "BY-SA-2.0", "BY-SA-3.0", "BY-ND-2.0", "PDM-1.0", "CC0-1.0"}
+# `ADR-0012` prefers BY, BY-SA, and PDM; CC0 sits alongside them. BY-ND is excluded on purpose and
+# must not reappear: a licence outside this set means curation changed without the review it needs.
+ALLOWED_LICENCES = {"BY-2.0", "BY-SA-2.0", "BY-SA-3.0", "PDM-1.0", "CC0-1.0"}
 
 
 def _manifest_rows() -> dict[str, dict[str, str]]:
@@ -39,7 +37,7 @@ def test_seed_creates_one_product_per_curated_keyword() -> None:
     seed()
 
     assert Category.objects.count() == len(seed_data.CATALOG)
-    assert Product.objects.count() == len(CURATED_KEYWORDS) == 49
+    assert Product.objects.count() == len(CURATED_KEYWORDS) == 46
 
 
 def test_every_product_has_exactly_one_credited_image() -> None:
@@ -86,17 +84,13 @@ def test_shipped_licences_stay_within_the_allowed_set() -> None:
     seed()
 
     assert set(ImageCredit.objects.values_list("license", flat=True)) <= ALLOWED_LICENCES
-    assert ImageCredit.objects.filter(license="BY-ND-2.0").count() == 3
 
 
-def test_the_by_nd_images_that_ship_are_exactly_the_expected_three() -> None:
+def test_no_derivative_restricted_image_ships() -> None:
+    """`ADR-0012`: BY-ND forbids derivatives, and a product grid cannot promise never to crop."""
     seed()
 
-    shipped = set(
-        ProductImage.objects.filter(credit__license="BY-ND-2.0").values_list("path", flat=True)
-    )
-
-    assert shipped == BY_ND_IMAGES
+    assert not ImageCredit.objects.filter(license__contains="ND").exists()
 
 
 def test_seed_is_idempotent() -> None:

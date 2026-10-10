@@ -4,11 +4,11 @@ Every row is derived from the curated mapping in `catalog/seed_data.py`, the ven
 `backend/seed_data/manifest.csv`, or a generator seeded with `SEED`, so two runs produce identical
 data and `manage.py seed` is safe to re-run without `--reset`.
 
-Licensing (`ADR-0012`): three of the curated images are `BY-ND` — bed frame, bookshelf, and dining
-table. That licence forbids derivatives, so those files are vendored byte-for-byte and must never
-be cropped, resized, or re-rendered by any layer. If a layout needs a different aspect ratio, the
-image is a candidate for replacement, not for editing. The other 46 ship under `BY`, `BY-SA`,
-`PDM`, or `CC0`, which `ADR-0012` prefers.
+Licensing (`ADR-0012`): no `BY-ND` image ships. That licence forbids derivatives, and a product
+grid cannot promise never to crop or resize what it displays, so the three `BY-ND` keywords in the
+source set are excluded with everything else that does not fit. Every vendored image is `BY`,
+`BY-SA`, `PDM`, or `CC0` — the licences `ADR-0012` prefers — so all of them are safe to crop and
+resize.
 
 `clear()` removes the **whole** catalog rather than only seeded rows, because nothing yet
 distinguishes a seeded row from an operator-created one. That becomes a real question at `M5`,
