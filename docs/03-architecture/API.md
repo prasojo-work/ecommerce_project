@@ -118,4 +118,6 @@ The operator console is **Django admin** (`/admin/`), not part of this REST API 
 
 - The schema is generated at `/api/v1/openapi.json` and a browsable UI at `/api/v1/docs`.
 - The frontend's API client types are generated from this schema, so the contract cannot
-  silently drift from the UI.
+  silently drift from the UI: `manage.py export_openapi_schema` writes the committed snapshot at
+  `frontend/openapi.json`, `pnpm codegen` turns that into `src/api/schema.d.ts`, and `Backend CI`
+  fails if the snapshot does not match the code.

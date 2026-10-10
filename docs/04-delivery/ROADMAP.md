@@ -50,7 +50,7 @@ Status legend: `[ ]` planned · `[~]` in progress · `[x]` done.
 - [x] `M1.1` Catalog models + migrations (`Category`, `Product`, `ProductVariant`, `ProductImage`, `ImageCredit`).
 - [x] `M1.2` Seed catalog: categories, products, variants, stock; curated images + credits vendored from `some_source/` (7 categories, 46 products).
 - [x] `M1.3` Catalog read API (`/categories`, `/products`, `/products/{slug}`) + OpenAPI, with pagination, filters, and the error envelope.
-- [ ] `M1.4` Generate the frontend API client types from OpenAPI.
+- [x] `M1.4` Frontend API types generated from the committed OpenAPI snapshot (`frontend/openapi.json`), with a drift check in `Backend CI`.
 - [ ] `M1.5` Catalog listing page (grid, pagination, skeletons, empty state).
 - [ ] `M1.6` Product detail page (gallery, price, availability, add-to-cart placeholder).
 - [ ] `M1.7` Search, filter, and sort with shareable URL state.

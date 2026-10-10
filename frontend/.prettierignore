@@ -7,3 +7,11 @@ pnpm-lock.yaml
 next-env.d.ts
 # Prose is not code; keep Markdown untouched so hand-written docs do not churn.
 *.md
+
+# The snapshot's exact bytes are owned by `manage.py export_openapi_schema` and compared
+# byte-for-byte by the drift check in Backend CI, so Prettier must not have an opinion: it
+# collapses short arrays onto one line, which would make that check fail permanently.
+/openapi.json
+
+# Generated from openapi.json by `pnpm codegen`.
+/src/api/schema.d.ts

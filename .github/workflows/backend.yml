@@ -73,3 +73,11 @@ jobs:
 
       - name: Tests
         run: uv run pytest
+
+      # The frontend generates its TypeScript types from the committed snapshot, so the snapshot
+      # has to match the code. Regenerate it and fail on any difference. `git -C ..` targets the
+      # repository root because every step runs with `backend/` as its working directory.
+      - name: OpenAPI contract snapshot
+        run: |
+          uv run python manage.py export_openapi_schema
+          git -C .. diff --exit-code -- frontend/openapi.json

@@ -1,0 +1,777 @@
+{
+  "components": {
+    "schemas": {
+      "AvailabilitySchema": {
+        "properties": {
+          "in_stock": {
+            "title": "In Stock",
+            "type": "boolean"
+          },
+          "in_stock_variants": {
+            "title": "In Stock Variants",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "in_stock",
+          "in_stock_variants"
+        ],
+        "title": "AvailabilitySchema",
+        "type": "object"
+      },
+      "CategoryDetailSchema": {
+        "properties": {
+          "category": {
+            "$ref": "#/components/schemas/CategorySchema"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/ProductCardSchema"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "page": {
+            "title": "Page",
+            "type": "integer"
+          },
+          "page_size": {
+            "title": "Page Size",
+            "type": "integer"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "category",
+          "items",
+          "page",
+          "page_size",
+          "total"
+        ],
+        "title": "CategoryDetailSchema",
+        "type": "object"
+      },
+      "CategoryRefSchema": {
+        "description": "Just enough category to label a card or a breadcrumb.",
+        "properties": {
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "slug": {
+            "title": "Slug",
+            "type": "string"
+          }
+        },
+        "required": [
+          "slug",
+          "name"
+        ],
+        "title": "CategoryRefSchema",
+        "type": "object"
+      },
+      "CategorySchema": {
+        "properties": {
+          "children": {
+            "items": {
+              "$ref": "#/components/schemas/CategorySchema"
+            },
+            "title": "Children",
+            "type": "array"
+          },
+          "description": {
+            "title": "Description",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "parent_slug": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Parent Slug"
+          },
+          "slug": {
+            "title": "Slug",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "slug",
+          "name",
+          "description"
+        ],
+        "title": "CategorySchema",
+        "type": "object"
+      },
+      "CategoryTreeSchema": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/CategorySchema"
+            },
+            "title": "Items",
+            "type": "array"
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "title": "CategoryTreeSchema",
+        "type": "object"
+      },
+      "ImageSchema": {
+        "properties": {
+          "alt": {
+            "title": "Alt",
+            "type": "string"
+          },
+          "path": {
+            "title": "Path",
+            "type": "string"
+          },
+          "position": {
+            "title": "Position",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "path",
+          "alt",
+          "position"
+        ],
+        "title": "ImageSchema",
+        "type": "object"
+      },
+      "MoneySchema": {
+        "properties": {
+          "amount_cents": {
+            "title": "Amount Cents",
+            "type": "integer"
+          },
+          "currency": {
+            "title": "Currency",
+            "type": "string"
+          }
+        },
+        "required": [
+          "amount_cents",
+          "currency"
+        ],
+        "title": "MoneySchema",
+        "type": "object"
+      },
+      "PageFilters": {
+        "description": "Paging parameters, shared by the paginated routes.",
+        "properties": {
+          "page": {
+            "default": 1,
+            "minimum": 1,
+            "title": "Page",
+            "type": "integer"
+          },
+          "page_size": {
+            "default": 24,
+            "maximum": 100,
+            "minimum": 1,
+            "title": "Page Size",
+            "type": "integer"
+          }
+        },
+        "title": "PageFilters",
+        "type": "object"
+      },
+      "ProductCardSchema": {
+        "description": "A listing row. No variants: the grid does not render them.",
+        "properties": {
+          "category": {
+            "$ref": "#/components/schemas/CategoryRefSchema"
+          },
+          "color": {
+            "title": "Color",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "image": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ImageSchema"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "in_stock": {
+            "title": "In Stock",
+            "type": "boolean"
+          },
+          "material": {
+            "title": "Material",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "price": {
+            "$ref": "#/components/schemas/MoneySchema"
+          },
+          "slug": {
+            "title": "Slug",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "slug",
+          "name",
+          "category",
+          "price",
+          "in_stock",
+          "material",
+          "color"
+        ],
+        "title": "ProductCardSchema",
+        "type": "object"
+      },
+      "ProductDetailSchema": {
+        "properties": {
+          "availability": {
+            "$ref": "#/components/schemas/AvailabilitySchema"
+          },
+          "category": {
+            "$ref": "#/components/schemas/CategoryRefSchema"
+          },
+          "color": {
+            "title": "Color",
+            "type": "string"
+          },
+          "depth_cm": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Depth Cm"
+          },
+          "description": {
+            "title": "Description",
+            "type": "string"
+          },
+          "height_cm": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Height Cm"
+          },
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "images": {
+            "items": {
+              "$ref": "#/components/schemas/ImageSchema"
+            },
+            "title": "Images",
+            "type": "array"
+          },
+          "material": {
+            "title": "Material",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "price": {
+            "$ref": "#/components/schemas/MoneySchema"
+          },
+          "slug": {
+            "title": "Slug",
+            "type": "string"
+          },
+          "variants": {
+            "items": {
+              "$ref": "#/components/schemas/VariantSchema"
+            },
+            "title": "Variants",
+            "type": "array"
+          },
+          "width_cm": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Width Cm"
+          }
+        },
+        "required": [
+          "id",
+          "slug",
+          "name",
+          "description",
+          "category",
+          "price",
+          "material",
+          "color",
+          "availability"
+        ],
+        "title": "ProductDetailSchema",
+        "type": "object"
+      },
+      "ProductFilters": {
+        "description": "Query parameters for `GET /products` (`API.md` section 4).\n\n`min_price` and `max_price` are integer cents, matching the payload convention in `API.md`\nsection 1, so a client never converts to a decimal in order to filter.",
+        "properties": {
+          "category": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Category"
+          },
+          "max_price": {
+            "anyOf": [
+              {
+                "minimum": 0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Maximum price, in cents.",
+            "title": "Max Price"
+          },
+          "min_price": {
+            "anyOf": [
+              {
+                "minimum": 0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Minimum price, in cents.",
+            "title": "Min Price"
+          },
+          "page": {
+            "default": 1,
+            "minimum": 1,
+            "title": "Page",
+            "type": "integer"
+          },
+          "page_size": {
+            "default": 24,
+            "maximum": 100,
+            "minimum": 1,
+            "title": "Page Size",
+            "type": "integer"
+          },
+          "q": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Q"
+          },
+          "sort": {
+            "allOf": [
+              {
+                "description": "`sort` values from `API.md` section 4. The `-` prefix means descending.\n\nMembers are upper case because `Enum` already defines `name` and `value`; a member named\n`name` would shadow one of them.",
+                "enum": [
+                  "name",
+                  "price",
+                  "-price",
+                  "newest"
+                ],
+                "title": "SortOption",
+                "type": "string"
+              }
+            ],
+            "default": "name"
+          }
+        },
+        "title": "ProductFilters",
+        "type": "object"
+      },
+      "ProductPageSchema": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/ProductCardSchema"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "page": {
+            "title": "Page",
+            "type": "integer"
+          },
+          "page_size": {
+            "title": "Page Size",
+            "type": "integer"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "items",
+          "page",
+          "page_size",
+          "total"
+        ],
+        "title": "ProductPageSchema",
+        "type": "object"
+      },
+      "SortOption": {
+        "description": "`sort` values from `API.md` section 4. The `-` prefix means descending.\n\nMembers are upper case because `Enum` already defines `name` and `value`; a member named\n`name` would shadow one of them.",
+        "enum": [
+          "name",
+          "price",
+          "-price",
+          "newest"
+        ],
+        "title": "SortOption",
+        "type": "string"
+      },
+      "VariantSchema": {
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "in_stock": {
+            "title": "In Stock",
+            "type": "boolean"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "price": {
+            "$ref": "#/components/schemas/MoneySchema"
+          },
+          "sku": {
+            "title": "Sku",
+            "type": "string"
+          },
+          "stock_qty": {
+            "title": "Stock Qty",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "sku",
+          "name",
+          "price",
+          "stock_qty",
+          "in_stock"
+        ],
+        "title": "VariantSchema",
+        "type": "object"
+      }
+    }
+  },
+  "info": {
+    "description": "Storefront API for LYSHEIM.",
+    "title": "LYSHEIM API",
+    "version": "0.1.0"
+  },
+  "openapi": "3.1.0",
+  "paths": {
+    "/api/v1/categories": {
+      "get": {
+        "description": "Every category, nested under its parent. Not paginated: a tree is small and shaped.",
+        "operationId": "catalog_api_list_categories",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CategoryTreeSchema"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "summary": "Category tree",
+        "tags": [
+          "catalog"
+        ]
+      }
+    },
+    "/api/v1/categories/{slug}": {
+      "get": {
+        "description": "One category plus its products, paginated. An unknown slug is a `404`.",
+        "operationId": "catalog_api_category_detail",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "slug",
+            "required": true,
+            "schema": {
+              "title": "Slug",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "page",
+            "required": false,
+            "schema": {
+              "default": 1,
+              "minimum": 1,
+              "title": "Page",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "page_size",
+            "required": false,
+            "schema": {
+              "default": 24,
+              "maximum": 100,
+              "minimum": 1,
+              "title": "Page Size",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CategoryDetailSchema"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "summary": "One category",
+        "tags": [
+          "catalog"
+        ]
+      }
+    },
+    "/api/v1/products": {
+      "get": {
+        "description": "Filtered, sorted, paginated products.\n\nAn unknown `category` filters to nothing rather than erroring, so the storefront can render its\nexplicit no-results state (`US-1.3`).",
+        "operationId": "catalog_api_list_products",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "page",
+            "required": false,
+            "schema": {
+              "default": 1,
+              "minimum": 1,
+              "title": "Page",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "page_size",
+            "required": false,
+            "schema": {
+              "default": 24,
+              "maximum": 100,
+              "minimum": 1,
+              "title": "Page Size",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "category",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Category"
+            }
+          },
+          {
+            "in": "query",
+            "name": "q",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Q"
+            }
+          },
+          {
+            "description": "Minimum price, in cents.",
+            "in": "query",
+            "name": "min_price",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "minimum": 0,
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Minimum price, in cents.",
+              "title": "Min Price"
+            }
+          },
+          {
+            "description": "Maximum price, in cents.",
+            "in": "query",
+            "name": "max_price",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "minimum": 0,
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Maximum price, in cents.",
+              "title": "Max Price"
+            }
+          },
+          {
+            "in": "query",
+            "name": "sort",
+            "required": false,
+            "schema": {
+              "allOf": [
+                {
+                  "description": "`sort` values from `API.md` section 4. The `-` prefix means descending.\n\nMembers are upper case because `Enum` already defines `name` and `value`; a member named\n`name` would shadow one of them.",
+                  "enum": [
+                    "name",
+                    "price",
+                    "-price",
+                    "newest"
+                  ],
+                  "title": "SortOption",
+                  "type": "string"
+                }
+              ],
+              "default": "name"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProductPageSchema"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "summary": "List products",
+        "tags": [
+          "catalog"
+        ]
+      }
+    },
+    "/api/v1/products/{slug}": {
+      "get": {
+        "description": "One product with its gallery and variants nested, for the detail page (`US-1.2`).",
+        "operationId": "catalog_api_product_detail",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "slug",
+            "required": true,
+            "schema": {
+              "title": "Slug",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProductDetailSchema"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "summary": "One product",
+        "tags": [
+          "catalog"
+        ]
+      }
+    }
+  },
+  "servers": []
+}

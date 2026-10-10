@@ -6,6 +6,50 @@
 
 ## History
 
+### 2026-10-10 — v0.1.17 — OpenAPI snapshot and generated frontend types
+
+**Context.** `M1.4`. The frontend has to consume the `M1.3` contract without the two drifting
+apart, which `API.md` section 10 already commits to. Two constraints decided the shape: `Frontend
+CI` runs with no backend and is path-filtered to `frontend/**`, and a Vercel build cannot fetch a
+schema from a live API.
+
+**What changed.**
+
+- `manage.py export_openapi_schema` writes the contract to `frontend/openapi.json`. django-ninja
+  ships a command of its own, but Django only discovers management commands from applications in
+  `INSTALLED_APPS`, and `ninja` is not one; its default also resolves the API instance at `/api/`,
+  where this project mounts `/api/v1`. The wrapper pins both.
+- `frontend/openapi.json` — the committed snapshot: 19.6 KB, four paths, fourteen schemas.
+- `openapi-typescript` generates `frontend/src/api/schema.d.ts` from it via `pnpm codegen`, wired
+  into `pnpm dev`, `pnpm build`, and `pnpm typecheck`. The generated file is gitignored, so a fresh
+  clone needs no extra step.
+- `Backend CI` regenerates the snapshot and fails on any difference, and `frontend/openapi.json` is
+  now a path trigger for that workflow, so a hand-edited snapshot is caught as well.
+
+**Decisions taken.**
+
+- **The snapshot lives inside `frontend/`.** Vercel builds with `frontend` as its root directory, so
+  `../backend/openapi.json` would not exist during a deploy. That one constraint rules out keeping
+  the snapshot beside the API it describes.
+- **The generated TypeScript is not committed.** The snapshot is the artifact under review; a
+  committed generated file would be a copy of a copy, and `pnpm typecheck` rebuilds it anyway.
+- **Formatting of the snapshot is owned by the generator, not Prettier.** `prettier --check` failed
+  on it — Prettier collapses short arrays onto one line where `json.dumps` does not — so it is in
+  `.prettierignore`. Without that the drift check could never pass, because the two tools disagree
+  about the same bytes by construction.
+- **`indent=2` and sorted keys** in the export, so a contract change shows up as the lines that
+  actually changed rather than a reordered file.
+
+**Corrected.** `RUNBOOK.md`'s `M1.3` section did not land with `v0.1.16`: that patch contained two
+hunks, the second failed to anchor, and the tool discards the whole file when any hunk fails. The
+section is added here, together with the `M1.4` one.
+
+**Impact.** The contract has one source and a check that enforces it. Gates green — backend:
+`ruff format --check` (39 files), `ruff check`, `basedpyright` (0 errors), `makemigrations --check`,
+79 tests; frontend: `typecheck`, `lint`, `format:check`, `test`, `build`. The drift check was
+verified in both directions: exit 0 on a matching snapshot, and exit 1 with the diff printed when
+the snapshot is stale.
+
 ### 2026-10-10 — v0.1.16 — M1.3 catalog read API and the error envelope
 
 **Context.** `M1.3` turns the seeded catalog into a contract the storefront can consume. It is the

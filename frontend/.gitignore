@@ -40,3 +40,7 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Generated from openapi.json by `pnpm codegen`. The snapshot is the committed artifact; this
+# file is rebuilt from it by `dev`, `build` and `typecheck`.
+/src/api/schema.d.ts

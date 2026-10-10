@@ -292,6 +292,89 @@ Notes:
   sourcing a replacement, so this is a decision, not a seeding bug. Revisit if a suitable image
   turns up.
 
+### M1 — catalog read API (M1.3)
+
+Public, no authentication. Four routes under `/api/v1`: `GET /categories`, `GET /categories/{slug}`,
+`GET /products`, and `GET /products/{slug}`. The detail route nests variants and the gallery; the
+listing route deliberately does not, so a grid payload stays small.
+
+Run it:
+
+```bash
+cd backend
+uv run python manage.py migrate
+uv run python manage.py seed
+uv run python manage.py runserver
+```
+
+Then <http://localhost:8000/api/v1/docs> for Swagger, and
+<http://localhost:8000/api/v1/openapi.json> for the schema `M1.4` generates types from.
+
+Verify it:
+
+```bash
+uv run pytest tests/test_catalog_api.py -q
+
+# 24 items on page one, "total": 46
+curl -s "http://localhost:8000/api/v1/products" | head -c 300
+# filters, sort, and paging share one query object
+curl -s "http://localhost:8000/api/v1/products?category=lighting&sort=price&page_size=5"
+```
+
+Notes:
+
+- Money is the `{"amount_cents", "currency"}` object everywhere (`API.md` section 1), including the
+  `min_price` and `max_price` query parameters, which are integer cents.
+- `page_size` caps at 100. A `page` below 1, a `page_size` outside 1–100, or an unknown `sort` is a
+  `400` in the error envelope. A page past the end is an empty page, not a `404`.
+- An unknown `category` *filter* returns zero results rather than erroring, so the storefront can
+  render its explicit no-results state (`US-1.3`). An unknown *slug* on a detail route is a `404`.
+- A `category` filter also matches descendants, so filtering by a parent includes its children.
+- Don't trust Ninja's own error handling for the contract. Its defaults answer request validation
+  with `422` and `{"detail": ...}`, and re-raise unhandled exceptions in production, producing a
+  body that is not JSON at all. `core/errors.py` replaces all three handlers.
+- Rows are read with `values()` rather than model instances, for the reason in section 8.
+
+### M1 — frontend types from OpenAPI (M1.4)
+
+The frontend's API types come from `frontend/openapi.json`, a committed snapshot of the schema. The
+backend regenerates and verifies the snapshot; the frontend turns it into TypeScript locally, with
+no network and no Python:
+
+```bash
+cd backend
+uv run python manage.py export_openapi_schema   # writes ../frontend/openapi.json
+
+cd ../frontend
+pnpm codegen                                    # writes src/api/schema.d.ts
+```
+
+Verify it:
+
+```bash
+# from backend/ — the drift check Backend CI runs
+uv run python manage.py export_openapi_schema
+git -C .. diff --exit-code -- frontend/openapi.json
+
+# from frontend/ — the generated types are covered by the normal gates
+pnpm typecheck
+```
+
+Notes:
+
+- **Only the snapshot is committed.** `src/api/schema.d.ts` is generated and gitignored, rebuilt by
+  `pnpm dev`, `pnpm build`, and `pnpm typecheck`, so a fresh clone needs no extra step.
+- **The snapshot lives in `frontend/`, not `backend/`, on purpose.** Vercel builds with `frontend`
+  as its root directory, so a path pointing outside it would not exist during a deploy.
+- **It is listed in `.prettierignore`.** Its bytes are owned by the export command and compared
+  byte-for-byte by the drift check, and Prettier collapses short arrays onto one line — the two
+  would disagree permanently and the check could never pass.
+- **Changing the API means committing both halves** in one pull request: the code and the
+  regenerated snapshot. Forget the second and the drift check fails, printing the diff.
+- `frontend/openapi.json` is a path trigger for `Backend CI`, so hand-editing the snapshot fails
+  too.
+- The consumer of these types arrives at `M1.5`, which builds the catalog grid on them.
+
 ## 7. Deployment (M7)
 
 > Filled in at M7 — Render, Vercel, Supabase steps, environment variables, and the production
