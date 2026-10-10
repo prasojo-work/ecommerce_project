@@ -1,4 +1,3 @@
-from collections.abc import Iterator
 from io import StringIO
 
 import pytest
@@ -9,15 +8,8 @@ from core import seeding
 pytestmark = pytest.mark.django_db
 
 
-@pytest.fixture(autouse=True)
-def _isolated_registry() -> Iterator[None]:
-    """Keep each test's steps out of the module-level registry."""
-    seeding.clear_registry()
-    yield
-    seeding.clear_registry()
-
-
-def test_seed_with_no_registered_steps_is_a_noop() -> None:
+def test_seed_with_no_discovered_steps_is_a_noop(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(seeding, "discover", tuple)
     out = StringIO()
 
     call_command("seed", stdout=out)
@@ -25,7 +17,8 @@ def test_seed_with_no_registered_steps_is_a_noop() -> None:
     assert "nothing to seed" in out.getvalue()
 
 
-def test_seed_with_no_registered_steps_ignores_reset() -> None:
+def test_seed_with_no_steps_ignores_reset(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(seeding, "discover", tuple)
     out = StringIO()
 
     call_command("seed", "--reset", stdout=out)
@@ -33,18 +26,26 @@ def test_seed_with_no_registered_steps_ignores_reset() -> None:
     assert "nothing to seed" in out.getvalue()
 
 
-def test_seed_runs_steps_in_registration_order() -> None:
+def test_seed_runs_steps_in_discovery_order(monkeypatch: pytest.MonkeyPatch) -> None:
     events: list[str] = []
-    seeding.register(seeding.SeedStep(name="first", run=lambda: events.append("run:first")))
-    seeding.register(seeding.SeedStep(name="second", run=lambda: events.append("run:second")))
+    monkeypatch.setattr(
+        seeding,
+        "discover",
+        lambda: (
+            seeding.SeedStep(name="first", run=lambda: events.append("run:first")),
+            seeding.SeedStep(name="second", run=lambda: events.append("run:second")),
+        ),
+    )
 
     call_command("seed", stdout=StringIO())
 
     assert events == ["run:first", "run:second"]
 
 
-def test_seed_reports_the_step_count() -> None:
-    seeding.register(seeding.SeedStep(name="only", run=lambda: None))
+def test_seed_reports_the_step_count(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(
+        seeding, "discover", lambda: (seeding.SeedStep(name="only", run=lambda: None),)
+    )
     out = StringIO()
 
     call_command("seed", stdout=out)
@@ -52,14 +53,18 @@ def test_seed_reports_the_step_count() -> None:
     assert "1 step(s)" in out.getvalue()
 
 
-def test_seed_without_reset_never_clears() -> None:
+def test_seed_without_reset_never_clears(monkeypatch: pytest.MonkeyPatch) -> None:
     events: list[str] = []
-    seeding.register(
-        seeding.SeedStep(
-            name="only",
-            run=lambda: events.append("run:only"),
-            clear=lambda: events.append("clear:only"),
-        )
+    monkeypatch.setattr(
+        seeding,
+        "discover",
+        lambda: (
+            seeding.SeedStep(
+                name="only",
+                run=lambda: events.append("run:only"),
+                clear=lambda: events.append("clear:only"),
+            ),
+        ),
     )
 
     call_command("seed", stdout=StringIO())
@@ -67,21 +72,23 @@ def test_seed_without_reset_never_clears() -> None:
     assert events == ["run:only"]
 
 
-def test_reset_clears_before_seeding_in_reverse_order() -> None:
+def test_reset_clears_before_seeding_in_reverse_order(monkeypatch: pytest.MonkeyPatch) -> None:
     events: list[str] = []
-    seeding.register(
-        seeding.SeedStep(
-            name="first",
-            run=lambda: events.append("run:first"),
-            clear=lambda: events.append("clear:first"),
-        )
-    )
-    seeding.register(
-        seeding.SeedStep(
-            name="second",
-            run=lambda: events.append("run:second"),
-            clear=lambda: events.append("clear:second"),
-        )
+    monkeypatch.setattr(
+        seeding,
+        "discover",
+        lambda: (
+            seeding.SeedStep(
+                name="first",
+                run=lambda: events.append("run:first"),
+                clear=lambda: events.append("clear:first"),
+            ),
+            seeding.SeedStep(
+                name="second",
+                run=lambda: events.append("run:second"),
+                clear=lambda: events.append("clear:second"),
+            ),
+        ),
     )
 
     call_command("seed", "--reset", stdout=StringIO())
@@ -89,23 +96,33 @@ def test_reset_clears_before_seeding_in_reverse_order() -> None:
     assert events == ["clear:second", "clear:first", "run:first", "run:second"]
 
 
-def test_reset_skips_steps_without_a_clear_hook() -> None:
+def test_reset_skips_steps_without_a_clear_hook(monkeypatch: pytest.MonkeyPatch) -> None:
     events: list[str] = []
-    seeding.register(seeding.SeedStep(name="only", run=lambda: events.append("run:only")))
+    monkeypatch.setattr(
+        seeding,
+        "discover",
+        lambda: (seeding.SeedStep(name="only", run=lambda: events.append("run:only")),),
+    )
 
     call_command("seed", "--reset", stdout=StringIO())
 
     assert events == ["run:only"]
 
 
-def test_a_failing_step_aborts_the_run() -> None:
+def test_a_failing_step_aborts_the_run(monkeypatch: pytest.MonkeyPatch) -> None:
     events: list[str] = []
 
     def explode() -> None:
         raise RuntimeError("seeder exploded")
 
-    seeding.register(seeding.SeedStep(name="first", run=explode))
-    seeding.register(seeding.SeedStep(name="second", run=lambda: events.append("run:second")))
+    monkeypatch.setattr(
+        seeding,
+        "discover",
+        lambda: (
+            seeding.SeedStep(name="first", run=explode),
+            seeding.SeedStep(name="second", run=lambda: events.append("run:second")),
+        ),
+    )
 
     with pytest.raises(RuntimeError, match="seeder exploded"):
         call_command("seed", stdout=StringIO())
@@ -113,8 +130,11 @@ def test_a_failing_step_aborts_the_run() -> None:
     assert events == []
 
 
-def test_registered_returns_a_snapshot_in_registration_order() -> None:
-    seeding.register(seeding.SeedStep(name="first", run=lambda: None))
-    seeding.register(seeding.SeedStep(name="second", run=lambda: None))
+def test_discover_finds_the_catalog_seeder() -> None:
+    """Update this list when another app adds a `seeders` module."""
+    assert [step.name for step in seeding.discover()] == ["catalog"]
 
-    assert [step.name for step in seeding.registered()] == ["first", "second"]
+
+def test_discover_skips_apps_without_a_seeders_module() -> None:
+    """`core` has no `seeders` module, so it contributes nothing."""
+    assert all(step.name != "core" for step in seeding.discover())

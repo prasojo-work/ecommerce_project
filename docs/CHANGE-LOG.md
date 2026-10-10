@@ -6,6 +6,74 @@
 
 ## History
 
+### 2026-10-10 — v0.1.14 — M1.2 catalog seed landed
+
+**Context.** `M1.2` turns the `M1.1` schema into a browsable catalog and settles the
+`some_source/` question: the reference image set lives outside the repository, while `ADR-0012`
+requires `manifest.csv` to be kept inside it.
+
+**What changed.**
+
+- **The image set is vendored into the repository.** 49 curated images move to
+  `frontend/public/images/` (3.4 MB), and `manifest.csv` is copied byte-for-byte to
+  `backend/seed_data/manifest.csv`. `ADR-0012`'s provenance requirement now holds, and the seed
+  can run in CI and on the deployed demo instead of only on the founder's machine.
+- `catalog/seed_data.py` — curation as data: which of the 100 source keywords ship, into which of
+  7 categories, plus the series/material/finish, price-band, and dimension vocabulary. The source
+  set covers a whole house, so appliances, cleaning tools, and kitchenware are excluded by
+  omission; 51 keywords never ship.
+- `catalog/seeders.py` — 7 categories, 49 products, 100 variants, 49 images, 49 credits.
+- `catalog/migrations/0002` and `0003` — uniqueness on `ImageCredit.source_page_url` and
+  `(ProductImage.product, path)` so upserts are idempotent, plus `ImageCredit.title` widened to 300.
+- `core/seeding.py` — rewritten as declarative discovery. `M0.8` registered steps as an import
+  side effect, which is unsound: Python caches modules, so after any registry reset the step
+  vanished silently and `manage.py seed` would do nothing without erroring.
+- `tests/test_catalog_seed.py` added; `tests/test_seed.py` now injects steps per test instead of
+  mutating global state.
+
+**Decisions taken.**
+
+- **Curation is data, not code.** One mapping drives the seed, the vendored images, and `M1.9`'s
+  credits page, so they cannot disagree. `seed()` fails loudly when a curated keyword is absent
+  from the manifest.
+- **`random.Random(SEED)`, not Faker.** `DATA-MODEL.md` §7 says "a deterministic Faker seed".
+  Faker is not used: its prose is generic, and `UX.md` §9 asks for plain, warm copy. Determinism —
+  the actual requirement — comes from a seeded generator plus curated copy templates.
+  `seeders.SEED` changes the whole catalog.
+- **Out-of-stock is deliberate.** Every tenth curated product is seeded with no stock, so the
+  storefront always has that state to render. Left to `randint(0, 40)` it never occurred at all.
+- **Three `BY-ND` images ship unaltered.** `ADR-0012` permits `BY-ND` only if never modified, and
+  dropping them would strip the dining table, bookshelf, and bed frame. They are copied verbatim
+  and must never be cropped or re-rendered; a test pins the exact set.
+- **Images are served by Next.js, not Django.** `ProductImage.path` holds a root-relative URL
+  (`/images/armchair.webp`) — cheaper than streaming files through the API, and it matches the
+  Vercel deployment.
+- **`--reset` clears the whole catalog**, because nothing yet distinguishes seeded rows from
+  operator-created ones. That becomes a real hazard at `M5`.
+
+**Two problems PostgreSQL found that SQLite could not see.**
+
+1. `alt` text overflowed `varchar(200)`. It concatenated the product name with the photo's source
+   title, and those titles run to 255 characters — while the median is 24.5, so the silent SQLite
+   run looked like success. `ImageCredit.title` had the same latent overflow and was widened.
+2. The missing out-of-stock state above: a case the UI needs that the generator happened not to
+   produce.
+
+Both are now guarded by `full_clean()` over every seeded row, since SQLite does not enforce
+`max_length`.
+
+**Impact.** `manage.py seed` builds the catalog in one command and is safe to re-run. Gates green:
+`ruff format --check` (34 files), `ruff check`, `basedpyright` (0 errors), `makemigrations --check`
+(no drift), and 49 tests passing on both SQLite and PostgreSQL 17. The CLI was also exercised
+against a real PostgreSQL 17 database: `migrate`, `seed`, a second `seed` with identical row
+counts, and `seed --reset`, ending at 7 / 49 / 100 / 49 / 49.
+
+**A tooling note worth recording.** The `M1.1` RUNBOOK section that `apply_patch` reported as
+applied in `v0.1.12` was never written to disk. It was found missing during this increment,
+confirmed absent from the `9389b73` commit, and is now added together with the `M1.2` section.
+Every other document change from that patch did land. Document edits now get read back rather than
+trusted.
+
 ### 2026-10-10 — v0.1.13 — M0 complete, CI confirmed green
 
 **Context.** `M0` could not be closed while its second exit criterion was unverifiable. The

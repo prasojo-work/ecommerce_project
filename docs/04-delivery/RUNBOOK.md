@@ -227,6 +227,66 @@ the `@theme` block in `frontend/src/app/globals.css`, so `bg-canvas`, `text-ink`
 `max-w-measure` are generated from those values. Changing a token means editing that block, not
 adding a custom class. CSS Modules are retired.
 
+### M1 — catalog models (M1.1)
+
+Run it:
+
+```bash
+cd backend
+uv run python manage.py migrate
+```
+
+Verify it:
+
+```bash
+# no drift between the models and catalog/migrations/0001_initial.py
+uv run python manage.py makemigrations --check --dry-run
+
+# every catalog model is concrete (not abstract)
+uv run python -c "import os, django; os.environ.setdefault('DJANGO_SETTINGS_MODULE','config.settings.dev'); django.setup(); from catalog import models; print([(m.__name__, m._meta.abstract) for m in (models.Category, models.Product, models.ProductVariant, models.ProductImage, models.ImageCredit)])"
+```
+
+Note: `TimeStampedModel` in `core/models.py` is abstract and has no table of its own. Each
+concrete model's `Meta` **subclasses** `TimeStampedModel.Meta`. Two reasons: Django sets
+`abstract=False` on a base `Meta` before installing it, so a subclassing child stays concrete,
+and basedpyright otherwise reports `reportIncompatibleVariableOverride` on every `Meta`.
+
+### M1 — catalog seed (M1.2)
+
+Run it:
+
+```bash
+cd backend
+uv run python manage.py seed           # idempotent, safe to re-run without --reset
+uv run python manage.py seed --reset   # clears the catalog first
+```
+
+Verify it:
+
+```bash
+uv run pytest tests/test_catalog_seed.py -q
+
+# 7 49 100 49 49 — categories, products, variants, images, credits
+uv run python -c "import os, django; os.environ.setdefault('DJANGO_SETTINGS_MODULE','config.settings.dev'); django.setup(); from catalog.models import Category, Product, ProductVariant, ProductImage, ImageCredit; print(Category.objects.count(), Product.objects.count(), ProductVariant.objects.count(), ProductImage.objects.count(), ImageCredit.objects.count())"
+```
+
+Notes:
+
+- The catalog derives from two files: `catalog/seed_data.py` (which keywords are curated, into
+  which category, plus the name, price, and dimension vocabulary) and
+  `backend/seed_data/manifest.csv` (provenance for every credit). Change either and the catalog
+  changes. Change `seeders.SEED` and every generated name, price, dimension, and stock level
+  changes.
+- Images live in `frontend/public/images/` and are served by Next.js, not Django.
+  `ProductImage.path` is the root-relative URL the client requests.
+- `--reset` clears the **whole** catalog, not just seeded rows, because nothing distinguishes a
+  seeded product from an operator-created one. At `M5` that becomes a way to delete real work.
+- **Three shipped images are `BY-ND`** — bed frame, bookshelf, and dining table. `ADR-0012` allows
+  them only if they are never altered, so no layer may crop, resize, or re-render them; the
+  vendored files are the originals byte for byte. If a layout needs a different aspect ratio,
+  replace the image rather than edit it. `tests/test_catalog_seed.py` pins the exact set so any
+  change to curation is deliberate.
+
 ## 7. Deployment (M7)
 
 > Filled in at M7 — Render, Vercel, Supabase steps, environment variables, and the production

@@ -48,7 +48,7 @@ Status legend: `[ ]` planned · `[~]` in progress · `[x]` done.
 ### M1 — Catalog & browse
 
 - [x] `M1.1` Catalog models + migrations (`Category`, `Product`, `ProductVariant`, `ProductImage`, `ImageCredit`).
-- [ ] `M1.2` Seed catalog: categories, products, variants, stock; import curated images + credits from `some_source/`.
+- [x] `M1.2` Seed catalog: categories, products, variants, stock; curated images + credits vendored from `some_source/` (7 categories, 49 products).
 - [ ] `M1.3` Catalog read API (`/categories`, `/products`, `/products/{slug}`) + OpenAPI.
 - [ ] `M1.4` Generate the frontend API client types from OpenAPI.
 - [ ] `M1.5` Catalog listing page (grid, pagination, skeletons, empty state).

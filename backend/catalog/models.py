@@ -86,11 +86,13 @@ class ImageCredit(TimeStampedModel):
     `license`, `source`, and `source_page`.
     """
 
-    title = models.CharField(max_length=200)
+    # The vendored manifest carries source titles up to 255 characters, so this is bounded above
+    # that rather than at a guess. `full_clean()` in the seed tests guards the headroom.
+    title = models.CharField(max_length=300)
     creator = models.CharField(max_length=200)
     license = models.CharField(max_length=32)
     source = models.CharField(max_length=64)
-    source_page_url = models.URLField(max_length=500)
+    source_page_url = models.URLField(max_length=500, unique=True)
 
     class Meta(TimeStampedModel.Meta):
         ordering = ("title",)
@@ -116,6 +118,11 @@ class ProductImage(TimeStampedModel):
 
     class Meta(TimeStampedModel.Meta):
         ordering = ("position", "id")
+        constraints = (
+            models.UniqueConstraint(
+                fields=("product", "path"), name="unique_image_path_per_product"
+            ),
+        )
 
     def __str__(self) -> str:
         return self.alt or f"{self.product.name} image at position {self.position}"

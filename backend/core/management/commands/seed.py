@@ -1,8 +1,8 @@
 """`manage.py seed` — populate the database with demo data.
 
-Idempotent by contract, with `--reset` to clear the seeded rows first. The seeders themselves
-arrive with the catalog at `M1.2`; they plug into `core.seeding`. See
-`docs/03-architecture/DATA-MODEL.md` for the seeding strategy.
+Idempotent by contract, with `--reset` to clear the seeded rows first. Steps come from every app
+that defines a `seeders` module; see `core.seeding`. The catalogue itself is seeded by
+`catalog.seeders`, and the strategy is in `docs/03-architecture/DATA-MODEL.md` section 7.
 """
 
 from typing import Any
@@ -24,9 +24,9 @@ class Command(BaseCommand):
         )
 
     def handle(self, *args: Any, **options: Any) -> None:
-        steps = seeding.registered()
+        steps = seeding.discover()
         if not steps:
-            self.stdout.write("No seeders registered yet: nothing to seed or reset.")
+            self.stdout.write("No seeders found: nothing to seed or reset.")
             return
 
         # One transaction for the whole run, so a failure part-way through leaves no half-seeded
