@@ -50,8 +50,12 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
-      - uses: astral-sh/setup-uv@v8
+      # Pinned to the exact release on purpose: setup-uv stopped publishing floating major tags
+      # after v7, so `@v8` does not resolve and the job fails before any step runs. Keep
+      # `version` in step with the uv pin in backend/Dockerfile.
+      - uses: astral-sh/setup-uv@v10.3.0
         with:
+          version: "0.12.5"
           enable-cache: true
           cache-dependency-glob: backend/uv.lock
 

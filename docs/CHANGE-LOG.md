@@ -6,6 +6,31 @@
 
 ## History
 
+### 2026-10-10 — v0.1.11 — Backend CI unblocked (setup-uv pin corrected)
+
+**Context.** The first push of the `M0.9` workflows revealed that `Backend CI` had been failing
+since the moment it was created. Only a push could surface this: the assistant commits locally
+and cannot run GitHub Actions.
+
+**What happened.** The run died at "Set up job" with
+`Unable to resolve action 'astral-sh/setup-uv@v8', unable to find version 'v8'`, before a single
+gate executed. The pin came from a web search that reported `v8.3.2`. Setup-uv does publish full
+versions from `v8.3.2` through `v10.3.0`, but it **stopped publishing floating major tags after
+`v7`**, so `v8`, `v9`, and `v10` do not exist.
+
+**What changed.**
+
+- `backend.yml` pins `astral-sh/setup-uv@v10.3.0`, confirmed against the repository's tag list
+  *and* its `action.yml` rather than a search result.
+- CI pins uv to `0.12.5`, matching `backend/Dockerfile`. It would otherwise have installed the
+  latest uv while the container ran `0.12.5` — silent drift between the two paths.
+- The failure mode is recorded in `RUNBOOK.md` §8 so the next person checks the tag list first.
+
+**Impact.** `Frontend CI` passed on the same push, which retroactively confirms `checkout@v6`,
+`pnpm/action-setup@v4`, and `setup-node@v7` all resolve. **The corrected pin is still unverified
+until the next push** — this entry records a fix, not a green run. `M0` therefore stays `[~]`;
+it closes when a push shows `Backend CI` green.
+
 ### 2026-10-10 — v0.1.10 — Tailwind CSS adopted (revises M0.2)
 
 **Context.** The founder reversed the `M0.2` "no styling framework" decision before the catalog

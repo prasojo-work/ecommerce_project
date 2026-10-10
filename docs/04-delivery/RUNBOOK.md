@@ -232,3 +232,9 @@ adding a custom class. CSS Modules are retired.
 
 > Accumulates as real problems occur (e.g. Postgres connection, port conflicts, cold-start
 > latency, migration drift).
+
+- **`Backend CI` fails at "Set up job" with `unable to resolve action 'astral-sh/setup-uv@vN'`.**
+  setup-uv stopped publishing floating major tags after `v7`; `v8`, `v9`, and `v10` do not
+  exist as tags even though `v8.3.2`…`v10.3.0` do. Pin an exact release (currently `v10.3.0`)
+  and check before changing it:
+  `curl -s https://api.github.com/repos/astral-sh/setup-uv/tags`.
