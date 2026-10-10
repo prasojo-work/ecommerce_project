@@ -287,6 +287,10 @@ Notes:
   keywords in the source set (bed frame, bookshelf, dining table) are therefore excluded with
   everything else that does not fit, and every vendored image is safe to crop and resize.
   `tests/test_catalog_seed.py` fails if a licence outside the allowed set ever appears.
+- **"Dining Room" ships without a dining table, on purpose.** The only table in the source set is
+  `BY-ND`. The two-product category was accepted for v1 rather than merging it into Living Room or
+  sourcing a replacement, so this is a decision, not a seeding bug. Revisit if a suitable image
+  turns up.
 
 ## 7. Deployment (M7)
 
