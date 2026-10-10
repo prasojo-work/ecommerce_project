@@ -6,6 +6,63 @@
 
 ## History
 
+### 2026-10-10 — v0.1.16 — M1.3 catalog read API and the error envelope
+
+**Context.** `M1.3` turns the seeded catalog into a contract the storefront can consume. It is the
+first API surface, so the cross-cutting pieces land with it: the error envelope and the generated
+OpenAPI schema.
+
+**What changed.**
+
+- `catalog/api.py` — four public routes under `/api/v1`: `GET /categories`, `GET /categories/{slug}`,
+  `GET /products`, and `GET /products/{slug}`. The listing route carries pagination, filtering
+  (`category`, `q`, `min_price`, `max_price`), and sorting (`name`, `price`, `-price`, `newest`).
+- `catalog/schemas.py` — the response shapes. **The listing does not nest variants; the detail
+  route does**, by decision: a grid never renders variants, and nesting them would multiply every
+  card payload for data it does not show.
+- `core/errors.py` — one error envelope, `{"error": {code, message, details, request_id}}`, per
+  `API.md` section 3 (`NFR-4`). Ninja's defaults are replaced on three counts: it answers request
+  validation with `422` and `{"detail": ...}` where the contract says `400` with the envelope, it
+  reports a bare list rather than `{field, issue}` pairs, and in production it *re-raises* an
+  unhandled exception, which produces an error body that is not JSON at all. The `request_id`
+  matches the `X-Request-ID` header the middleware already sets.
+- `config/api.py` — installs the error handlers and mounts the catalog router at the API root.
+
+**Decisions taken.**
+
+- **Filters and pagination belong to `M1.3`.** Shaping the contract once is cheaper than adding
+  query parameters after `M1.4` has generated client types from it.
+- **`min_price` and `max_price` are integer cents**, matching the payload convention in `API.md`
+  section 1, so no client converts to a decimal in order to filter.
+- **An unknown `category` filter returns zero results, not an error**; an unknown *slug* on a detail
+  route is a `404`. The storefront needs a no-results state (`US-1.3`), not an error state.
+- **`category` also matches descendants.** The model supports nesting even though the seed is flat,
+  and a parent filter that silently dropped its children would be a latent bug.
+- **`page_size` caps at 100, `page` must be at least 1, and `sort` is an enum**; anything else is a
+  `400`. A page past the end is an empty page rather than a `404`, so the client renders "no more
+  results" without special-casing.
+- **Ordering always ends with a tiebreaker**, so a page boundary cannot shuffle between requests.
+- **The listing omits `attributes`.** It holds seed bookkeeping — the curated keyword and series —
+  rather than anything customer-facing.
+
+**One `M1.1` assumption corrected.** `ADR-0014` recorded that `basedpyright` cannot see reverse
+foreign keys, and suggested `prefetch_related` as part of the workaround. Writing this API showed
+the limitation is wider, and the suggestion does not work: an implicit primary key (`id`) and
+foreign-key attnames (`parent_id`, `product_id`) are equally invisible, because django-stubs
+generates all of them in its *mypy* plugin and its own stub file states that other type checkers
+will not understand them; and reading prefetched rows still needs the inaccessible accessor. So
+`catalog/api.py` reads rows with `values()` and reaches related rows through
+`filter(product__slug=...)`, never touching a plugin-synthesised attribute. `RUNBOOK.md` section 8
+now carries both halves of the limitation.
+
+**Impact.** The storefront has a contract: 46 products, 7 categories, and 95 variants behind four
+public routes, with the OpenAPI schema at `/api/v1/openapi.json` for `M1.4` to generate types from.
+Gates green: `ruff format --check` (38 files), `ruff check`, `basedpyright` (0 errors),
+`makemigrations --check` (no drift), and 79 tests passing on both SQLite and PostgreSQL 17 — the
+suite grew from 49. The CLI was exercised against PostgreSQL 17 as well, which confirmed the
+JSON-keyword search behind `?q=` behaves identically on JSONB and on SQLite. That was the one
+genuinely database-specific risk in the contract, and it is now covered by a test on both.
+
 ### 2026-10-10 — v0.1.15 — BY-ND images dropped; reverse-relation typing recorded
 
 **Context.** Three founder decisions taken immediately after `v0.1.14`. The first reverses a

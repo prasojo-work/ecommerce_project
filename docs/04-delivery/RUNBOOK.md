@@ -315,3 +315,9 @@ Notes:
   as strings are also fine (`prefetch_related("images")`, `filter(images__isnull=False)`) and avoid
   N+1. Never `cast` a reverse accessor. See
   [`../decisions/ADR-0014-reverse-relations-under-basedpyright.md`](../decisions/ADR-0014-reverse-relations-under-basedpyright.md).
+- **`basedpyright` also cannot see an implicit primary key (`id`) or foreign-key attnames**
+  (`parent_id`, `product_id`). Same root cause as the bullet above: django-stubs generates them in
+  its *mypy* plugin, and its own stub says other type checkers will not understand them. `pk` *is*
+  declared, so `instance.pk` checks, but prefer passing field names as strings —
+  `Product.objects.values("id", "parent_id")`, `filter(product_id__in=...)` — which works in every
+  reader and keeps a page to a fixed number of queries. `catalog/api.py` is written this way.
