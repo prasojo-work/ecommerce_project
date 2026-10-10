@@ -238,3 +238,10 @@ adding a custom class. CSS Modules are retired.
   exist as tags even though `v8.3.2`…`v10.3.0` do. Pin an exact release (currently `v10.3.0`)
   and check before changing it:
   `curl -s https://api.github.com/repos/astral-sh/setup-uv/tags`.
+- **`basedpyright` cannot see reverse foreign-key accessors** such as `category.children` or
+  `product.images`. django-stubs implements reverse relations in a *mypy* plugin, and pyright
+  has no Django plugin, so the checker reports `reportAttributeAccessIssue` on attributes that
+  are real at runtime. Work around it by querying explicitly
+  (`ProductImage.objects.filter(product=product)`) or by passing relation names as strings
+  (`prefetch_related("images")`). **Open decision:** the durable strategy is not recorded yet
+  and needs an ADR before `M1.3` writes the first serializer that traverses a relation.

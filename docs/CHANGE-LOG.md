@@ -6,6 +6,49 @@
 
 ## History
 
+### 2026-10-10 — v0.1.12 — M1.1 catalog models landed
+
+**Context.** M1 begins: the catalog gets its physical schema, so `M1.2` can seed it and `M1.3`
+can serve it.
+
+**What was added.**
+
+- A `catalog` app with `Category`, `Product`, `ProductVariant`, `ProductImage`, and
+  `ImageCredit`, following `DATA-MODEL.md` §2. Money is integer cents throughout;
+  `Product.attributes` is JSONB for specs that do not warrant a column.
+- `core/models.py` — `TimeStampedModel`, the abstract base giving every table
+  `created_at` / `updated_at` as `DATA-MODEL.md` §2 requires.
+- `catalog/migrations/0001_initial.py` — generated, reviewed, unmodified.
+- `tests/test_catalog_models.py` — 13 tests: `__str__` labels, unique slugs and SKUs, category
+  nesting, `PROTECT` on `Product.category`, cascades to variants and images, `SET_NULL` on an
+  image's credit, orderings, and rejection of negative money and stock.
+
+**Decisions taken.**
+
+- **`Product.category` is `PROTECT`; `ProductImage.credit` is `SET_NULL`.** `DATA-MODEL.md`
+  lists both as foreign keys without an `on_delete`. Deleting a category must not silently take
+  its products with it, and deleting a credit must not delete the image that uses it.
+- **Each concrete `Meta` subclasses `TimeStampedModel.Meta`.** Two reasons: Django sets
+  `abstract=False` on a base `Meta` before installing it, so a subclassing child stays concrete
+  (verified — all five report `_meta.abstract is False`), and basedpyright would otherwise
+  raise `reportIncompatibleVariableOverride` on every `Meta`.
+- **All five models declare `Meta.ordering`.** Deterministic defaults keep pagination stable
+  once `M1.5` and `M1.7` add paging and sorting over these tables.
+- **`basedpyright` now covers `catalog`.** Its `include` list named only `config`, `core`, and
+  `tests`, so the new app would otherwise have escaped type checking entirely.
+- **`ImageCredit` maps the manifest by column:** `source_title → title`, `creator → creator`,
+  `license → license`, `source → source`, `source_page → source_page_url`. The names differ
+  between the manifest and `DATA-MODEL.md`; `M1.2` owns the import.
+
+**Impact.** The catalog schema exists, migrates cleanly, and matches the models exactly. Backend
+gates green: `ruff format --check` (31 files), `ruff check`, `basedpyright` (0 errors),
+`makemigrations --check` (no drift), and `pytest` — 30 passed on SQLite and 30 passed against
+PostgreSQL 17.
+
+One limitation is now recorded in `RUNBOOK.md` §8 rather than hidden: **basedpyright cannot see
+reverse foreign-key accessors**, so `category.children` and `product.images` are untyped. The
+tests query explicitly instead. This needs a decision — and an ADR — before `M1.3`.
+
 ### 2026-10-10 — v0.1.11 — Backend CI unblocked (setup-uv pin corrected)
 
 **Context.** The first push of the `M0.9` workflows revealed that `Backend CI` had been failing

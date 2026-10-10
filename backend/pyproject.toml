@@ -48,7 +48,7 @@ addopts = "-q"
 [tool.basedpyright]
 typeCheckingMode = "standard"
 pythonVersion = "3.12"
-include = ["config", "core", "tests"]
+include = ["config", "core", "catalog", "tests"]
 exclude = ["**/migrations", "**/__pycache__"]
 
 [tool.django-stubs]
