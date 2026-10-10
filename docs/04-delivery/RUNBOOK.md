@@ -531,6 +531,50 @@ Notes:
   focus trap, scroll lock, focus return — is deferred to the `M6.2` accessibility pass, where it can
   be tested rather than guessed.
 
+### M1 — home page (M1.8)
+
+`/` renders a text hero and a featured row. The hero ships in the static shell; the row streams in
+behind a `<Suspense>` boundary, which is why the route builds as Partial Prerender rather than static.
+
+Verify it:
+
+```bash
+cd frontend
+pnpm typecheck && pnpm lint && pnpm format:check && pnpm test && pnpm build
+
+curl -s http://localhost:3000/ | grep -o 'Statement pieces'
+curl -s http://localhost:3000/ | grep -oE '<h3[^>]*>[^<]*</h3>' | sed 's/<[^>]*>//g' | head -4
+```
+
+The featured row, in order, against the seeded catalog: Heia Ash Chest Of Drawers ($2,185.00), Heia
+Birch Side Table ($1,881.00), Brisk Ash Dining Chair ($1,065.00), Ravn Birch Coat Rack ($872.00) —
+one from each of Bedroom, Living Room, Dining Room and Storage.
+
+Notes:
+
+- **"Featured" is defined nowhere, so `M1.8` had to define it.** `US-1.5` says only "hero plus a
+  featured grid", and the repository has no `is_featured` field, no API parameter and no curation
+  rule — the word appears in the ROADMAP line, the story and one `UX.md` IA row, and nowhere else.
+  The choice made here was to **derive** the row instead of adding schema: `selectFeatured` takes one
+  piece per category from the priciest page of the catalog.
+- **Why one per category.** The seed inserts category by category, so "newest four" would be four
+  Decor pieces in a row, and "priciest four" would be two Bedroom and two Living Room pieces. One per
+  category is what makes the row read as a range rather than a corner.
+- **The row is labelled honestly rather than "featured"** — "Statement pieces", over "The
+  highest-priced piece from each part of the collection". Calling a derived row "featured" would
+  assert something about the catalog that nothing in the data supports.
+- **Editorial curation, if it is ever wanted, is a backend task**: an `is_featured` column, a
+  migration, a seed that marks products, and a `featured` filter on `/api/v1/products` — which also
+  means regenerating and committing the OpenAPI snapshot. It is deliberately not hidden inside a page
+  milestone.
+- **The hero is text on purpose.** `US-1.5` asks for a "fast LCP", and text keeps the largest paint on
+  a heading inside the static shell. It also avoids an LCP decision, a pick from the licence-clean
+  set, and — because `ADR-0012` routes attribution to `/pages/credits` rather than inline — a silent
+  attribution gap at the focal point of the page.
+- **The home page has no `header`, `nav` or `footer`,** because none exists yet: `layout.tsx` renders
+  only `<html><body>{children}</body></html>`, and the landmarks and skip link `UX.md` section 7 asks
+  for are still outstanding. The page's own call to action is currently the only navigation on it.
+
 ## 7. Deployment (M7)
 
 > Filled in at M7 — Render, Vercel, Supabase steps, environment variables, and the production

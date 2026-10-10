@@ -1,3 +1,4 @@
+import { ProductCardSkeleton } from "./product-card-skeleton";
 import { GRID_COLUMNS } from "./product-grid";
 import { PAGE_SIZE } from "@/lib/pagination";
 
@@ -26,11 +27,7 @@ export function ProductGridSkeleton({ count = PAGE_SIZE }: { count?: number }) {
         <div className="h-5 w-24 rounded bg-border/60" />
         <div className={GRID_COLUMNS}>
           {Array.from({ length: count }, (_, index) => (
-            <div key={index} className="flex flex-col gap-3">
-              <div className="aspect-[4/3] rounded-2xl bg-border/60" />
-              <div className="h-5 w-3/4 rounded bg-border/60" />
-              <div className="h-4 w-1/3 rounded bg-border/60" />
-            </div>
+            <ProductCardSkeleton key={index} />
           ))}
         </div>
       </div>

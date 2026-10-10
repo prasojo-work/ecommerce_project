@@ -6,6 +6,56 @@
 
 ## History
 
+### 2026-10-10 — v0.1.21 — M1.8 home page
+
+**Context.** `M1.8`. `US-1.5` (`Should`) is the entire specification for this page: "hero plus a
+featured grid; fast LCP; primary CTA into the catalog". The hero has no specified content or image,
+the home page has no row in the `UX.md` states matrix, and **"featured" is defined nowhere** — not a
+model field, not an API parameter, not a curation rule. It appears in the ROADMAP line, that
+acceptance criterion and one `UX.md` IA row, and nowhere else. So this milestone had to define it.
+
+**What changed.**
+
+- `app/page.tsx` — the hero in the static shell, the featured row behind a `<Suspense>` boundary.
+- `lib/featured.ts` — `selectFeatured`: one piece per category from a price-ordered pool.
+- `components/product-card-skeleton.tsx` — extracted, now shared by the catalog grid and the home
+  page's row so the two reservations cannot drift from the card they stand in for.
+
+**Decisions taken.**
+
+- **"Featured" is derived, not stored.** An `is_featured` column, a migration, a seed that marks
+  products and a `featured` filter on `/api/v1/products` is a backend task with no milestone in the
+  ROADMAP, and it would commit a new OpenAPI snapshot inside a page milestone. The row is instead
+  selected from what the catalog already says: the priciest product of each category.
+- **One piece per category, because variety is the point of the row.** The seed inserts category by
+  category, so "newest four" would render four Decor pieces and "priciest four" two Bedroom and two
+  Living Room pieces. Measured against the shipped catalog, one per category gives Bedroom
+  ($2,185.00), Living Room ($1,881.00), Dining Room ($1,065.00) and Storage ($872.00).
+- **It is labelled for what it is.** The heading is "Statement pieces" over "The highest-priced piece
+  from each part of the collection". Calling a derived row "featured" would assert something about
+  the catalog that nothing in the data supports, and the honest heading reads better anyway.
+- **The hero is text and nothing else.** `US-1.5` asks for a "fast LCP"; text keeps the largest paint
+  on a heading in the static shell. A photograph would additionally need an LCP decision, a pick from
+  the licence-clean set, and — since `ADR-0012` routes attribution to `/pages/credits` rather than
+  inline — a visible gap at the page's focal point.
+- **No hero display serif.** `UX.md` section 2 offers an optional display face for hero headings;
+  staying with Inter keeps the type system to one family and the font payload to one request.
+- **The section heading sits outside the Suspense boundary** so the shell reserves the section, and
+  the loading state is `FEATURED_COUNT` card skeletons matching the grid's own shapes.
+- **The empty state reuses the catalog's copy.** With no products the row renders "No products yet"
+  — the string `UX.md` section 5 already fixes — rather than inventing a second way to say it.
+
+**Impact.** `/` builds as Partial Prerender (`◐`), not static: the hero ships in the shell and the
+featured row streams. Gates green: `typecheck`, `lint`, `format:check`, `test` (48 tests, up from
+42), `build`. Verified against the seeded SQLite catalog on ports isolated from the development
+instance: one page view costs exactly one API request (no category list is needed here); exactly one
+`<h1>`; the hero, both calls to action and the loading skeleton all ship in the shell; the featured
+row renders exactly four cards — Heia Ash Chest Of Drawers $2,185.00, Heia Birch Side Table
+$1,881.00, Brisk Ash Dining Chair $1,065.00, Ravn Birch Coat Rack $872.00 — matching the
+database-computed expectation for the one-per-category rule precisely, prices descending and four
+distinct categories; cards link through to the detail pages; `/products` is unregressed (24 cards,
+46 products, filter form intact); and no server-side errors are logged.
+
 ### 2026-10-10 — v0.1.20 — M1.7 search, filter and sort
 
 **Context.** `M1.7`. `US-1.3` (Must) asks for keyword search that matches names and keywords, with

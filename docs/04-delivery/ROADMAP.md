@@ -54,7 +54,7 @@ Status legend: `[ ]` planned · `[~]` in progress · `[x]` done.
 - [x] `M1.5` Catalog listing page (grid, pagination, skeletons, empty state), partial-prerendered with the listing streamed behind a Suspense boundary.
 - [x] `M1.6` Product detail page (gallery, price, availability, add-to-cart placeholder, per-product metadata); catalog cards now link to it.
 - [x] `M1.7` Search, filter, and sort with shareable URL state — `?q=`, `?category=`, `?min_price=`, `?max_price=`, `?sort=`, `?page=`, carried through paging.
-- [ ] `M1.8` Home page (hero + featured).
+- [x] `M1.8` Home page (hero + featured), partial-prerendered: text hero in the shell, featured row streamed behind a Suspense boundary.
 - [ ] `M1.9` `/pages/credits` attribution page (`US-6.1`).
 
 ### M2 — Accounts & auth
