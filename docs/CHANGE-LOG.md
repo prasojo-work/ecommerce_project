@@ -6,6 +6,67 @@
 
 ## History
 
+### 2026-10-10 — v0.1.18 — M1.5 catalog listing page
+
+**Context.** `M1.5`, the first page to read the API. Two facts discovered up front shaped it:
+`cacheComponents: true` makes the app partial-prerendered by default, and `UX.md` section 5 already
+asks for a loading state that this architecture provides for free.
+
+**What changed.**
+
+- `app/products/page.tsx` — the listing. The heading renders from the static shell; the result
+  count, the grid, and the pager stream in behind one `<Suspense>` boundary.
+- `components/` — `ProductCard`, `ProductGrid`, `ProductGridSkeleton`, `Pagination`, `EmptyState`,
+  `RetryPanel`, `RetryButton`. `ProductGrid` exports its column classes so the skeleton reserves the
+  identical shape rather than a similar one.
+- `api/client.ts` — the `openapi-fetch` client, typed from `paths` in the generated schema.
+- `lib/money.ts` and `lib/pagination.ts` — price formatting and page arithmetic, both pure and
+  covered by tests.
+
+**Decisions taken.**
+
+- **One `<Suspense>` boundary, and no `loading.tsx`.** The boundary is required — with Cache
+  Components an uncached fetch or a `searchParams` read outside one is a build error — and it is
+  also the card-skeleton loading state the spec asks for. `loading.tsx` would have replaced the
+  heading along with the grid.
+- **The listing is deliberately uncached.** `use cache` would place the grid in the static shell,
+  but nothing invalidates the catalog yet, so a reseed would keep serving withdrawn products until
+  the lifetime expired. Caching wants an invalidation story to go with it.
+- **The pager is links, not buttons.** Paging then works with no client JavaScript, and the page
+  number lives in the URL — the ground `US-1.4` needs for shareable filter state.
+- **A page past the end shows the empty state with the pager intact.** The API returns an empty page
+  rather than a `404` precisely so the client need not special-case it; dropping the pager would
+  strand a visitor who arrived on such a URL.
+- **The grid's column count is a decision, because the spec does not make it.** `UX.md` section 8
+  fixes the breakpoints and `ADR-0013` the tokens, but not the columns: one on the smallest screens
+  for the large imagery section 1 asks for, then two, three, and four.
+- **`parsePage` clamps only to a minimum of one.** A page past the end passes through on purpose,
+  because that is the case the empty state exists for.
+- **`ProductCard` is neither a link nor a stock indicator.** The detail route arrives at `M1.6`, so
+  a link would point at a `404`; `in_stock` belongs to `US-1.2`'s acceptance criteria, not the
+  listing's.
+- **`PAGE_SIZE` is sent explicitly** rather than relying on the API default, so the skeleton
+  reserves exactly as many cards as will arrive.
+
+**A bug that verification caught.** Every build logged six lines of `catalog: GET /api/v1/products
+did not complete … During prerendering, fetch() rejects when the prerender is complete`. The
+blanket `try`/`catch` in the read client was catching React's *intentional* abort of the deferred
+render under Partial Prerendering and reporting it as an unreachable backend — a false alarm that
+would have sent someone hunting an outage that never happened. The fix is `unstable_rethrow(error)`
+at the top of the catch, which the Next docs prescribe for exactly this case and which name `fetch`
+with `cache: 'no-store'` among the APIs concerned. Build noise went from six to zero, while a
+genuinely dead backend still logs and still renders the retry panel. `RUNBOOK.md` section 8 records
+it.
+
+**Impact.** `/products` builds as Partial Prerender (`◐`) — a static shell with the listing
+streamed in — and serves 24 cards per page from a 46-product catalog with a working pager. Gates
+green: frontend `typecheck`, `lint`, `format:check`, `test` (14 tests), `build`. Verified end to end
+against a real server on ports isolated from the development instance: page one renders 24 cards
+and "46 products"; page two renders 22; `?page=99` renders the empty state with a usable pager;
+`?page=abc` falls back to page one; with no backend listening the retry panel renders and the page
+heading survives; and starting the backend against the same build makes the grid appear with no
+rebuild, confirming the read is not cached.
+
 ### 2026-10-10 — v0.1.17 — OpenAPI snapshot and generated frontend types
 
 **Context.** `M1.4`. The frontend has to consume the `M1.3` contract without the two drifting

@@ -375,6 +375,60 @@ Notes:
   too.
 - The consumer of these types arrives at `M1.5`, which builds the catalog grid on them.
 
+### M1 — catalog listing page (M1.5)
+
+The first page to read the API. `/products` renders its heading from the static shell and streams
+the grid, the result count, and the pager behind one `<Suspense>` boundary, so the page paints
+immediately and the listing follows.
+
+Run it:
+
+```bash
+cd backend
+uv run python manage.py migrate
+uv run python manage.py seed
+uv run python manage.py runserver
+
+cd ../frontend
+pnpm dev
+```
+
+Then <http://localhost:3000/products>.
+
+Verify it:
+
+```bash
+cd frontend
+pnpm typecheck && pnpm lint && pnpm format:check && pnpm test && pnpm build
+
+# ">46 products<" and 24 cards, "Page 1 of 2"
+curl -s "http://localhost:3000/products" | grep -o '>[0-9]* products<'
+# 22 cards on the last page
+curl -s "http://localhost:3000/products?page=2" | grep -o 'Page [0-9]* of [0-9]*'
+```
+
+Notes:
+
+- **`pnpm build` must report `/products` as Partial Prerender** (`◐`). That is the intended shape:
+  a static shell with the listing streamed in. `○` would mean the fetch stopped happening, and
+  `ƒ` would mean the boundary was lost.
+- **The `<Suspense>` boundary is required, not stylistic.** With `cacheComponents: true`, an
+  uncached fetch or a `searchParams` read outside a boundary is a build error, because neither can
+  be resolved while the shell is prerendered. It is also the loading state `UX.md` section 5 asks
+  for, which is why there is no `loading.tsx` — that would replace the heading along with the grid.
+- **The listing is deliberately uncached.** `use cache` would let the grid join the static shell,
+  but nothing invalidates the catalog yet, so a reseed would keep serving withdrawn products until
+  the cache lifetime expired. Caching wants an invalidation story to go with it.
+- **The pager is links, not buttons**, so paging works with no client JavaScript and the page
+  number lives in the URL — the ground `US-1.4` needs for shareable filter state.
+- **A page past the end renders the empty state with the pager intact.** The API answers such a
+  page with an empty page rather than a `404` on purpose (`API.md` section 4); dropping the pager
+  would strand a visitor who arrived on that URL.
+- **`ProductCard` is not a link yet.** `US-1.1` asks for image, name, and price, and the detail
+  route does not exist until `M1.6` — a link would point at a `404`.
+- `in_stock` is in the payload but not the grid: availability belongs to the detail-page acceptance
+  criteria (`US-1.2`), not the listing's.
+
 ## 7. Deployment (M7)
 
 > Filled in at M7 — Render, Vercel, Supabase steps, environment variables, and the production
@@ -404,3 +458,11 @@ Notes:
   declared, so `instance.pk` checks, but prefer passing field names as strings —
   `Product.objects.values("id", "parent_id")`, `filter(product_id__in=...)` — which works in every
   reader and keeps a page to a fixed number of queries. `catalog/api.py` is written this way.
+- **A blanket `try`/`catch` around a Server Component `fetch` reports a false outage on every
+  build.** Under Partial Prerendering a request-time `fetch` is aborted once the shell's prerender
+  completes, and Next signals that by throwing — so a `catch` logs "the service could not be
+  reached" for a request that was never meant to finish. Call `unstable_rethrow(error)` as the
+  first line of the catch block. The docs list `fetch` with `cache: 'no-store'`, alongside
+  `cookies`, `headers`, and `searchParams`, as APIs whose errors must be rethrown. Found at `M1.5`:
+  `/products` logged six of these per build, and none after the fix, while a genuinely unreachable
+  backend still logs and still renders the retry panel.
