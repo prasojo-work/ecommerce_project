@@ -483,6 +483,54 @@ Notes:
 - `dimensionParts` labels each dimension it renders, because the API's three are independently
   nullable and a bare `90 × 41` would not say which one is missing.
 
+### M1 — search, filter and sort (M1.7)
+
+`/products` now carries its whole state in the URL: `?q=`, `?category=`, `?min_price=`,
+`?max_price=`, `?sort=`, `?page=`. A filtered, sorted, page-three view is a link someone can send,
+and the back button walks back through what the reader actually did (`US-1.4`).
+
+Verify it against the seeded catalog — every number below is measured, not guessed:
+
+```bash
+cd frontend
+pnpm typecheck && pnpm lint && pnpm format:check && pnpm test && pnpm build
+
+curl -s "http://localhost:3000/products?q=chair"           | grep -o '>[0-9]* products<'  # 3
+curl -s "http://localhost:3000/products?q=zzzz"            | grep -o 'No products match'  # no-results state
+curl -s "http://localhost:3000/products?category=textiles" | grep -o '>[0-9]* products<'  # 11
+curl -s "http://localhost:3000/products?max_price=10000"   | grep -o '>[0-9]* products<'  # 11
+curl -s "http://localhost:3000/products?sort=-price"       # first card renders $2,185.00
+curl -s "http://localhost:3000/products?sort=price"        # first card renders $40.00
+```
+
+Notes:
+
+- **The price bands are links, not form controls.** A band is *two* parameters (`min_price` and
+  `max_price`), and a radio group or a `<select>` can submit only one value. Encoding the band as a
+  single value would mean a second vocabulary for the URL that could no longer round-trip a
+  hand-typed `min_price`/`max_price` — and the URL is the exact thing `US-1.4` requires to be
+  shareable. So search, category and sort live in one GET form (which works with JavaScript off)
+  and the bands are links carrying `API.md` section 4's own parameters.
+- **The price bounds ride along as hidden inputs.** The form cannot display them, since they belong
+  to the band links, so without this, typing a search term and pressing Apply would silently drop
+  the price filter. Verified: `?min_price=75000` renders `<input type="hidden" name="min_price"
+  value="75000">`.
+- **Paging keeps the filters.** On a sorted view the Next link is `/products?sort=-price&page=2`.
+  Without that, a shared page three would quietly show an unfiltered listing.
+- **An unknown `category` is passed through, not validated away.** The API answers it with zero
+  results rather than an error, and that is the explicit no-results state `US-1.3` asks for.
+  Validating it in the storefront would turn that state into a silently unfiltered listing.
+- **Anything the API would `400` on falls back rather than being sent** — a bad `sort`, a `page`
+  below one, a negative bound. `?sort=cheapest&page=0&min_price=-5` renders all 46 products.
+- **`SortSelect` submits its own form.** It is a client component only so a sort applies as soon as
+  it changes; it calls `requestSubmit()` on the form rather than pushing a URL, so the navigation is
+  the one the Apply button makes and the URL stays the single source of state. With JavaScript off
+  the select waits for Apply, and nothing breaks.
+- **The `<details>` panel is a deliberate part of `UX.md` section 8's mobile drawer**, open by
+  default: a phone reader can collapse it and nothing needs JavaScript. The true overlay drawer —
+  focus trap, scroll lock, focus return — is deferred to the `M6.2` accessibility pass, where it can
+  be tested rather than guessed.
+
 ## 7. Deployment (M7)
 
 > Filled in at M7 — Render, Vercel, Supabase steps, environment variables, and the production
@@ -520,3 +568,8 @@ Notes:
   `cookies`, `headers`, and `searchParams`, as APIs whose errors must be rethrown. Found at `M1.5`:
   `/products` logged six of these per build, and none after the fix, while a genuinely unreachable
   backend still logs and still renders the retry panel.
+- **Running `pnpm build` while `pnpm dev` is running can break the dev server.** Both use `.next`,
+  so a build overwrites the tree the dev server is serving from and it can stop responding —
+  `curl` then fails with a connection error and nothing obvious is logged. Stop the dev server
+  before building. This is easy to walk into when a verification pass builds repeatedly while a
+  development server is open in another terminal.

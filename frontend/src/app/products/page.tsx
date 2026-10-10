@@ -1,13 +1,16 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { Suspense } from "react";
 
-import { fetchProducts } from "@/api/client";
+import { fetchCategories, fetchProducts } from "@/api/client";
+import { CatalogFilters } from "@/components/catalog-filters";
 import { EmptyState } from "@/components/empty-state";
 import { Pagination } from "@/components/pagination";
 import { ProductGrid } from "@/components/product-grid";
 import { ProductGridSkeleton } from "@/components/product-grid-skeleton";
 import { RetryPanel } from "@/components/retry-panel";
-import { PAGE_SIZE, pageCount, parsePage } from "@/lib/pagination";
+import { isFiltered, parseCatalogQuery } from "@/lib/catalog-query";
+import { pageCount } from "@/lib/pagination";
 
 export const metadata: Metadata = {
   title: "Catalog — LYSHEIM",
@@ -15,13 +18,16 @@ export const metadata: Metadata = {
 };
 
 /**
- * The catalog listing page (`UX.md` section 5: grid, pagination, card skeletons, empty state).
+ * The catalog listing page (`UX.md` section 5: search, filter, sort, pagination).
  *
- * The heading renders immediately and everything that depends on the listing sits behind one
- * `<Suspense>` boundary: the result count, the grid, and the pager. That boundary is doing double
- * duty. It is the loading state, and with `cacheComponents: true` it is also required — the
- * uncached fetch and the `searchParams` read below would otherwise be a build-time error, because
- * they cannot be resolved while the static shell is prerendered.
+ * The heading renders immediately and everything that depends on data sits behind one `<Suspense>`
+ * boundary. That boundary is doing double duty, as on the rest of the catalogue: it is the loading
+ * state, and with `cacheComponents: true` it is also required, because the uncached reads and the
+ * `searchParams` read below cannot be resolved while the static shell is being prerendered.
+ *
+ * All listing state lives in the URL and none of it in component state, which is what `US-1.4`
+ * means by "the URL reflects the filter state": a filtered, sorted, page-three view is a link
+ * somebody can send, and the back button walks back through what the reader actually did.
  */
 export default function CatalogPage(props: PageProps<"/products">) {
   return (
@@ -35,33 +41,55 @@ export default function CatalogPage(props: PageProps<"/products">) {
 }
 
 async function CatalogResults({ searchParams }: Pick<PageProps<"/products">, "searchParams">) {
-  const page = parsePage((await searchParams).page);
-  const result = await fetchProducts(page, PAGE_SIZE);
+  const query = parseCatalogQuery(await searchParams);
 
-  // A failure keeps the heading and the page furniture and reports itself in place, rather than
-  // handing the whole route to an error boundary.
-  if (!result.ok) {
-    return <RetryPanel message={result.message} />;
+  // Concurrently: the controls need the category list, the grid needs the products, and neither
+  // waits on the other.
+  const [products, categories] = await Promise.all([fetchProducts(query), fetchCategories()]);
+
+  // A failure keeps the heading and reports itself in place, rather than handing the route to an
+  // error boundary.
+  if (!products.ok) {
+    return <RetryPanel message={products.message} />;
   }
 
-  const { items, total } = result.data;
+  const { items, total } = products.data;
 
-  // The pager is rendered even when this page is empty. The API answers a page past the end with
-  // an empty page rather than a `404` so the client can handle it without special-casing, and
-  // dropping the pager here would strand a visitor who arrived on such a URL.
   return (
-    <div className="mt-8">
-      <p className="text-sm text-muted">
-        {total} {total === 1 ? "product" : "products"}
-      </p>
-      <div className="mt-6">
-        {items.length === 0 ? (
-          <EmptyState title="No products yet" />
-        ) : (
-          <ProductGrid products={items} />
-        )}
+    <>
+      {/* A failed category fetch drops the control rather than offering an empty one. */}
+      <CatalogFilters query={query} categories={categories.ok ? categories.categories : null} />
+
+      <div className="mt-8">
+        <p className="text-sm text-muted">
+          {total} {total === 1 ? "product" : "products"}
+        </p>
+        <div className="mt-6">
+          {items.length === 0 ? (
+            // Nothing matched, which is a different thing from an empty catalog — and the one
+            // `US-1.3` asks to report with a way out.
+            isFiltered(query) ? (
+              <EmptyState
+                title="No products match"
+                description="Try a broader search, or remove a filter."
+                action={
+                  <Link
+                    href="/products"
+                    className="inline-flex min-h-11 items-center rounded-lg bg-primary px-6 text-primary-ink"
+                  >
+                    Clear all filters
+                  </Link>
+                }
+              />
+            ) : (
+              <EmptyState title="No products yet" />
+            )
+          ) : (
+            <ProductGrid products={items} />
+          )}
+        </div>
+        <Pagination page={query.page} totalPages={pageCount(total)} query={query} />
       </div>
-      <Pagination page={page} totalPages={pageCount(total)} />
-    </div>
+    </>
   );
 }

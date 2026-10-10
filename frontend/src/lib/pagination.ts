@@ -1,3 +1,5 @@
+import { firstValue } from "./search-params";
+
 /**
  * A page of the catalog grid.
  *
@@ -16,7 +18,7 @@ export const PAGE_SIZE = 24;
  * than a `404`, which is what lets the storefront render its no-products state.
  */
 export function parsePage(value: string | string[] | undefined): number {
-  const raw = Array.isArray(value) ? value[0] : value;
+  const raw = firstValue(value);
   if (raw === undefined) {
     return 1;
   }

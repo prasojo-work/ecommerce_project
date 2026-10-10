@@ -1,7 +1,10 @@
 import { unstable_rethrow } from "next/navigation";
 import createClient from "openapi-fetch";
 
+import type { CategoryNode } from "@/lib/categories";
+import type { CatalogQuery } from "@/lib/catalog-query";
 import { getApiBaseUrl } from "@/lib/config";
+import { PAGE_SIZE } from "@/lib/pagination";
 
 import type { components, paths } from "./schema";
 
@@ -37,10 +40,22 @@ export type ProductsResult = { ok: true; data: ProductPage } | { ok: false; mess
  * withdrawn products until the cache lifetime expired. Correctness first: caching wants an
  * invalidation story to go with it.
  */
-export async function fetchProducts(page: number, pageSize: number): Promise<ProductsResult> {
+export async function fetchProducts(query: CatalogQuery): Promise<ProductsResult> {
   try {
     const { data, response } = await client.GET("/api/v1/products", {
-      params: { query: { page, page_size: pageSize } },
+      params: {
+        query: {
+          page: query.page,
+          // Sent from `PAGE_SIZE` rather than left to the API's default so the loading skeleton
+          // reserves exactly as many cards as will arrive.
+          page_size: PAGE_SIZE,
+          q: query.q,
+          category: query.category,
+          min_price: query.minPrice,
+          max_price: query.maxPrice,
+          sort: query.sort,
+        },
+      },
     });
 
     if (data) {
@@ -50,7 +65,7 @@ export async function fetchProducts(page: number, pageSize: number): Promise<Pro
     // The schema documents only `200` responses, so openapi-fetch cannot type the body of a
     // failure. The status is the reliable signal, and it belongs in the server log rather than
     // in copy a customer reads (`UX.md` section 9 forbids jargon).
-    console.error(`catalog: GET /api/v1/products answered ${response.status} for page ${page}`);
+    console.error(`catalog: GET /api/v1/products answered ${response.status}`, query);
     return { ok: false, message: "The catalog service is having trouble right now." };
   } catch (error) {
     // Partial Prerendering aborts a request-time `fetch` once the shell's prerender finishes, and
@@ -60,6 +75,33 @@ export async function fetchProducts(page: number, pageSize: number): Promise<Pro
     // caught. Without it every build logs a backend outage that never happened.
     unstable_rethrow(error);
     console.error("catalog: GET /api/v1/products did not complete", error);
+    return { ok: false, message: "The catalog service could not be reached." };
+  }
+}
+
+export type CategoriesResult =
+  { ok: true; categories: CategoryNode[] } | { ok: false; message: string };
+
+/**
+ * The category tree, for the listing's category filter.
+ *
+ * Uncached for the same reason as the listing: nothing invalidates the catalog yet. A failure is
+ * returned rather than thrown, and the caller drops the category control rather than showing an
+ * empty one — a filter that silently offers no categories is worse than no filter.
+ */
+export async function fetchCategories(): Promise<CategoriesResult> {
+  try {
+    const { data, response } = await client.GET("/api/v1/categories", {});
+
+    if (data) {
+      return { ok: true, categories: data.items };
+    }
+
+    console.error(`catalog: GET /api/v1/categories answered ${response.status}`);
+    return { ok: false, message: "The catalog service is having trouble right now." };
+  } catch (error) {
+    unstable_rethrow(error);
+    console.error("catalog: GET /api/v1/categories did not complete", error);
     return { ok: false, message: "The catalog service could not be reached." };
   }
 }

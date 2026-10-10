@@ -6,6 +6,71 @@
 
 ## History
 
+### 2026-10-10 — v0.1.20 — M1.7 search, filter and sort
+
+**Context.** `M1.7`. `US-1.3` (Must) asks for keyword search that matches names and keywords, with
+an explicit "no results" state carrying a recovery suggestion. `US-1.4` (Should) asks for category
+and **price band** filtering plus price/newest sorting, with "the URL reflects the filter state so
+results are shareable and back-button safe".
+
+**What changed.**
+
+- `lib/catalog-query.ts` — the URL contract: parse, validate and rebuild the listing state.
+- `lib/search-params.ts` — one place that unwraps a repeated query parameter.
+- `lib/categories.ts` — flattens the category tree into the options a `<select>` needs.
+- `components/catalog-filters.tsx` — search, category, price and sort in one GET form.
+- `components/sort-select.tsx` — applies a sort on change, without leaving the form or the URL.
+- `Pagination` now carries the filters; `EmptyState` gained a description and an action; the
+  skeleton mirrors the filter panel so the grid does not move when it appears.
+- `api/client.ts` — `fetchProducts` takes the parsed query; `fetchCategories` feeds the category
+  control.
+
+**Decisions taken.**
+
+- **Price bands are links, not form controls.** A band is *two* parameters, and a radio group or a
+  `<select>` can submit only one value. A single-value band parameter would create a second
+  vocabulary for the URL that could no longer round-trip a hand-typed `min_price`/`max_price` — and
+  the URL is precisely what `US-1.4` requires to be shareable. The bands therefore carry `API.md`
+  section 4's own parameters, while search, category and sort sit in one GET form that also works
+  with JavaScript off.
+- **The bands' bounds ride along as hidden inputs.** The form cannot display them, so without this a
+  search would silently drop the price filter. Verified in the rendered HTML.
+- **Band thresholds are measured, not guessed.** The catalog runs $40–$2,185 with p25 $113, p50 $216
+  and p75 $837; $100 / $250 / $750 splits it 11 / 13 / 8 / 14, so no band is decorative. A price
+  exactly on a boundary belongs to both neighbours, because `max_price` is inclusive — round numbers
+  in a shared URL are worth more than exclusivity on a value no product actually has.
+- **Price *bands*, because that is what the acceptance criterion says.** Arbitrary `min_price`/
+  `max_price` still work in the URL and still round-trip; the UI simply offers four useful choices
+  instead of a pair of money inputs, whose units no form could convert to cents without JavaScript.
+- **An unknown category is passed through, not validated away.** The API answers it with zero
+  results rather than an error, so validating it in the storefront would turn `US-1.3`'s no-results
+  state into a silently unfiltered listing.
+- **Anything the API would reject falls back rather than being sent** — a bad `sort`, a `page` below
+  one, a negative bound — so a stale or hand-edited link degrades to a valid listing instead of a
+  `400` and a retry panel.
+- **`SortSelect` submits its own form.** A client component only so that sorting applies on change;
+  it calls `requestSubmit()` rather than pushing a URL, keeping the navigation identical to the
+  Apply button's and the URL the single source of state.
+- **The no-results copy is authored, because the specification does not supply it.** Every reference
+  asks for "a recovery suggestion" and never gives the sentence. The state distinguishes an empty
+  catalog ("No products yet", fixed by `UX.md` section 5) from a search or filter that matched
+  nothing ("No products match", plus a way out).
+- **`UX.md` section 8's mobile drawer is deliberately partial.** The panel is a `<details>`, open by
+  default, so a phone reader can collapse it with no JavaScript at all. A true overlay drawer —
+  focus trap, scroll lock, focus return — belongs to the `M6.2` accessibility pass, where it can be
+  tested rather than guessed.
+
+**Impact.** `/products` carries its entire state in the URL. Gates green: `typecheck`, `lint`,
+`format:check`, `test` (42 tests, up from 22), `build`, with `/products` still building as Partial
+Prerender. Verified end to end against the seeded SQLite catalog on ports isolated from the
+development instance: one page view costs exactly two API requests (products + categories); `q=chair`
+returns 3 and `q=zzzz` renders the no-results state with its recovery suggestion; the filter counts
+match the database exactly (`textiles` 11, `living-room` 6, `max_price=10000` 11, `min_price=75000`
+14); `sort=-price` starts at $2,185.00 and `sort=price` at $40.00, with page two of the descending
+sort starting at $197.00, which the database independently confirms is the 25th price; the pager link
+on a sorted view is `/products?sort=-price&page=2`, so filters survive paging; and
+`?sort=cheapest&page=0&min_price=-5` degrades to a valid unfiltered listing rather than a `400`.
+
 ### 2026-10-10 — v0.1.19 — M1.6 product detail page
 
 **Context.** `M1.6`. `US-1.2` fixes the content — image gallery, price, description, availability,
