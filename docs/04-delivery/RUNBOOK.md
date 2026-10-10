@@ -198,6 +198,31 @@ Note: the seeders themselves arrive with the catalog at `M1.2`. They are registe
 idempotent — that is what makes a bare `manage.py seed` safe to re-run. `--reset` calls the
 optional `clear` hook of each step in reverse order before seeding.
 
+### M0 — Tailwind styling (M0.2, revised)
+
+Run it:
+
+```bash
+cd frontend
+pnpm install
+pnpm dev
+```
+
+Verify it:
+
+```bash
+# gates — Tailwind runs inside the Next build, so a broken @theme fails the build
+pnpm typecheck && pnpm lint && pnpm format:check && pnpm test && pnpm build
+
+# 200, rendering the LYSHEIM placeholder
+curl -s http://localhost:3000 | grep -o 'LYSHEIM'
+```
+
+Note: styling is Tailwind CSS (`ADR-0013`). The design tokens from `UX.md` §2 are declared in
+the `@theme` block in `frontend/src/app/globals.css`, so `bg-canvas`, `text-ink`, and
+`max-w-measure` are generated from those values. Changing a token means editing that block, not
+adding a custom class. CSS Modules are retired.
+
 ## 7. Deployment (M7)
 
 > Filled in at M7 — Render, Vercel, Supabase steps, environment variables, and the production

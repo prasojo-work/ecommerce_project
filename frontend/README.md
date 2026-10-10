@@ -5,8 +5,9 @@ Next.js (App Router, React Server Components) + TypeScript. See the project docs
 
 ## Conventions
 
-- **Design tokens** live in `src/app/globals.css` and are the single source of truth from
-  `UX.md` §2. Components use the `--lys-*` variables, never raw hex values.
+- **Tailwind CSS** does the styling (`ADR-0013`). The design tokens from `UX.md` §2 are declared
+  in the `@theme` block in `src/app/globals.css`; use the utilities it generates (`bg-canvas`,
+  `text-ink`, `max-w-measure`) rather than raw hex values or inline styles.
 - **Server components by default.** Add `"use client"` only where interactivity requires it.
 - **Configuration** comes from the environment; only `NEXT_PUBLIC_*` values reach the browser.
 

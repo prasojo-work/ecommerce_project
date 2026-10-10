@@ -1,91 +1,71 @@
 /* LYSHEIM design tokens and base styles.
  *
- * Tokens are the single source of truth from docs/02-product/UX.md section 2; components use
- * these variables instead of raw values. Never encode state by colour alone (SCOPE.md NFR-2).
+ * The values are the single source of truth from docs/02-product/UX.md section 2. Declaring
+ * them inside @theme makes Tailwind generate utilities from them — bg-canvas, text-ink,
+ * max-w-measure — so components compose utilities instead of hand-written CSS. Never encode
+ * state by colour alone (SCOPE.md NFR-2).
+ *
+ * Spacing and radii deliberately have no custom entries: the project's 4px scale and its
+ * 8px/16px radii are exactly Tailwind's defaults (p-1 = 4px, rounded-lg = 8px,
+ * rounded-2xl = 16px).
  */
 
-:root {
+@import "tailwindcss";
+
+@theme {
   /* Palette — warm neutrals + a calm brand green */
-  --lys-canvas: #faf7f2;
-  --lys-surface: #ffffff;
-  --lys-ink: #1c1917;
-  --lys-muted: #57534e;
-  --lys-border: #e7e1d8;
-  --lys-primary: #2f6b4f;
-  --lys-primary-ink: #ffffff;
-  --lys-accent: #b4552e;
-  --lys-success: #2f6b4f;
-  --lys-warning: #8a5a00;
-  --lys-danger: #a5372c;
+  --color-canvas: #faf7f2;
+  --color-surface: #ffffff;
+  --color-ink: #1c1917;
+  --color-muted: #57534e;
+  --color-border: #e7e1d8;
+  --color-primary: #2f6b4f;
+  --color-primary-ink: #ffffff;
+  --color-accent: #b4552e;
+  --color-success: #2f6b4f;
+  --color-warning: #8a5a00;
+  --color-danger: #a5372c;
 
   /* Type scale (rem) */
-  --lys-fs-xs: 0.75rem;
-  --lys-fs-sm: 0.875rem;
-  --lys-fs-base: 1rem;
-  --lys-fs-lg: 1.125rem;
-  --lys-fs-xl: 1.25rem;
-  --lys-fs-2xl: 1.5rem;
-  --lys-fs-3xl: 1.875rem;
-  --lys-fs-4xl: 2.375rem;
-  --lys-fs-5xl: 3rem;
+  --text-xs: 0.75rem;
+  --text-sm: 0.875rem;
+  --text-base: 1rem;
+  --text-lg: 1.125rem;
+  --text-xl: 1.25rem;
+  --text-2xl: 1.5rem;
+  --text-3xl: 1.875rem;
+  --text-4xl: 2.375rem;
+  --text-5xl: 3rem;
 
-  /* Spacing (4px base) */
-  --lys-space-1: 4px;
-  --lys-space-2: 8px;
-  --lys-space-3: 12px;
-  --lys-space-4: 16px;
-  --lys-space-6: 24px;
-  --lys-space-8: 32px;
-  --lys-space-12: 48px;
-  --lys-space-16: 64px;
+  /* Body line length capped at ~70 characters (UX.md section 2) */
+  --container-measure: 70ch;
 
-  --lys-radius: 8px;
-  --lys-radius-lg: 16px;
-
-  /* Typography — body line length capped at ~70 characters (UX.md section 2) */
-  --lys-font-sans: var(--font-inter), system-ui, -apple-system, "Segoe UI", sans-serif;
-  --lys-measure: 70ch;
+  --font-sans: var(--font-inter), system-ui, -apple-system, "Segoe UI", sans-serif;
 }
 
-*,
-*::before,
-*::after {
-  box-sizing: border-box;
-}
+/* Cross-cutting rules that must hold on every route. Anything component-specific belongs in a
+ * utility on that component instead. */
+@layer base {
+  body {
+    background-color: var(--color-canvas);
+    color: var(--color-ink);
+  }
 
-html {
-  -webkit-text-size-adjust: 100%;
-}
+  h1,
+  h2,
+  h3,
+  h4 {
+    line-height: 1.2;
+    text-wrap: balance;
+  }
 
-body {
-  margin: 0;
-  background: var(--lys-canvas);
-  color: var(--lys-ink);
-  font-family: var(--lys-font-sans);
-  font-size: var(--lys-fs-base);
-  line-height: 1.6;
-}
+  a {
+    color: var(--color-primary);
+  }
 
-h1,
-h2,
-h3,
-h4 {
-  line-height: 1.2;
-  text-wrap: balance;
-}
-
-a {
-  color: var(--lys-primary);
-}
-
-img,
-svg {
-  max-width: 100%;
-  height: auto;
-}
-
-/* Visible keyboard focus is required on every route (UX.md section 7). */
-:focus-visible {
-  outline: 3px solid var(--lys-primary);
-  outline-offset: 2px;
+  /* Visible keyboard focus is required on every route (UX.md section 7). */
+  :focus-visible {
+    outline: 3px solid var(--color-primary);
+    outline-offset: 2px;
+  }
 }

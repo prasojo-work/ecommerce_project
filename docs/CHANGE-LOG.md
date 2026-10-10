@@ -6,6 +6,49 @@
 
 ## History
 
+### 2026-10-10 — v0.1.10 — Tailwind CSS adopted (revises M0.2)
+
+**Context.** The founder reversed the `M0.2` "no styling framework" decision before the catalog
+UI is built, so the storefront is written in one styling system instead of two. Recorded as
+`ADR-0013` — the ADR the `v0.1.6` entry asked for.
+
+**What changed.**
+
+- `ADR-0013-tailwind-css.md` — the decision, the options considered, and the consequences; added
+  to the decision index in `ARCHITECTURE.md` §11.
+- `tailwindcss` and `@tailwindcss/postcss` 4.3.3, plus `postcss` 8.5.29, as frontend
+  devDependencies, wired through a new `postcss.config.mjs`.
+- `src/app/globals.css` — rewritten around `@import "tailwindcss"` and a `@theme` block that
+  declares the `UX.md` §2 tokens, so Tailwind generates utilities from them. A small
+  `@layer base` keeps the rules that must hold on every route: the `:focus-visible` ring
+  (`UX.md` §7), heading line-height and `text-wrap: balance`, the anchor colour, and the body
+  background and text colours.
+- `src/app/page.tsx` — the placeholder composes utilities now, and `src/app/page.module.css` is
+  deleted, retiring CSS Modules.
+- `frontend/README.md` — the styling convention points at Tailwind and the `@theme` block.
+
+**Decisions taken.**
+
+- **Token *declaration* moves; token *values* do not.** `UX.md` §2 stays the source of truth —
+  the values are declared in `@theme` instead of as standalone custom properties. No colour,
+  size, or measure changed.
+- **Custom theme entries only where Tailwind's defaults differ.** The project's 4px spacing scale
+  and its 8px/16px radii are exactly Tailwind's defaults, so no `--spacing-*` or `--radius-*`
+  entries were added: `p-4` and `rounded-lg` already mean the token values. Only the palette, the
+  type scale, the 70ch measure, and the font stack needed declaring.
+- **A `@layer base` for cross-cutting rules.** The focus ring is an accessibility requirement on
+  every route (`UX.md` §7), so it stays global rather than being repeated per component and
+  eventually forgotten.
+- **The `v0.1.6` entry is not rewritten.** It was accurate when written; this entry and
+  `ADR-0013` record the reversal, per the append-only rule.
+
+**Impact.** The frontend styles through one system, and `M1.5`–`M1.9` are written in it from
+their first commit. Frontend gates green: `typecheck`, `lint`, `format:check`, `vitest`
+(2 passed), and `build`. The build is the meaningful check — Tailwind only fails loudly when
+PostCSS compiles the CSS — and the emitted stylesheet was inspected directly: 7.6 KB containing
+the palette (`#faf7f2`), the `70ch` measure, and the generated `max-w-measure`, `text-muted`,
+and `tracking-tight` utilities, with the `focus-visible` and `text-wrap` base rules intact.
+
 ### 2026-10-10 — v0.1.9 — M0.8 seed command skeleton landed
 
 **Context.** The last M0 increment: a seeding entry point that later milestones fill in, so the

@@ -192,3 +192,4 @@ sketch (final design and its ADRs are produced when Phase 2 starts):
 - `ADR-0010` Mock-first payments
 - `ADR-0011` Deployment stack & free-tier constraints
 - `ADR-0012` Image licensing & attribution policy
+- `ADR-0013` Tailwind CSS for frontend styling
