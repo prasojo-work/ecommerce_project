@@ -16,13 +16,15 @@ from django.http import HttpRequest
 from ninja import Query, Router
 from ninja.errors import HttpError
 
-from catalog.models import Category, Product, ProductImage, ProductVariant
+from catalog.models import Category, ImageCredit, Product, ProductImage, ProductVariant
 from catalog.schemas import (
     AvailabilitySchema,
     CategoryDetailSchema,
     CategoryRefSchema,
     CategorySchema,
     CategoryTreeSchema,
+    CreditListSchema,
+    CreditSchema,
     ImageSchema,
     MoneySchema,
     PageFilters,
@@ -278,3 +280,31 @@ def product_detail(request: HttpRequest, slug: str) -> ProductDetailSchema:
             in_stock=in_stock_variants > 0, in_stock_variants=in_stock_variants
         ),
     )
+
+
+@router.get("/credits", response=CreditListSchema, summary="Image credits")
+def list_credits(request: HttpRequest) -> CreditListSchema:
+    """Attribution for every image the catalog ships (`US-6.1`).
+
+    Read through the images rather than through the credit table, because the criterion asks for
+    every *shipped* image: `ProductImage.credit` is nullable with `on_delete=SET_NULL`, so a credit
+    row can outlive the image that described it. Going through the forward foreign key rather than
+    the reverse accessor follows `ADR-0014`.
+
+    Not paginated: `US-6.1` asks for the complete list, and 46 attribution lines belong on one page.
+    """
+    credited = ProductImage.objects.exclude(credit__isnull=True).values_list("credit_id", flat=True)
+    rows = ImageCredit.objects.filter(id__in=credited).values(
+        "title", "creator", "license", "source", "source_page_url"
+    )
+    items = [
+        CreditSchema(
+            title=row["title"],
+            creator=row["creator"],
+            license=row["license"],
+            source=row["source"],
+            source_page_url=row["source_page_url"],
+        )
+        for row in rows
+    ]
+    return CreditListSchema(items=items, total=len(items))

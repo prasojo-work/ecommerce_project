@@ -141,3 +141,27 @@ class ProductFilters(PageFilters):
     min_price: int | None = Field(default=None, ge=0, description="Minimum price, in cents.")
     max_price: int | None = Field(default=None, ge=0, description="Maximum price, in cents.")
     sort: SortOption = SortOption.NAME
+
+
+class CreditSchema(Schema):
+    """Attribution for one source image (`US-6.1`, `ADR-0012`).
+
+    Mirrors the `ImageCredit` row rather than reshaping it: `US-6.1` names creator, licence and
+    source URL, and `ADR-0012` records the source title and the provider alongside them.
+    """
+
+    title: str
+    creator: str
+    license: str
+    source: str
+    source_page_url: str
+
+
+class CreditListSchema(Schema):
+    """The attribution list.
+
+    Not paginated: `US-6.1` asks for every shipped image, and the catalog ships 46 of them.
+    """
+
+    items: list[CreditSchema]
+    total: int

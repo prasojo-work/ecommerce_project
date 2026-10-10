@@ -10,9 +10,12 @@ import type { ProductDetail } from "@/api/client";
  * list, so a product with more images later is a data change rather than a rewrite.
  *
  * `object-contain`, never `object-cover`. `ADR-0012` excludes `BY-ND` images "from any cropping or
- * alteration", the payload carries no licence for the UI to branch on, and 8 of the 46 shipped
- * images are `BY-ND` — so nothing may be cropped. The cost is letterboxing, because the source
- * ratios are genuinely mixed (4:3, 3:2, 3:4, square). `ProductCard` follows the same rule.
+ * alteration", and no licence reaches the payload for the UI to branch on. The shipped set is
+ * currently 33 `BY`, 11 `BY-SA`, 1 `PDM` and 1 `CC0` with no `BY-ND` at all — curation drops those
+ * images rather than editing them — but nothing in the payload would tell the UI if that changed, so
+ * the rule does not depend on it staying true. The cost is letterboxing, and the source ratios are
+ * genuinely mixed (4:3, 3:2, 3:4, square), so it costs less than it sounds. `ProductCard` follows the
+ * same rule.
  *
  * `priority` because this image is the page's LCP candidate (`NFR-1`).
  */

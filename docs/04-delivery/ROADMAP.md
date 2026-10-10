@@ -55,7 +55,7 @@ Status legend: `[ ]` planned · `[~]` in progress · `[x]` done.
 - [x] `M1.6` Product detail page (gallery, price, availability, add-to-cart placeholder, per-product metadata); catalog cards now link to it.
 - [x] `M1.7` Search, filter, and sort with shareable URL state — `?q=`, `?category=`, `?min_price=`, `?max_price=`, `?sort=`, `?page=`, carried through paging.
 - [x] `M1.8` Home page (hero + featured), partial-prerendered: text hero in the shell, featured row streamed behind a Suspense boundary.
-- [ ] `M1.9` `/pages/credits` attribution page (`US-6.1`).
+- [x] `M1.9` `/pages/credits` attribution page (`US-6.1`), reading a new public `/api/v1/credits` endpoint: every shipped image credited from the database, licence codes linked to their Creative Commons deeds.
 
 ### M2 — Accounts & auth
 

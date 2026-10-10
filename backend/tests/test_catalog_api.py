@@ -281,6 +281,7 @@ def test_openapi_documents_every_catalog_path() -> None:
     assert set(schema["paths"]) == {
         "/api/v1/categories",
         "/api/v1/categories/{slug}",
+        "/api/v1/credits",
         "/api/v1/products",
         "/api/v1/products/{slug}",
     }
@@ -292,3 +293,35 @@ def test_openapi_documents_the_product_filters() -> None:
     names = {parameter["name"] for parameter in parameters}
 
     assert {"category", "q", "min_price", "max_price", "sort", "page", "page_size"} <= names
+
+
+def test_credits_covers_every_shipped_image() -> None:
+    """`US-6.1`: the attribution for every shipped image, sourced from the manifest."""
+    response = client.get("/api/v1/credits")
+
+    assert response.status_code == 200
+    body = response.json()
+    # The seed ships exactly one image per product, so the image count is the product count.
+    assert body["total"] == TOTAL_PRODUCTS
+    assert len(body["items"]) == body["total"]
+
+
+def test_every_credit_carries_what_us_6_1_names() -> None:
+    for credit in _items("/api/v1/credits"):
+        assert credit["title"]
+        assert credit["creator"]
+        assert credit["license"]
+        assert credit["source"]
+        assert credit["source_page_url"].startswith("https://")
+
+
+def test_no_shipped_image_is_licensed_no_derivatives() -> None:
+    """`ADR-0012` drops `BY-ND` images rather than editing them, so none of them ship.
+
+    The vendored manifest carries eight `BY-ND` rows and not one of them is in the curated set. This
+    is the assertion that keeps that true if the manifest or the curation is touched again: a
+    `BY-ND` image reaching the storefront would turn every render of it into a licence question.
+    """
+    licences = {credit["license"] for credit in _items("/api/v1/credits")}
+
+    assert not any("ND" in licence.upper() for licence in licences)

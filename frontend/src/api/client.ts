@@ -106,6 +106,33 @@ export async function fetchCategories(): Promise<CategoriesResult> {
   }
 }
 
+export type Credit = components["schemas"]["CreditSchema"];
+
+export type CreditsResult = { ok: true; credits: Credit[] } | { ok: false; message: string };
+
+/**
+ * Every shipped image's attribution, for `/pages/credits` (`US-6.1`).
+ *
+ * Uncached like the rest of the catalog reads: nothing invalidates it yet, and a reseed rewrites
+ * credits along with the products they belong to.
+ */
+export async function fetchCredits(): Promise<CreditsResult> {
+  try {
+    const { data, response } = await client.GET("/api/v1/credits", {});
+
+    if (data) {
+      return { ok: true, credits: data.items };
+    }
+
+    console.error(`catalog: GET /api/v1/credits answered ${response.status}`);
+    return { ok: false, message: "The catalog service is having trouble right now." };
+  } catch (error) {
+    unstable_rethrow(error);
+    console.error("catalog: GET /api/v1/credits did not complete", error);
+    return { ok: false, message: "The catalog service could not be reached." };
+  }
+}
+
 export type ProductDetailResult =
   | { ok: true; product: ProductDetail }
   | { ok: false; kind: "not-found" }

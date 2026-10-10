@@ -470,10 +470,11 @@ Notes:
   because Next replaces the global `fetch` to add that memoisation and a captured reference can
   predate the replacement.
 - **Nothing is cropped, anywhere.** `ADR-0012` excludes `BY-ND` images "from any cropping or
-  alteration", the payload carries no licence for the UI to branch on, and 8 of the 46 shipped
-  images are `BY-ND` — so both the gallery and the card use `object-contain`. The source ratios are
-  genuinely mixed (4:3, 3:2, 3:4, square, one 4.15:1), so expect letterboxing; that is the cost of
-  staying licence-compliant.
+  alteration", so both the gallery and the card use `object-contain`. The payload carries no licence
+  for the UI to branch on, so the rule does not depend on the shipped set staying licence-clean. The
+  source ratios are genuinely mixed (4:3, 3:2, 3:4, square, one 4.15:1), so expect letterboxing; that
+  is the cost of staying licence-compliant. *(Corrected at `M1.9`: this bullet previously claimed 8
+  of the 46 shipped images were `BY-ND`. They are not — see the `M1.9` note below.)*
 - **The gallery renders one image**, because the source set holds one per product. Multi-image
   galleries are deferred rather than overlooked, and the component renders from the list, so more
   images is a data change.
@@ -574,6 +575,60 @@ Notes:
 - **The home page has no `header`, `nav` or `footer`,** because none exists yet: `layout.tsx` renders
   only `<html><body>{children}</body></html>`, and the landmarks and skip link `UX.md` section 7 asks
   for are still outstanding. The page's own call to action is currently the only navigation on it.
+
+### M1 — image credits page (M1.9)
+
+`/pages/credits` renders the attribution for every shipped image — the licensing requirement
+`US-6.1` carries as a `Must`. `M1.9` also added the endpoint the page reads: `GET /api/v1/credits`,
+a new public catalog route returning all 46 credits unpaginated.
+
+Verify it:
+
+```bash
+cd backend
+uv run ruff format --check . && uv run ruff check . && uv run basedpyright && uv run pytest
+
+cd ../frontend
+pnpm typecheck && pnpm lint && pnpm format:check && pnpm test && pnpm build
+
+curl -s http://localhost:8000/api/v1/credits | grep -oE '"total":[[:space:]]*[0-9]+'      # 46
+curl -s http://localhost:3000/pages/credits | grep -c '<cite>'                            # 46 rows
+curl -s http://localhost:3000/pages/credits | grep -oE '>[0-9]+<!-- --> <!-- -->images?<' # 46 images
+```
+
+The shipped licence mix, measured from the credits table: **33 `BY-2.0`, 11 `BY-SA-2.0`,
+1 `CC0-1.0`, 1 `PDM-1.0`** — and no `BY-ND` at all.
+
+Notes:
+
+- **The attribution is read from the database, not from `manifest.csv` again.** `ADR-0012` keeps the
+  manifest as the provenance record, but the page renders the `ImageCredit` rows the seed imported
+  from it, so the page and the images cannot drift apart: a credit disappears when its image does.
+  Parsing the CSV at build time would have made the frontend depend on a backend data file and let
+  the two disagree.
+- **`/api/v1/credits` is unpaginated on purpose.** `US-6.1` asks for every shipped image and the
+  catalog ships 46, which belong on one page. `page_size` exists on `/products` because that list is
+  a browse surface; this one is a legal annex.
+- **Licence codes link to their Creative Commons deed.** `ADR-0012` settles for a page that
+  "demonstrates licence awareness", and CC's attribution guidance asks for the licence to be linked
+  to its deed wherever the medium allows — a bare `BY-SA-2.0` tells a reader which terms apply but
+  not what they say. `lib/licences.ts` maps the four shipped codes; an unmapped code renders as plain
+  text, because a guessed deed URL would claim terms the image does not carry. Note that the `CC0`
+  and Public Domain Mark deeds live under `/publicdomain/`, not `/licenses/`.
+- **Every "source" link is labelled for a screen reader.** Forty-six identical links reading
+  "source" are indistinguishable in a link list, so each carries `aria-label="View the source of …"`
+  — the same problem `UX.md` section 7 raises for repeated "Read more" links.
+- **The page links back to the catalog and no further.** It is a legal annex, not a browse surface:
+  `ADR-0012` routes attribution here rather than inline, so the cards and the detail pages stay
+  clean.
+- **A correction to the `M1.6` notes above.** They claimed 8 of the 46 shipped images were `BY-ND`.
+  The vendored manifest does hold 100 rows, 8 of them `BY-ND` — but **none of those eight ship**:
+  curation drops them, which is exactly what `ADR-0012` requires. The `object-contain` rule is
+  unchanged and still the right rule; only its justification, and the gallery's own comment, were
+  wrong, and both now say what is true. `backend/tests/test_catalog_api.py` now asserts that no
+  shipped image is `ND`-licensed, so the claim cannot quietly become false again.
+- **The route is `/pages/credits`, not `/credits`**, matching the `UX.md` section 4 row. `/credits`
+  would sit beside `/products` as though it were a catalog surface.
 
 ## 7. Deployment (M7)
 

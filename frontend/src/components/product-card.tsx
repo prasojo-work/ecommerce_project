@@ -11,9 +11,10 @@ import { formatPrice } from "@/lib/money";
  * `US-1.2` asks for it. The whole tile is a single link, so it is one tab stop with a target well
  * over the 44 px `UX.md` section 7 asks for, and the product detail route it points at now exists.
  *
- * `object-contain`, not `object-cover`: `ADR-0012` excludes `BY-ND` images from cropping, 8 of the
- * 46 shipped images are `BY-ND`, and the payload carries no licence to branch on — so nothing is
- * cropped anywhere. See `ProductGallery` for the same rule.
+ * `object-contain`, not `object-cover`: `ADR-0012` excludes `BY-ND` images from cropping, and no
+ * licence reaches the payload for the UI to branch on, so nothing is cropped anywhere. The shipped
+ * set happens to contain no `BY-ND` today, because curation drops them, but the rule does not depend
+ * on that staying true. See `ProductGallery` for the same reasoning.
  */
 export function ProductCard({ product }: { product: ProductCardData }) {
   return (

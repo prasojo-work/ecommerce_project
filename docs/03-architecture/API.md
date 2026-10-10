@@ -58,8 +58,11 @@ Status codes: `400` validation, `401` unauthenticated, `403` forbidden, `404` no
 | GET | `/categories/{slug}` | One category + its products (paginated) |
 | GET | `/products` | `category`, `q`, `min_price`, `max_price`, `sort` (`price`,`-price`,`newest`,`name`), `page`, `page_size` |
 | GET | `/products/{slug}` | PDP payload: product, variants, images, availability |
+| GET | `/credits` | Attribution for every shipped image (`US-6.1`); the complete list, not paginated |
 
 Listing responses are paginated: `{ "items": [...], "page": 1, "page_size": 24, "total": 137 }`.
+`/credits` is the exception: `US-6.1` wants every shipped image and there are 46, so the response is
+the whole list.
 
 ## 5. Cart (guest or authenticated)
 

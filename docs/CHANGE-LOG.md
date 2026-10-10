@@ -6,6 +6,56 @@
 
 ## History
 
+### 2026-10-10 — v0.1.22 — M1.9 image credits page
+
+**Context.** `M1.9`. `US-6.1` (`Must` — a licensing requirement, per `SCOPE.md`) is the whole
+specification: "renders the attribution (creator, license, source URL) for every shipped image from
+the manifest". The `ImageCredit` rows, the seed that fills them and the `/pages/credits` route row in
+`UX.md` section 4 all already existed; what was missing was a way to read the credits and a page to
+render them.
+
+**What changed.**
+
+- `backend/catalog/api.py`, `backend/catalog/schemas.py` — `GET /api/v1/credits`, a public catalog
+  route returning all credits unpaginated, with the committed OpenAPI snapshot regenerated.
+- `backend/tests/test_catalog_api.py` — three tests: full coverage of the shipped set, the four
+  fields `US-6.1` names, and that no shipped image is `ND`-licensed. The existing assertion on the
+  exact set of documented paths was deliberately extended.
+- `frontend/src/app/pages/credits/page.tsx` — the page: a static shell with the list streamed behind
+  a `<Suspense>` boundary.
+- `frontend/src/lib/licences.ts` — licence code → Creative Commons deed URL, `null` when unmapped.
+- `frontend/src/components/product-gallery.tsx`, `product-card.tsx` — the `BY-ND` comments corrected
+  (see below).
+
+**Decisions taken.**
+
+- **The credits are read from the database, not from `manifest.csv` again.** `ADR-0012` keeps the
+  manifest as the provenance record, but rendering the imported `ImageCredit` rows means the page and
+  the shipped images cannot drift apart.
+- **The endpoint is unpaginated.** `US-6.1` wants every image, the catalog ships 46, and they belong
+  on one page. `page_size` exists on `/products` because it is a browse surface; this is a legal
+  annex.
+- **Licence codes link to their deed.** CC's attribution guidance asks for the licence to link to its
+  deed wherever the medium allows; `ADR-0012` only requires that the page "demonstrates licence
+  awareness". An unmapped code renders as plain text, because a guessed deed URL would claim terms
+  the image does not carry.
+- **A correction to `M1.6`.** The `M1.6` notes and the gallery's comment claimed 8 of the 46 shipped
+  images were `BY-ND`. That was wrong: the vendored manifest holds 100 rows and 8 `BY-ND` images, but
+  none of the eight ship — curation drops them, which is what `ADR-0012` requires. The
+  `object-contain` rule stands unchanged; the *justification* was wrong, and the comment and the
+  `M1.6` runbook bullet now say what is true. A new test asserts no shipped image is `ND`-licensed.
+
+**Impact.** Gates green: backend `ruff format --check`, `ruff check`, `basedpyright` (**0 errors**)
+and `pytest` (**82 tests, up from 79**); frontend `typecheck`, `lint`, `format:check`, `test`
+(**50, up from 48**) and `build`. `/pages/credits` builds as Partial Prerender (`◐`) like `/` and
+`/products`. Verified on ports isolated from the development instance against the seeded SQLite
+catalog: the endpoint returns 46 credits with the licence mix 33 `BY-2.0` / 11 `BY-SA-2.0` /
+1 `CC0-1.0` / 1 `PDM-1.0` and no `ND`; the page renders one `<h1>`, the count line, 46 credit rows,
+all four deed URLs and 46 labelled source links, with `BY-ND` appearing nowhere in the HTML; one page
+view costs exactly one API request; `/`, `/products` and a product detail page are unregressed; and
+no server-side errors are logged. Regenerating the OpenAPI snapshot is byte-for-byte identical, so
+`Backend CI`'s drift check passes.
+
 ### 2026-10-10 — v0.1.21 — M1.8 home page
 
 **Context.** `M1.8`. `US-1.5` (`Should`) is the entire specification for this page: "hero plus a

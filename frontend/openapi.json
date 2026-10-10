@@ -135,6 +135,62 @@
         "title": "CategoryTreeSchema",
         "type": "object"
       },
+      "CreditListSchema": {
+        "description": "The attribution list.\n\nNot paginated: `US-6.1` asks for every shipped image, and the catalog ships 46 of them.",
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/CreditSchema"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "items",
+          "total"
+        ],
+        "title": "CreditListSchema",
+        "type": "object"
+      },
+      "CreditSchema": {
+        "description": "Attribution for one source image (`US-6.1`, `ADR-0012`).\n\nMirrors the `ImageCredit` row rather than reshaping it: `US-6.1` names creator, licence and\nsource URL, and `ADR-0012` records the source title and the provider alongside them.",
+        "properties": {
+          "creator": {
+            "title": "Creator",
+            "type": "string"
+          },
+          "license": {
+            "title": "License",
+            "type": "string"
+          },
+          "source": {
+            "title": "Source",
+            "type": "string"
+          },
+          "source_page_url": {
+            "title": "Source Page Url",
+            "type": "string"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "title",
+          "creator",
+          "license",
+          "source",
+          "source_page_url"
+        ],
+        "title": "CreditSchema",
+        "type": "object"
+      },
       "ImageSchema": {
         "properties": {
           "alt": {
@@ -596,6 +652,29 @@
           }
         },
         "summary": "One category",
+        "tags": [
+          "catalog"
+        ]
+      }
+    },
+    "/api/v1/credits": {
+      "get": {
+        "description": "Attribution for every image the catalog ships (`US-6.1`).\n\nRead through the images rather than through the credit table, because the criterion asks for\nevery *shipped* image: `ProductImage.credit` is nullable with `on_delete=SET_NULL`, so a credit\nrow can outlive the image that described it. Going through the forward foreign key rather than\nthe reverse accessor follows `ADR-0014`.\n\nNot paginated: `US-6.1` asks for the complete list, and 46 attribution lines belong on one page.",
+        "operationId": "catalog_api_list_credits",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreditListSchema"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "summary": "Image credits",
         "tags": [
           "catalog"
         ]
