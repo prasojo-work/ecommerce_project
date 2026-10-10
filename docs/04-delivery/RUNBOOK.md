@@ -429,6 +429,60 @@ Notes:
 - `in_stock` is in the payload but not the grid: availability belongs to the detail-page acceptance
   criteria (`US-1.2`), not the listing's.
 
+### M1 — product detail page (M1.6)
+
+`/products/{slug}` renders the gallery beside the price, availability, description, material,
+colour and dimensions, plus the add-to-cart placeholder. Catalog cards now link here, which is the
+link `M1.5` deliberately left out.
+
+Run it:
+
+```bash
+cd backend
+uv run python manage.py runserver
+
+cd ../frontend
+pnpm dev
+```
+
+Then open any card from <http://localhost:3000/products>.
+
+Verify it:
+
+```bash
+cd frontend
+pnpm typecheck && pnpm lint && pnpm format:check && pnpm test && pnpm build
+```
+
+Notes:
+
+- **A missing slug answers `200`, not `404`, and that is deliberate.** The existence check runs
+  inside the `<Suspense>` boundary so the shell and the skeleton survive, which means the response
+  has already begun streaming by the time `notFound()` throws and the status cannot change. Next
+  adds `<meta name="robots" content="noindex">` to compensate, and the docs recommend exactly this
+  shape under "Calling `notFound()` after streaming has started". Verified: the tag is present on a
+  missing product and absent on a real one. Blocking the route would buy a `404` status at the cost
+  of the skeleton `UX.md` section 5 asks for.
+- **`generateMetadata` costs no extra request.** Next memoises the underlying `fetch` across
+  `generateMetadata` and the page. Verified by counting backend access-log lines for a single page
+  view: exactly one.
+- **The API client resolves `fetch` per call** rather than capturing it when the module loads,
+  because Next replaces the global `fetch` to add that memoisation and a captured reference can
+  predate the replacement.
+- **Nothing is cropped, anywhere.** `ADR-0012` excludes `BY-ND` images "from any cropping or
+  alteration", the payload carries no licence for the UI to branch on, and 8 of the 46 shipped
+  images are `BY-ND` — so both the gallery and the card use `object-contain`. The source ratios are
+  genuinely mixed (4:3, 3:2, 3:4, square, one 4.15:1), so expect letterboxing; that is the cost of
+  staying licence-compliant.
+- **The gallery renders one image**, because the source set holds one per product. Multi-image
+  galleries are deferred rather than overlooked, and the component renders from the list, so more
+  images is a data change.
+- **The add-to-cart control is disabled, with its reason in visible text** and wired with
+  `aria-describedby`. Nothing is specified for a placeholder, and the real behaviour belongs to
+  `US-3.1` at `M3`. A disabled button that does not say why reads as broken.
+- `dimensionParts` labels each dimension it renders, because the API's three are independently
+  nullable and a bare `90 × 41` would not say which one is missing.
+
 ## 7. Deployment (M7)
 
 > Filled in at M7 — Render, Vercel, Supabase steps, environment variables, and the production

@@ -6,6 +6,64 @@
 
 ## History
 
+### 2026-10-10 — v0.1.19 — M1.6 product detail page
+
+**Context.** `M1.6`. `US-1.2` fixes the content — image gallery, price, description, availability,
+and an add-to-cart action, with correct `<title>`/metadata. `UX.md` section 5 gives the PDP a
+skeleton for loading and "n/a (404 page)" for empty.
+
+**What changed.**
+
+- `app/products/[slug]/page.tsx` — the gallery beside price, availability, description, material,
+  colour and dimensions, with per-product `generateMetadata` (`NFR-6`).
+- `app/products/[slug]/not-found.tsx` — what a withdrawn or mistyped slug gets.
+- `components/` — `ProductGallery`, `AddToCartButton`, `ProductDetailSkeleton`.
+- `lib/dimensions.ts` — labelled dimensions, pure and covered by tests.
+- `ProductCard` is now a link to the detail route, which `M1.5` deliberately left out.
+- `api/client.ts` — `fetchProduct`, which separates a missing product from an unavailable service.
+
+**Decisions taken.**
+
+- **The `notFound()` check runs inside the `<Suspense>` boundary.** This is the shape the Next docs
+  recommend for keeping the shell and loading UI while data loads. The consequence is that a
+  missing slug answers `200` rather than `404`, because the response is already streaming by then —
+  and Next compensates with `<meta name="robots" content="noindex">`, verified present on a missing
+  product and absent on a real one. Blocking the route would buy a `404` status at the cost of the
+  skeleton `UX.md` asks for; the noindex tag makes that trade the right way round.
+- **The add-to-cart control is genuinely disabled, with its reason in visible text** wired via
+  `aria-describedby`. Nothing is specified for a placeholder, and `US-3.1` owns the real behaviour
+  at `M3`; a control that pretends to work would be worse than one that explains itself.
+- **Nothing is cropped, anywhere.** `ADR-0012` excludes `BY-ND` images "from any cropping or
+  alteration", the payload carries no licence for the UI to branch on, and 8 of the 46 shipped
+  images are `BY-ND` — so the gallery and the card both use `object-contain`. This also corrects the
+  card, which shipped with `object-cover` at `M1.5`. The source ratios are genuinely mixed, so the
+  cost is letterboxing.
+- **`generateMetadata` is per product**, which `US-1.2` asks for explicitly, and costs no extra
+  request: Next memoises the underlying `fetch` across the metadata and the page. Verified by
+  counting backend access-log lines for one page view.
+- **Material, colour and dimensions are surfaced** because `UX-GOAL-1` asks for price, dimensions
+  and stock to be visible before the cart. Dimensions are labelled rather than joined into
+  `W × D × H`, since the three fields are independently nullable.
+- **The gallery renders one image.** The source set holds one per product; multi-image galleries are
+  a deferred decision, not an oversight, and the component renders from the list so more images is a
+  data change.
+
+**A bug the tests caught.** `fetchProduct` passed every case while never using the stubbed `fetch`:
+`openapi-fetch` captures `globalThis.fetch` when the client is *created*, which happens at module
+load, before a test can stub it. So the tests were hitting a real socket and taking the
+transport-failure path, and the `503` case only appeared to pass because both paths return
+`unavailable`. The client now resolves `fetch` per call, which fixes the tests and removes a real
+production risk: a reference captured at import time can predate Next's replacement of `fetch`,
+which is what provides the request memoisation above.
+
+**Impact.** `/products/[slug]` builds as Partial Prerender (`◐`), like the listing. Gates green:
+`typecheck`, `lint`, `format:check`, `test` (22 tests, up from 14), `build`. Verified end to end
+against a real server on ports isolated from the development instance: a real product renders its
+name in `<title>` and `<h1>`, its price, "In stock", description, material/colour/dimensions, the
+disabled add-to-cart with its note, and a gallery image with `alt` text; exactly one API request
+serves the entire view; a missing slug renders the not-found page with `noindex`; catalog cards link
+to the detail route; and no server-side errors are logged.
+
 ### 2026-10-10 — v0.1.18 — M1.5 catalog listing page
 
 **Context.** `M1.5`, the first page to read the API. Two facts discovered up front shaped it:

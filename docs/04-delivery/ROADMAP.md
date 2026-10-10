@@ -52,7 +52,7 @@ Status legend: `[ ]` planned · `[~]` in progress · `[x]` done.
 - [x] `M1.3` Catalog read API (`/categories`, `/products`, `/products/{slug}`) + OpenAPI, with pagination, filters, and the error envelope.
 - [x] `M1.4` Frontend API types generated from the committed OpenAPI snapshot (`frontend/openapi.json`), with a drift check in `Backend CI`.
 - [x] `M1.5` Catalog listing page (grid, pagination, skeletons, empty state), partial-prerendered with the listing streamed behind a Suspense boundary.
-- [ ] `M1.6` Product detail page (gallery, price, availability, add-to-cart placeholder).
+- [x] `M1.6` Product detail page (gallery, price, availability, add-to-cart placeholder, per-product metadata); catalog cards now link to it.
 - [ ] `M1.7` Search, filter, and sort with shareable URL state.
 - [ ] `M1.8` Home page (hero + featured).
 - [ ] `M1.9` `/pages/credits` attribution page (`US-6.1`).

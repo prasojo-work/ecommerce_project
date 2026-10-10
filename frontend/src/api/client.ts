@@ -7,6 +7,7 @@ import type { components, paths } from "./schema";
 
 export type ProductCard = components["schemas"]["ProductCardSchema"];
 export type ProductPage = components["schemas"]["ProductPageSchema"];
+export type ProductDetail = components["schemas"]["ProductDetailSchema"];
 
 /**
  * The catalog read client.
@@ -15,7 +16,13 @@ export type ProductPage = components["schemas"]["ProductPageSchema"];
  * committed snapshot. The route, the query names, and the response shape therefore cannot drift
  * from `M1.3` without this file failing the type check — which is the whole point of `M1.4`.
  */
-const client = createClient<paths>({ baseUrl: getApiBaseUrl() });
+const client = createClient<paths>({
+  baseUrl: getApiBaseUrl(),
+  // Resolved on every call rather than captured once when this module loads. Next replaces the
+  // global `fetch` to add request memoisation, and a reference captured at import time can predate
+  // that replacement — which would quietly turn one product read into two.
+  fetch: (request) => fetch(request),
+});
 
 export type ProductsResult = { ok: true; data: ProductPage } | { ok: false; message: string };
 
@@ -54,5 +61,50 @@ export async function fetchProducts(page: number, pageSize: number): Promise<Pro
     unstable_rethrow(error);
     console.error("catalog: GET /api/v1/products did not complete", error);
     return { ok: false, message: "The catalog service could not be reached." };
+  }
+}
+
+export type ProductDetailResult =
+  | { ok: true; product: ProductDetail }
+  | { ok: false; kind: "not-found" }
+  | { ok: false; kind: "unavailable"; message: string };
+
+/**
+ * One product, with its gallery and variants (`US-1.2`).
+ *
+ * A missing product is separated from an unavailable service because the two want different
+ * treatment: the API answers an unknown slug with a `404` (`catalog/api.py`), which the page turns
+ * into Next's `notFound()` and a real `404` status, while a failure gets the retry panel.
+ */
+export async function fetchProduct(slug: string): Promise<ProductDetailResult> {
+  try {
+    const { data, response } = await client.GET("/api/v1/products/{slug}", {
+      params: { path: { slug } },
+    });
+
+    if (data) {
+      return { ok: true, product: data };
+    }
+
+    if (response.status === 404) {
+      return { ok: false, kind: "not-found" };
+    }
+
+    console.error(`catalog: GET /api/v1/products/{slug} answered ${response.status} for ${slug}`);
+    return {
+      ok: false,
+      kind: "unavailable",
+      message: "The catalog service is having trouble right now.",
+    };
+  } catch (error) {
+    // Rethrown for the same reason as above: Partial Prerendering aborts a request-time fetch with
+    // an internal error that must reach React rather than be reported as an outage.
+    unstable_rethrow(error);
+    console.error(`catalog: GET /api/v1/products/{slug} did not complete for ${slug}`, error);
+    return {
+      ok: false,
+      kind: "unavailable",
+      message: "The catalog service could not be reached.",
+    };
   }
 }
