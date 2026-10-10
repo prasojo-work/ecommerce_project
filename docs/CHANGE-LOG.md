@@ -6,6 +6,29 @@
 
 ## History
 
+### 2026-10-10 — v0.1.13 — M0 complete, CI confirmed green
+
+**Context.** `M0` could not be closed while its second exit criterion was unverifiable. The
+founder pushed `9389b73`, which closed the loop and confirmed the `v0.1.11` CI fix.
+
+**What was confirmed.**
+
+- **`Backend CI` run #2 on `9389b73` — success, 42s.** This is the first time the backend job has
+  ever actually executed: run #1 died at "Set up job" on the bad `setup-uv` pin. The job now
+  genuinely runs `ruff format --check`, `ruff check`, `basedpyright`, and `pytest` against a
+  PostgreSQL 17 service.
+- **`Frontend CI` — success on `7b06e88`.** It did not re-run for `9389b73`, because the workflow
+  is path-filtered to `frontend/**` and nothing under `frontend/` changed between the two
+  commits, so that green still describes the current tree.
+- **`docker compose up` runs API + web** — verified during `M0.7`.
+
+Both exit criteria now hold, so `M0` is marked `[x]` in `ROADMAP.md`.
+
+**Impact.** All ten `M0` increments are complete and the delivery pipeline is green for the first
+time. The lesson from `v0.1.11` is why this entry exists: a workflow that has never run is not
+evidence of anything, and only a push can establish that it has. `RUNBOOK.md` §6 now carries that
+caveat, including the path-filter subtlety above.
+
 ### 2026-10-10 — v0.1.12 — M1.1 catalog models landed
 
 **Context.** M1 begins: the catalog gets its physical schema, so `M1.2` can seed it and `M1.3`

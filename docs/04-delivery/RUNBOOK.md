@@ -148,6 +148,10 @@ git push origin main          # or open a pull request
 The workflows are path-filtered: the backend job runs only for `backend/**` and the frontend
 job only for `frontend/**`. A docs-only change runs neither.
 
+As of `v0.1.13` both workflows are green on `main`. Note that a backend-only commit will not
+re-run `Frontend CI` — check the workflow's last run against the current tree, not the latest
+commit, before calling the frontend green.
+
 Verify it:
 
 ```bash
