@@ -6,6 +6,57 @@
 
 ## History
 
+### 2026-10-11 — v0.1.23 — M2.1 accounts models
+
+**Context.** `M2.1`. `M2` opens with the custom user model, the one schema decision in this project
+that cannot be revisited cheaply: `AUTH_USER_MODEL` has to be settled before anything depends on the
+user table, and moving it afterwards means rebuilding the database and repairing migration history
+by hand.
+
+**What changed.**
+
+- `accounts/` — new app: `User`, `UserManager`, `Address`, and `accounts/migrations/0001_initial.py`.
+- `config/settings/base.py` — `django.contrib.auth` and `accounts` added to `INSTALLED_APPS`,
+  `AUTH_USER_MODEL = "accounts.User"`, and `AUTH_PASSWORD_VALIDATORS` set to Django's four defaults.
+- `tests/test_accounts_models.py` — 20 tests: the swap itself, password hashing, case-insensitive
+  identity, both uniqueness rules, the cascade, and the timestamps.
+- `docs/03-architecture/DATA-MODEL.md` — the `accounts.user` table corrected to what was built.
+
+**Decisions taken.**
+
+- **The swap was cheap, and that is worth recording.** `django.contrib.auth` had never been
+  installed, so no `auth_user` table existed and no migration referred to the default user. The
+  migration is therefore *additive*: `migrate` created the auth tables and `accounts_user` beside
+  the catalog, and the 46 seeded products were untouched. Had `auth` been installed at `M0`, this
+  milestone would have been a database rebuild instead.
+- **Lower-casing replaces `citext`.** `DATA-MODEL.md` asked for a case-insensitively unique `email`
+  and named Postgres's `citext`. The tests run on SQLite, which has no `citext`, so the manager
+  lower-cases on write and `get_by_natural_key` lower-cases on lookup; uniqueness then rests on an
+  ordinary unique constraint. `DATA-MODEL.md` was updated rather than left describing a column that
+  does not exist.
+- **`get_by_natural_key` carries that case-insensitivity into `authenticate()`**, so sign-in does not
+  depend on every caller normalising the address first.
+- **The default-address rule is enforced by a partial unique index**, not by application code:
+  `CREATE UNIQUE INDEX ... ON accounts_address ("user_id") WHERE "is_default" = 1`. Two addresses
+  marked default for one user is a genuine inconsistency, so the database refuses it; the index is
+  per user, and a test exists purely to prove a second user's default is still allowed.
+- **Django's four default password validators are adopted.** `US-2.1` requires "password with
+  validation" without naming rules; the defaults give a length floor and reject common and
+  all-numeric passwords.
+- **Two scoped `pyright: ignore` directives are accepted on the user model.** `django-stubs` types
+  `AbstractBaseUser.Meta` and `PermissionsMixin.Meta` nominally, so every custom user model built
+  the documented way is reported as an incompatible override. The alternative — subclassing
+  `AbstractUser` — would add columns `DATA-MODEL.md` does not specify, which is the worse trade.
+
+**Impact.** Gates green: `ruff format --check`, `ruff check`, `basedpyright` (**0 errors**) and
+`pytest` (**102 tests, up from 82**), plus `makemigrations --check` reporting no drift. Verified
+against the development database: the model resolves to `accounts.User`, the columns match
+`DATA-MODEL.md`, a mixed-case email is stored lower-cased, `authenticate()` resolves
+`ADA@EXAMPLE.COM` and refuses a wrong password, a case-variant duplicate registration is refused by
+the database, a second default address is refused while a second user's default is allowed, `12345`
+is rejected by the validators, and the 46 seeded products survived the migration. No `auth_user`
+table was created, so there is no dead table left behind by the swap.
+
 ### 2026-10-10 — v0.1.22 — M1.9 image credits page
 
 **Context.** `M1.9`. `US-6.1` (`Must` — a licensing requirement, per `SCOPE.md`) is the whole

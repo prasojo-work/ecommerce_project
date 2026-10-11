@@ -19,10 +19,27 @@ environ.Env.read_env(BASE_DIR / ".env")
 SECRET_KEY = env("DJANGO_SECRET_KEY", default="insecure-development-key-change-me")
 
 INSTALLED_APPS = [
+    "django.contrib.auth",
     "django.contrib.contenttypes",
     "django.contrib.staticfiles",
     "core",
+    "accounts",
     "catalog",
+]
+
+# Email is the identifier and there is no `username` column (`DATA-MODEL.md` section 2). Declared
+# here, before `accounts` has ever been migrated, so the swap never has to be retrofitted onto a
+# database that already carries `auth_user`.
+AUTH_USER_MODEL = "accounts.User"
+
+# `US-2.1` asks for "email + password with validation". These are Django's four defaults —
+# similarity to the user's own details, an 8-character minimum, the common-password list and the
+# all-numeric check — applied through `validate_password()`, which the register endpoint calls.
+AUTH_PASSWORD_VALIDATORS = [
+    {"NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator"},
+    {"NAME": "django.contrib.auth.password_validation.MinimumLengthValidator"},
+    {"NAME": "django.contrib.auth.password_validation.CommonPasswordValidator"},
+    {"NAME": "django.contrib.auth.password_validation.NumericPasswordValidator"},
 ]
 
 MIDDLEWARE = [

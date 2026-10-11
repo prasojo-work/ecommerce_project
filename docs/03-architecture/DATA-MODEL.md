@@ -35,12 +35,19 @@ erDiagram
 | Column | Type | Constraints |
 |---|---|---|
 | id | bigint PK | |
-| email | citext/unique | unique, NOT NULL, indexed |
+| email | varchar(254) | unique, NOT NULL, lower-cased on write (`M2.1`) |
 | password | varchar | hashed (Django), NOT NULL |
 | display_name | varchar(120) | |
 | is_active | boolean | default true |
 | is_staff | boolean | default false (operator access) |
 | created_at / updated_at | timestamptz | |
+| last_login | timestamptz | nullable, Django `AbstractBaseUser` |
+| is_superuser | boolean | default false, `PermissionsMixin` |
+
+`citext` was the original plan for a case-insensitive `email`, but it is a Postgres extension and
+the test suite runs on SQLite, which has none. The address is lower-cased on write and on lookup
+instead, so a plain unique constraint is enough; see the `M2.1` note in `RUNBOOK.md` section 6.
+`PermissionsMixin` also contributes the `groups` and `user_permissions` many-to-many tables.
 
 **`address`**
 
@@ -55,6 +62,9 @@ erDiagram
 | country | char(2) | ISO-3166 alpha-2 |
 | phone | varchar(32) | |
 | is_default | boolean | at most one per user (partial unique index) |
+
+`recipient`, `line1`, `city`, `postal_code` and `country` are required; `label`, `line2`, `region`
+and `phone` are optional, because real addresses do not always carry them.
 
 ### `catalog`
 

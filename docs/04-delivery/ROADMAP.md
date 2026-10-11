@@ -59,7 +59,7 @@ Status legend: `[ ]` planned · `[~]` in progress · `[x]` done.
 
 ### M2 — Accounts & auth
 
-- [ ] `M2.1` Custom `User` model + `Address` model + migrations.
+- [x] `M2.1` Custom `User` model + `Address` model + migrations; `django.contrib.auth` installed and `AUTH_USER_MODEL` swapped while the database still had no `auth_user` table.
 - [ ] `M2.2` Auth endpoints: register, login, refresh, logout, me (`ADR-0009`).
 - [ ] `M2.3` Throttling + refresh origin/CSRF guard; tests for rate limit and bad credentials.
 - [ ] `M2.4` Frontend session: in-memory access token + silent refresh interceptor.

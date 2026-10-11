@@ -630,6 +630,61 @@ Notes:
 - **The route is `/pages/credits`, not `/credits`**, matching the `UX.md` section 4 row. `/credits`
   would sit beside `/products` as though it were a catalog surface.
 
+### M2 — accounts models (M2.1)
+
+`accounts` exists with the custom `User` model and `Address`, migrated. This is the milestone that
+settles `AUTH_USER_MODEL`, so it is the one that would have been expensive to get wrong.
+
+Verify it:
+
+```bash
+cd backend
+uv run python manage.py check
+uv run python manage.py makemigrations --check --dry-run   # "No changes detected"
+uv run ruff format --check . && uv run ruff check . && uv run basedpyright && uv run pytest
+
+uv run python -c "
+import os, django
+os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'config.settings.dev')
+django.setup()
+from django.contrib.auth import authenticate, get_user_model
+user = get_user_model().objects.create_user(email='Ada@Example.COM', password='Correct-Horse-9!')
+print(user.email)                                                          # ada@example.com
+print(authenticate(email='ADA@EXAMPLE.COM', password='Correct-Horse-9!'))  # resolves
+user.delete()
+"
+```
+
+Notes:
+
+- **`django.contrib.auth` was not installed before this milestone.** `INSTALLED_APPS` held only
+  `contenttypes`, `staticfiles`, `core` and `catalog`, so no `auth_user` table had ever existed and
+  no migration history referred to the default user. That is why `M2.1` is an *additive* migration
+  rather than the database rebuild a late `AUTH_USER_MODEL` swap normally needs. Verified after
+  `migrate`: `auth_user` does not exist, `accounts_user` does, and the 46 seeded products are
+  untouched.
+- **`citext` is replaced by lower-casing.** `DATA-MODEL.md` asked for a case-insensitively unique
+  `email` and named Postgres's `citext` extension, which SQLite does not have. `UserManager`
+  lower-cases the address on the way in, so uniqueness rests on an ordinary unique constraint
+  instead of an extension — one less thing that behaves differently on the two backends.
+- **`get_by_natural_key` is what makes sign-in case-insensitive.** `authenticate()` resolves the
+  user through that method, so `ADA@EXAMPLE.COM` and `ada@example.com` reach the same row without
+  every caller remembering to normalise the address first. Verified against the development
+  database, not only in tests.
+- **The default-address rule is a partial unique index, not application logic.** It renders as
+  `CREATE UNIQUE INDEX unique_default_address_per_user ON accounts_address ("user_id") WHERE
+  "is_default" = 1`. A second default is a real inconsistency rather than a display problem —
+  checkout has to pick one address without asking which of the two defaults won — so the database
+  refuses it. The index is per user, so two different users each having a default is correct, and
+  one test exists only to keep it that way.
+- **`AUTH_PASSWORD_VALIDATORS` is Django's four defaults.** `US-2.1` says "email + password with
+  validation" without naming the rules, so the shipped defaults apply through `validate_password()`,
+  which the register endpoint calls at `M2.2`. Measured: `12345` is rejected three times over, as
+  too short, too common and entirely numeric.
+- **`is_staff` currently selects nothing.** `django.contrib.admin` is not installed, so the column is
+  a placeholder for the operator console `ADR-0007` settles on. It exists now because adding a column
+  to a migrated table later is a migration for no reason.
+
 ## 7. Deployment (M7)
 
 > Filled in at M7 — Render, Vercel, Supabase steps, environment variables, and the production
@@ -672,3 +727,12 @@ Notes:
   `curl` then fails with a connection error and nothing obvious is logged. Stop the dev server
   before building. This is easy to walk into when a verification pass builds repeatedly while a
   development server is open in another terminal.
+- **`basedpyright` reports "Base classes for class `User` define variable `Meta` in incompatible
+  way".** `django-stubs` declares a nested `Meta` on both `AbstractBaseUser` and `PermissionsMixin`
+  and types the two nominally, so *every* custom user model built the documented way —
+  `AbstractBaseUser` plus `PermissionsMixin` — is reported as an incompatible override, whether or
+  not it declares a `Meta` of its own. Same root cause as `ADR-0014`: a stub cannot express
+  something the framework genuinely allows. The two scoped `pyright: ignore` directives in
+  `accounts/models.py` are the entire cost. Do not "fix" it by subclassing `AbstractUser`, which
+  would add `first_name`, `last_name` and `date_joined` that `DATA-MODEL.md` section 2 does not
+  specify.
