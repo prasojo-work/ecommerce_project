@@ -22,18 +22,19 @@ grouped by them rather than by endpoint.
   appear anywhere they are not needed.
 - **Scoping** — a credential is good only for the operation it was minted for.
 
-**Levels.** 30 API contract tests (`backend/tests/test_accounts_api.py`), 20 model tests
-(`test_accounts_models.py`), and a scripted end-to-end pass over real HTTP, because cookie attributes
-and headers cannot be verified through the test client alone. The suite and the flow were run twice:
-once on SQLite, then again on PostgreSQL 17.11, because the two differ in exactly the place that
-matters here (see `QA-C30`).
+**Levels.** 44 API contract tests (`backend/tests/test_accounts_api.py`, 14 of them added at `M2.3`),
+20 model tests (`test_accounts_models.py`), and a scripted end-to-end pass over real HTTP, because
+cookie attributes, headers and rate limits cannot all be verified through the test client alone — a
+throttle lives in the process's own cache, so nothing outside that process can exercise it. `pytest`
+is **145 tests**. The suite and the flow were run twice: once on SQLite, then again on PostgreSQL
+17.11, because the two differ in exactly the place that matters (see `QA-C30`).
 
 **Deliberately not tested.** JWT signing internals and password hashing internals (libraries' jobs, not
 ours), TLS and transport hardening (`M7`).
 
-**Blocked, not skipped.** Rate limiting and the `/auth/refresh` origin guard are `M2.3`; browser-level
-CORS and cross-site cookie behaviour are `M2.4`. Nothing else is blocked — the suite and the whole flow
-have now been run on PostgreSQL as well as SQLite.
+**Blocked, not skipped.** Rate limiting and the `/auth/refresh` origin guard arrived at `M2.3`
+(`QA-C26`, `QA-C27`); browser-level CORS and cross-site cookie delivery are `M2.4` (`QA-C28`).
+Nothing else is blocked — the suite and the whole flow have been run on PostgreSQL as well as SQLite.
 
 ## QA-CASE — cases and observed results
 
@@ -96,9 +97,14 @@ have now been run on PostgreSQL as well as SQLite.
 
 ### Not run
 
-- [ ] `QA-C26` **Not run — blocked to `M2.3`.** Rate limiting: that `N` failed logins within a window
-      produce `429` with `Retry-After`. No throttle exists yet, so there is nothing to test.
-- [ ] `QA-C27` **Not run — blocked to `M2.3`.** `/auth/refresh` from a foreign `Origin` is refused.
+- [x] `QA-C26` Rate limiting: `N` failed logins within a window produce `429` with `Retry-After`.
+      **Observed:** the eleventh attempt answered `429` — exactly the configured `10/min` — in the
+      standard envelope with the `RATE_LIMITED` code, a `request_id`, and `Retry-After: 51` in whole
+      seconds. The *correct* password was refused as well, because the limit is on the endpoint rather
+      than on failures.
+- [x] `QA-C27` `/auth/refresh` from a foreign `Origin` is refused. **Observed:** `403` `FORBIDDEN`,
+      "That request did not come from this storefront." A foreign `Referer` with no `Origin` is refused
+      too, and a request carrying neither is allowed through, because that is a non-browser client.
 - [ ] `QA-C28` **Not run — blocked to `M2.4`.** Cross-site cookie delivery with `SameSite=None; Secure`
       from a browser origin; requires the frontend session work and a second origin.
 - [x] `QA-C29` The suite and the full flow on PostgreSQL, the engine that serves production.
@@ -161,3 +167,9 @@ have now been run on PostgreSQL as well as SQLite.
       because `uv run python /tmp/probe.py` puts the script's directory on `sys.path`, not the working
       directory. That was a fault in the harness, not the product, and it is recorded because a check
       that fails to run must never be reported as a pass.
+- [ ] `QA-G6` The rate limits are per process, because the throttle store is the Django cache and it is
+      set to `LocMemCache`. Two uvicorn workers would each allow the full rate, and a deploy clears the
+      windows. That is correct for the single-process start command in `compose.yml` and in the Render
+      config, and wrong the moment the service scales out — so a shared cache (Render Key Value, or the
+      database cache if no extra service is wanted) is a prerequisite for a second worker, not a
+      nice-to-have. Nothing in the code prevents the mistake, which is why it is written down here.

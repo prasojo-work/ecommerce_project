@@ -31,3 +31,7 @@ CSRF_COOKIE_SECURE = True
 # `SameSite=None` together with `Secure` (`ADR-0009`).
 REFRESH_COOKIE_SECURE = True
 REFRESH_COOKIE_SAMESITE = "None"
+
+# One proxy: Render's load balancer, which terminates TLS and forwards to a port that is not
+# reachable directly. See the note in `base.py` for why both directions of this are a failure.
+NINJA_NUM_PROXIES = env.int("NINJA_NUM_PROXIES", default=1)

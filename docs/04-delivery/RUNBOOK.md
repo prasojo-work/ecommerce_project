@@ -773,9 +773,61 @@ Notes:
   counts match SQLite exactly: 7 categories, 46 products, 95 variants, 46 images, 46 credits.
   `Docker Postgres` means the psql client can be used directly:
   `docker exec lysheim-db-1 psql -U lysheim -d lysheim`.
-- **Not protected yet.** Throttling on `/auth/login` and the origin check on `/auth/refresh` are
-  `M2.3`. Until they land the only cross-site control on refresh is `SameSite`, which is real but
-  weaker than the check `ADR-0009` describes.
+- **Not protected by a rate limit at `M2.2`,** which is what `M2.3` added — see the next entry.
+
+### M2.3 — rate limiting and the refresh origin guard
+
+Every auth endpoint carries a limit (`US-2.2`, `NFR-3`), and `/auth/refresh` checks the request's
+origin before it reads the cookie (`ADR-0009`). Verify it:
+
+```bash
+cd backend
+uv run ruff format --check . && uv run ruff check . && uv run basedpyright && uv run pytest
+
+# Over HTTP, where a throttle lives in the process's own cache and a forged header has to be ignored:
+PORT=8390
+uv run python manage.py runserver $PORT --noreload &
+BASE=http://localhost:$PORT/api/v1
+for i in $(seq 1 12); do
+  curl -sS -o /dev/null -w "%{http_code} " -X POST $BASE/auth/login \
+    -H 'Content-Type: application/json' -d '{"email":"a@example.com","password":"wrong"}'
+done; echo                          # ten 401s, then 429 with a Retry-After
+curl -sS -o /dev/null -w "%{http_code}\n" -X POST $BASE/auth/login \
+  -H 'Content-Type: application/json' -H 'X-Forwarded-For: 198.51.100.99' \
+  -d '{"email":"a@example.com","password":"wrong"}'   # still 429: the header proves nothing
+```
+
+Notes:
+
+- **The limits are per client, not per account.** Keying on the submitted address would let anyone
+  lock a known account out of its own sign-in screen, which turns a rate limit into a denial-of-service
+  tool. The anonymous endpoints key on the client IP; the authenticated ones key on the account. The
+  cost is that a distributed attack is not meaningfully slowed by this alone — a deliberate trade.
+- **The limit applies to the endpoint, not to failures.** Once the window is exhausted a *correct*
+  password is refused too, until it passes. Measured: ten rejections, then `429` with `Retry-After: 51`
+  — and the right password also answered `429`.
+- **The rate is re-read on every request, deliberately.** `SimpleRateThrottle.__init__` resolves the
+  rate once and stores the parsed numbers on the instance, and Ninja attaches throttle *instances*
+  built at import — so Ninja's own throttles would freeze whatever the settings held when the module
+  was imported. A test found this by failing: a lowered limit simply did not apply.
+  `accounts/throttling.py` overrides `get_rate` to read `NINJA_DEFAULT_THROTTLE_RATES` per request, so
+  a limit is a setting rather than a constant.
+- **`NINJA_NUM_PROXIES` is not optional.** Ninja uses `X-Forwarded-For` verbatim when it is unset, so
+  any client could invent a fresh identity per request and never be limited at all. It is `0` locally,
+  where nothing sits in front of uvicorn, and `1` in production, because Render's load balancer
+  terminates TLS and forwards to a port that is not directly reachable. Both directions are failures:
+  too high and the header is forgeable again, too low and every visitor shares one bucket, so a single
+  abuser locks out everyone. Verified over HTTP: two different forged `X-Forwarded-For` values were
+  both answered `429`, while a request bound to a second loopback address got its own window.
+- **The store is the Django cache, which is per process.** The limits are therefore per worker and
+  reset on deploy. That is correct for one uvicorn process and wrong the moment there is more than one;
+  point `CACHES` at a shared backend first (`CACHE_BACKEND`, `CACHE_LOCATION`). Tracked as `QA-G6`.
+- **The origin guard only refuses when it can tell.** `Origin` is the header read, with `Referer` as a
+  fallback. A request presenting neither is allowed, because that is curl or a future mobile client,
+  and no page can stop a browser from sending one. The origin must match `CORS_ALLOWED_ORIGINS`, so an
+  environment that forgets to set it refuses every browser refresh — the safe direction to fail in.
+  Verified: a foreign `Origin` and a foreign `Referer` both answered `403` `FORBIDDEN`, the next
+  trusted refresh still answered `200`, and a request with no origin at all was allowed.
 
 ## 7. Deployment (M7)
 

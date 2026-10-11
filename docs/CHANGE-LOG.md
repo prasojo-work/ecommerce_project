@@ -6,6 +6,52 @@
 
 ## History
 
+### 2026-10-11 — v0.1.25 — M2.3 rate limiting and the refresh origin guard
+
+**Context.** `M2.3`. `US-2.2` asks for a rate-limited sign-in and `NFR-3` for auth rate limiting
+generally; `ADR-0009` asks the refresh endpoint to enforce an origin check *in addition to* the cookie,
+because a cookie is a credential the browser attaches by itself and the production cookie is
+`SameSite=None` for the Vercel-to-Render call.
+
+**What changed.**
+
+- `accounts/throttling.py` — new: one scope per endpoint, on a base that re-reads its rate per request.
+- `accounts/api.py` — a throttle on all five endpoints, `_origin_is_trusted()`, and the `403` it
+  returns from `/auth/refresh` before the cookie is read.
+- `config/settings/base.py`, `prod.py` — `NINJA_DEFAULT_THROTTLE_RATES`, `NINJA_NUM_PROXIES`, and an
+  explicit `CACHES` naming the throttle store.
+- `tests/test_accounts_api.py` — 14 more tests: the limits, the key, and the guard.
+- `API.md` section 2 — the limits and the origin check written into the contract.
+
+**Decisions taken.**
+
+- **Per client, not per account.** A limiter keyed on the submitted address would let anyone lock a
+  known account out of its own sign-in screen, which turns a rate limit into a denial-of-service tool.
+  The cost is that a distributed attack is not stopped by this alone.
+- **Ninja's throttles, with the rate re-read per request.** `SimpleRateThrottle` resolves the rate in
+  `__init__` and Ninja attaches instances built at import, so the shipped limit would have been
+  whatever the settings held at import, and no test could lower one to watch it trip. A failing test
+  found that, not a reading.
+- **`NINJA_NUM_PROXIES` set explicitly.** The default trusts `X-Forwarded-For` verbatim, which would
+  make every limit bypassable with a forged header — so the setting *is* the control. `0` locally,
+  `1` on Render, whose load balancer terminates TLS and forwards to a port that is not reachable
+  directly.
+- **`AuthRateThrottle`, not `UserRateThrottle`**, on the authenticated endpoints: the latter reads
+  `request.user`, which does not exist without `AuthenticationMiddleware`, so it would raise instead of
+  limiting anything.
+- **A shared cache is a scale-out prerequisite, not a now problem.** The store is LocMemCache, so the
+  limits are per process. Recorded as `QA-G6`.
+
+**Impact.** Gates green: `ruff format --check`, `ruff check`, `basedpyright` (**0 errors**) and
+`pytest` (**145 tests, up from 132**). Verified over HTTP against PostgreSQL: the eleventh login with a
+wrong password answered `429` with `RATE_LIMITED` and `Retry-After: 51`, exactly the configured
+`10/min`; the correct password was refused too, because the limit is on the endpoint; two forged
+`X-Forwarded-For` values were both refused (so the header buys nothing) while a request bound to a
+second loopback address got its own window; and the tenth bulk registration answered `429`, matching
+`10/hour`. `/auth/refresh` from a foreign `Origin`, or from a foreign `Referer` with no `Origin`,
+answered `403` `FORBIDDEN`; a request with neither was allowed; and the session survived both refusals,
+because the next trusted refresh answered `200`. 0 tracebacks and 0 `500`s.
+
 ### 2026-10-11 — v0.1.24 — M2.2 auth endpoints
 
 **Context.** `M2.2`. `US-2.1`-`US-2.3` are the acceptance criteria: register with email, password

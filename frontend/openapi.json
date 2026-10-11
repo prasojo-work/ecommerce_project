@@ -766,7 +766,7 @@
     },
     "/api/v1/auth/refresh": {
       "post": {
-        "description": "`US-2.3`: silent refresh. The token is read from the cookie, never from the body.",
+        "description": "`US-2.3`: silent refresh. The token is read from the cookie, never from the body.\n\nThe origin check runs before the cookie is read, so a cross-site request cannot spend a token \u2014\nand cannot revoke one either, which is the sharper edge: replaying a stale cookie through a\nforged request would trip reuse detection and sign the real customer out.",
         "operationId": "accounts_api_refresh",
         "parameters": [],
         "responses": {

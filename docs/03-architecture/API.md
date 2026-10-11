@@ -29,7 +29,20 @@ returned in the response body and held **in memory** by the client (`ADR-0009`).
 | POST | `/auth/logout` | access | Invalidate refresh; clear cookie |
 | GET | `/auth/me` | access | Current user profile |
 
-Auth endpoints are **rate-limited**; a 429 returns `Retry-After`.
+Auth endpoints are **rate-limited**; a `429` carries `Retry-After` in whole seconds and the
+`RATE_LIMITED` code. Limits are **per client, not per account**: keying on a submitted address would
+let anyone lock a known account out of its own sign-in screen, which turns a rate limit into a
+denial-of-service tool. The numbers are configuration rather than contract
+(`NINJA_DEFAULT_THROTTLE_RATES`), and the limit applies to the endpoint rather than to failures — a
+client that has exhausted it is refused a correct password too, until the window passes.
+
+`POST /auth/refresh` additionally checks the request's **origin** against `CORS_ALLOWED_ORIGINS` and
+answers `403` `FORBIDDEN` when it does not match. The refresh token is a credential the browser
+attaches by itself, and in production the cookie is `SameSite=None` for the Vercel-to-Render call, so
+this check is what stands in for that attribute (`ADR-0009`). The check runs before the cookie is
+read, so a forged request cannot spend a token — or revoke one. A request carrying neither `Origin`
+nor `Referer` is allowed through: that is a non-browser client, and no page can prevent a browser from
+sending one.
 
 `register` and `login` answer with `{access_token, token_type, expires_in, user}`. The refresh token
 is deliberately **not** in the body: it is set as an httpOnly cookie scoped to `/api/v1/auth`, so

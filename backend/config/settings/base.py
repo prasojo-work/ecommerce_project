@@ -60,6 +60,49 @@ REFRESH_COOKIE_PATH = env("REFRESH_COOKIE_PATH", default="/api/v1/auth")
 REFRESH_COOKIE_SECURE = env.bool("REFRESH_COOKIE_SECURE", default=False)
 REFRESH_COOKIE_SAMESITE = env("REFRESH_COOKIE_SAMESITE", default="Lax")
 
+# Rate limits for the auth surface (`US-2.2` asks for a rate-limited sign-in; `NFR-3` asks for auth
+# rate limiting generally). Django Ninja reads this mapping and each throttle class picks its scope
+# out of it, so the numbers are policy rather than code (`ADR-0011`). Values are `requests/period`
+# with the periods Ninja parses: s, sec, m, min, h, hour, d, day.
+NINJA_DEFAULT_THROTTLE_RATES = {
+    # The endpoint actually worth brute-forcing, and so the tightest of the three. Ten is far above
+    # what a person needs — a typo costs one — and far below what makes guessing worthwhile.
+    "login": "10/min",
+    # A person registers once; a script registers until it is stopped.
+    "register": "10/hour",
+    # Generous on purpose. The client refreshes silently and rarely (an access token lasts 15
+    # minutes), so this limit exists to stop a runaway client, not a patient one — and it must never
+    # be the reason a real customer is signed out.
+    "refresh": "60/min",
+    # Authenticated endpoints (`/auth/me`, `/auth/logout`), keyed per account rather than per IP.
+    "auth": "240/min",
+}
+
+# How many proxies sit in front of the app, which decides whose IP a throttle counts. Ninja keys on
+# `X-Forwarded-For` when this is set and on the connection's own address when it is 0 — and it uses
+# that header *verbatim* when this is unset, which any client can forge, so leaving the default
+# would make every limit below bypassable by sending a different fake header each time.
+#
+# Zero is right locally and 1 on Render: its load balancer terminates TLS and forwards to a port
+# that is "not directly reachable via the public internet" (render.com/docs/web-services), so the
+# address in the header it appends is the client's. Both directions are bad if this is wrong — too
+# high and the header is forgeable again, too low and every visitor shares one bucket, so a single
+# abuser locks out everyone. `prod.py` raises it to 1; keep it in step with the real topology.
+NINJA_NUM_PROXIES = env.int("NINJA_NUM_PROXIES", default=0)
+
+# The throttle store. Ninja's throttles keep a rolling window of request timestamps in Django's
+# default cache, which is a per-process, in-memory dictionary: the limits are therefore per process
+# and reset on deploy. That is correct for how this app runs (one uvicorn process, see compose.yml
+# and the Render start command) and wrong the moment there is more than one worker, because each
+# would allow the full rate on its own. Point this at a shared backend — Render Key Value, or
+# `django.core.cache.backends.db.DatabaseCache` if no extra service is wanted — before scaling out.
+CACHES = {
+    "default": {
+        "BACKEND": env("CACHE_BACKEND", default="django.core.cache.backends.locmem.LocMemCache"),
+        "LOCATION": env("CACHE_LOCATION", default="lysheim-throttle"),
+    }
+}
+
 MIDDLEWARE = [
     "core.middleware.RequestIDMiddleware",
     "django.middleware.security.SecurityMiddleware",

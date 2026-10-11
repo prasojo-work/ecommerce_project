@@ -61,7 +61,7 @@ Status legend: `[ ]` planned · `[~]` in progress · `[x]` done.
 
 - [x] `M2.1` Custom `User` model + `Address` model + migrations; `django.contrib.auth` installed and `AUTH_USER_MODEL` swapped while the database still had no `auth_user` table.
 - [x] `M2.2` Auth endpoints: register, login, refresh, logout, me (`ADR-0009`) — access token in the body, refresh token only as an httpOnly cookie scoped to the auth routes, with rotation and reuse detection.
-- [ ] `M2.3` Throttling + refresh origin/CSRF guard; tests for rate limit and bad credentials.
+- [x] `M2.3` Rate limiting on every auth endpoint (`US-2.2`, `NFR-3`) — keyed on the client rather than the account, so a limiter cannot be turned into a way to lock someone out of their own sign-in — with the limits themselves in settings, plus `ADR-0009`'s origin guard on `/auth/refresh`, which answers `403` before reading the cookie.
 - [ ] `M2.4` Frontend session: in-memory access token + silent refresh interceptor.
 - [ ] `M2.5` Login / register pages with validation.
 - [ ] `M2.6` Profile + addresses CRUD (API and UI).

@@ -4,14 +4,19 @@
 duplicate-email error, sign-in that fails clearly without revealing which addresses exist, silent
 refresh, and a logout that ends the session server-side rather than only in the browser.
 
-Throttling and the cross-site origin guard are `M2.3` and are deliberately absent here.
+Rate limiting and the cross-site origin guard (`M2.3`) are covered at the end of the file: `US-2.2`
+asks for a rate-limited sign-in, and `ADR-0009` asks for an origin check on refresh. The throttle
+tests read the configured rate rather than hard-coding one, and the origin tests pin
+`CORS_ALLOWED_ORIGINS` explicitly instead of inheriting whatever `.env` happens to hold.
 """
 
 import json
+from collections.abc import Iterator
 from typing import Any
 
 import pytest
 from django.conf import settings
+from django.core.cache import cache
 from django.test import Client, override_settings
 
 from accounts.models import RefreshToken, User
@@ -64,8 +69,10 @@ def login(client: Client, email: str = "ada@example.com", password: str = PASSWO
     )
 
 
-def refresh(client: Client) -> Any:
-    return client.post("/api/v1/auth/refresh", content_type="application/json")
+def refresh(client: Client, headers: dict[str, str] | None = None) -> Any:
+    return client.post(
+        "/api/v1/auth/refresh", content_type="application/json", headers=headers or {}
+    )
 
 
 def live_tokens(user: User) -> int:
@@ -342,3 +349,157 @@ def test_deleting_a_user_removes_their_tokens(user: User) -> None:
     user.delete()
 
     assert RefreshToken.objects.count() == 0
+
+
+# --- rate limiting (`M2.3`, `US-2.2`) -------------------------------------------------------
+
+TRUSTED_ORIGIN = "https://storefront.example"
+
+
+@pytest.fixture(autouse=True)
+def clear_throttle_windows() -> Iterator[None]:
+    """The window lives in the cache, which outlives a test and is shared by every client in the
+    process. Clearing it per test stops the limits leaking between cases, so each one can assert
+    the rate it is about rather than a rate reduced by whatever ran before it."""
+    cache.clear()
+    yield
+    cache.clear()
+
+
+def requests_allowed_per(scope: str) -> int:
+    """The configured limit for a scope, so the tests cannot drift away from the settings."""
+    return int(str(settings.NINJA_DEFAULT_THROTTLE_RATES[scope]).split("/")[0])
+
+
+@pytest.mark.parametrize("scope", ["login", "register", "refresh", "auth"])
+def test_every_scope_has_a_configured_rate(scope: str) -> None:
+    """A throttle whose scope has no rate raises `ImproperlyConfigured` at request time, not at
+    startup, so an endpoint could ship and only fail under the request that used it."""
+    assert settings.NINJA_DEFAULT_THROTTLE_RATES.get(scope)
+
+
+def test_login_is_rate_limited(client: Client, user: User) -> None:
+    """`US-2.2`: the endpoint is rate-limited. The refusal must also say when to come back."""
+    allowed = requests_allowed_per("login")
+    for _ in range(allowed):
+        assert login(client, password="wrong").status_code == 401
+
+    response = login(client, password="wrong")
+
+    assert response.status_code == 429
+    assert response.json()["error"]["code"] == "RATE_LIMITED"
+    assert int(response["Retry-After"]) >= 1
+
+
+@override_settings(NINJA_DEFAULT_THROTTLE_RATES={"login": "2/min"})
+def test_the_limit_follows_the_client_and_not_the_address(client: Client, user: User) -> None:
+    """Keying on the submitted address would let anyone lock a known account out of its own
+    sign-in screen, which turns a rate limit into a denial-of-service tool.
+
+    The limit is lowered here because this case is about *whose* requests are counted, not about
+    the number the project ships — and every counted refusal costs a password hash.
+    """
+    for _ in range(requests_allowed_per("login")):
+        login(client, password="wrong")
+
+    # A different address from the same client is still refused, so the counter is not per account.
+    assert login(client, email="grace@example.com", password="wrong").status_code == 429
+
+    # And another client has its own window, so one visitor cannot lock out the next.
+    assert login(Client(REMOTE_ADDR="203.0.113.7"), password="wrong").status_code == 401
+
+
+@override_settings(NINJA_DEFAULT_THROTTLE_RATES={"register": "2/hour"})
+def test_register_is_rate_limited(client: Client) -> None:
+    """`NFR-3` names auth rate limiting generally, and registration is the other anonymous door.
+
+    Lowered for the same reason as the login case above: the shipped `10/hour` is policy, and each
+    registration here costs a password hash.
+    """
+    allowed = requests_allowed_per("register")
+    for index in range(allowed):
+        created = register(client, email=f"ada{index}@example.com")
+        assert created.status_code == 201
+
+    assert register(client, email="ada-extra@example.com").status_code == 429
+
+
+def test_refresh_is_rate_limited(client: Client, user: User) -> None:
+    """`API.md` section 2 promises a rate limit on every auth endpoint, including this one."""
+    allowed = requests_allowed_per("refresh")
+    login(client)
+    for _ in range(allowed):
+        assert refresh(client).status_code == 200
+
+    assert refresh(client).status_code == 429
+
+
+@override_settings(NINJA_DEFAULT_THROTTLE_RATES={"login": "10/min", "auth": "2/min"})
+def test_the_authenticated_endpoints_are_throttled_too(client: Client, user: User) -> None:
+    """`/auth/me` is keyed per account rather than per IP, so it needs its own wiring check.
+
+    The rate is overridden through settings and takes effect because `AuthenticatedRateThrottle`
+    re-reads it on every request — Ninja's own throttles resolve theirs once, when the instance is
+    built at import, which would leave this limit unfixably at its configured value.
+    """
+    token = login(client).json()["access_token"]
+
+    assert client.get("/api/v1/auth/me", headers=auth_header(token)).status_code == 200
+    assert client.get("/api/v1/auth/me", headers=auth_header(token)).status_code == 200
+
+    assert client.get("/api/v1/auth/me", headers=auth_header(token)).status_code == 429
+
+
+# --- the refresh origin guard (`M2.3`, `ADR-0009`) ------------------------------------------
+
+
+@override_settings(CORS_ALLOWED_ORIGINS=[TRUSTED_ORIGIN])
+def test_refresh_from_a_foreign_origin_is_refused(client: Client, user: User) -> None:
+    """In production the refresh cookie is `SameSite=None`, so this check is what stands between a
+    page the customer happens to be visiting and their session."""
+    login(client)
+
+    response = refresh(client, headers={"Origin": "https://evil.example"})
+
+    assert response.status_code == 403
+    assert response.json()["error"]["code"] == "FORBIDDEN"
+
+
+@override_settings(CORS_ALLOWED_ORIGINS=[TRUSTED_ORIGIN])
+def test_a_refused_origin_leaves_the_session_alone(client: Client, user: User) -> None:
+    """The guard runs before rotation, so a forged request cannot sign the real customer out by
+    replaying a stale cookie — which would otherwise trip reuse detection and revoke everything."""
+    login(client)
+
+    assert refresh(client, headers={"Origin": "https://evil.example"}).status_code == 403
+    assert live_tokens(user) == 1
+
+    assert refresh(client, headers={"Origin": TRUSTED_ORIGIN}).status_code == 200
+
+
+@override_settings(CORS_ALLOWED_ORIGINS=[TRUSTED_ORIGIN])
+def test_a_foreign_referer_is_refused_when_there_is_no_origin(client: Client, user: User) -> None:
+    """`Origin` is the header to read, but an agent that sends only `Referer` must not slip past."""
+    login(client)
+
+    response = refresh(client, headers={"Referer": "https://evil.example/account"})
+
+    assert response.status_code == 403
+
+
+@override_settings(CORS_ALLOWED_ORIGINS=[TRUSTED_ORIGIN])
+def test_a_trusted_referer_is_accepted(client: Client, user: User) -> None:
+    login(client)
+
+    response = refresh(client, headers={"Referer": f"{TRUSTED_ORIGIN}/account"})
+
+    assert response.status_code == 200
+
+
+@override_settings(CORS_ALLOWED_ORIGINS=[])
+def test_refresh_without_any_origin_is_allowed(client: Client, user: User) -> None:
+    """Non-browser clients send no `Origin`, and no page can prevent a browser from sending one,
+    so a missing header is not evidence of an attack — it is evidence of curl."""
+    login(client)
+
+    assert refresh(client).status_code == 200
