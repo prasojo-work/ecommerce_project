@@ -192,7 +192,10 @@ Everything else has been run, on PostgreSQL as well as SQLite.
       live token for that user, including the one the winner just received. `ADR-0009` does not say
       whether that is intended. A short grace window on the just-rotated token would fix it without
       weakening rotation, but it is a behaviour change, so it needs a decision before the frontend
-      starts holding sessions at `M2.4`.
+      starts holding sessions at `M2.4`. **`M2.4` has now shipped that session**, so the race is live
+      rather than hypothetical: `lib/session.ts` serialises refreshes *within* a tab, and two tabs are
+      two module instances sharing nothing. The decision now blocks a real behaviour, so it is worth
+      settling before `M3` builds on the session.
 - [ ] `QA-G5` The first `FOR UPDATE` probe reported `ModuleNotFoundError: No module named 'config'`
       because `uv run python /tmp/probe.py` puts the script's directory on `sys.path`, not the working
       directory. That was a fault in the harness, not the product, and it is recorded because a check
@@ -203,3 +206,10 @@ Everything else has been run, on PostgreSQL as well as SQLite.
       config, and wrong the moment the service scales out — so a shared cache (Render Key Value, or the
       database cache if no extra service is wanted) is a prerequisite for a second worker, not a
       nice-to-have. Nothing in the code prevents the mistake, which is why it is written down here.
+- [ ] `QA-G7` A weak password can be explained by the wrong reason. One rejected password returned two
+      issues for the same field — "too similar to the email" before "too short" — and the form shows
+      the first, so a three-character password is explained as similar rather than short. Both are
+      true; only one tells the customer what to change. The order is Django's validator order, not
+      ours, so the real choice is whether to show every issue for a field, to impose our own
+      preference, or to accept whatever arrives first. Current behaviour is the last of those, and it
+      is a microcopy question rather than a defect.

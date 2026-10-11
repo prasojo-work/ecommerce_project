@@ -6,6 +6,51 @@
 
 ## History
 
+### 2026-10-11 — v0.1.27 — M2.5 sign-in and registration pages
+
+**Context.** `M2.5`. `US-2.1` and `US-2.2` ask for registration and sign-in with validation, and
+`UX.md` flow D names the states that must exist — bad credentials, an address already registered, and
+the rate-limit message. `M2.4` had left a session nobody could reach: the token was renewed on load
+and no page could start or end one.
+
+**What changed.**
+
+- `frontend/src/lib/auth-form.ts` — new: the field rules, the mapper from the API's `details` onto
+  inputs, and the message for each failure status. Tested in `auth-form.test.ts`.
+- `frontend/src/components/auth-form.tsx` — new: one form for both endpoints, field errors wired to
+  their inputs, the form-level failure as a `role="alert"`, and the busy state.
+- `frontend/src/app/login/page.tsx`, `frontend/src/app/register/page.tsx` — new: the two routes,
+  statically generated.
+- `frontend/src/components/site-header.tsx` — new: the wordmark and the session-aware actions, in the
+  three states `M2.4` defined; `frontend/src/app/layout.tsx` renders it above the page content.
+- `docs/03-architecture/API.md` — §3's `details` example corrected: the field arrives carrying its
+  source (`body.email`), which is what the code has always sent.
+
+**Decisions taken.**
+
+- **One form, two pages.** Mode-driven, because the error handling is the part that must exist once.
+- **The server's answer wins.** Client validation runs first to save a round trip, and a rejection
+  replaces it field by field, so the client can never insist on something the server refused.
+- **A field error with no matching input still reaches the customer**, as the form-level message, so
+  an unrecognised name is visible rather than dropped.
+- **`noValidate`, and no `required`.** The browser's own bubble would otherwise be a second voice on
+  the page, saying something different from every other message on it.
+- **The header renders no session state until the session is restored**, rather than flashing "Sign
+  in" at a signed-in customer and taking it back.
+- **Sign-out tells the API first and forgets locally in a `finally`**, per `ADR-0009`: a logout that
+  failed because the token was already dead has still logged the user out.
+
+**Impact.** Frontend gates green: `prettier`, `eslint`, `tsc --noEmit`, **79 vitest tests** (17 new)
+and a production build of all 9 routes, with `/login` and `/register` static. Verified over HTTP:
+both pages answered `200` with their form already in the HTML and `autocomplete="new-password"` on
+the register password field; the header carried no session state; a duplicate address was reported as
+`body.email` and a weak password as `body.password`; a failed sign-in returned `401`
+`UNAUTHENTICATED` with the sentence the form shows. 0 tracebacks, 0 `500`s, 0 web errors. The check
+found the `API.md` discrepancy above, which no test could have: the contract and the code disagreed
+about the field name, and only asking the running API exposed it. The four browser-level cases
+(`QA-C48`–`QA-C51`) are recorded as not run, and `QA-C43`'s blocker moved to `M2.6` — the pages here
+are the ones a signed-out visitor uses.
+
 ### 2026-10-11 — v0.1.26 — M2.4 frontend session and cross-origin access
 
 **Context.** `M2.4`. `US-2.3` asks for token refresh to be silent and for logout to clear session

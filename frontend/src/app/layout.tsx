@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 
 import { SessionProvider } from "@/components/session-provider";
+import { SiteHeader } from "@/components/site-header";
 
 import "./globals.css";
 
@@ -20,7 +21,10 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html lang="en" className={inter.variable}>
       <body>
-        <SessionProvider>{children}</SessionProvider>
+        <SessionProvider>
+          <SiteHeader />
+          {children}
+        </SessionProvider>
       </body>
     </html>
   );

@@ -63,7 +63,7 @@ Status legend: `[ ]` planned · `[~]` in progress · `[x]` done.
 - [x] `M2.2` Auth endpoints: register, login, refresh, logout, me (`ADR-0009`) — access token in the body, refresh token only as an httpOnly cookie scoped to the auth routes, with rotation and reuse detection.
 - [x] `M2.3` Rate limiting on every auth endpoint (`US-2.2`, `NFR-3`) — keyed on the client rather than the account, so a limiter cannot be turned into a way to lock someone out of their own sign-in — with the limits themselves in settings, plus `ADR-0009`'s origin guard on `/auth/refresh`, which answers `403` before reading the cookie.
 - [x] `M2.4` Frontend session: the access token in memory only, with one shared in-flight refresh so two concurrent calls cannot trip `ADR-0009`'s reuse detection and sign the customer out of everything; a three-state session (`restoring`/`authenticated`/`anonymous`) so a reload never flashes "signed out"; and the CORS configuration the browser needs, which had been missing entirely.
-- [ ] `M2.5` Login / register pages with validation.
+- [x] `M2.5` Login / register pages with validation.
 - [ ] `M2.6` Profile + addresses CRUD (API and UI).
 
 ### M3 — Cart

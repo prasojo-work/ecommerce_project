@@ -36,6 +36,8 @@ export type AuthFailure = {
   code: string;
   message: string;
   details: FieldIssue[];
+  /** The HTTP status, so a caller can recognise the states it has to handle specially. */
+  status: number;
 };
 
 export type AuthSuccess = { ok: true; session: Session };
@@ -52,7 +54,7 @@ const GENERIC_FAILURE = "Something went wrong. Please try again.";
  * that says it could not reach the server. `details` carries the per-field issues the API reports,
  * which is what lets the register form point at the field that was rejected.
  */
-function asFailure(error: unknown): AuthFailure {
+function asFailure(error: unknown, response: Response): AuthFailure {
   const envelope = (error as { error?: unknown } | undefined)?.error;
   const body =
     typeof envelope === "object" && envelope !== null ? (envelope as Record<string, unknown>) : {};
@@ -62,6 +64,7 @@ function asFailure(error: unknown): AuthFailure {
     code: typeof body.code === "string" ? body.code : "ERROR",
     message: typeof body.message === "string" ? body.message : GENERIC_FAILURE,
     details: Array.isArray(body.details) ? (body.details as FieldIssue[]) : [],
+    status: response.status,
   };
 }
 
@@ -71,12 +74,14 @@ function established(session: Session): AuthSuccess {
 }
 
 export async function login(email: string, password: string): Promise<AuthOutcome> {
-  const { data, error } = await client.POST("/api/v1/auth/login", {
+  const { data, error, response } = await client.POST("/api/v1/auth/login", {
     ...WITH_COOKIE,
     body: { email, password },
   });
 
-  return data ? established({ accessToken: data.access_token, user: data.user }) : asFailure(error);
+  return data
+    ? established({ accessToken: data.access_token, user: data.user })
+    : asFailure(error, response);
 }
 
 export async function register(
@@ -84,12 +89,14 @@ export async function register(
   password: string,
   displayName: string,
 ): Promise<AuthOutcome> {
-  const { data, error } = await client.POST("/api/v1/auth/register", {
+  const { data, error, response } = await client.POST("/api/v1/auth/register", {
     ...WITH_COOKIE,
     body: { email, password, display_name: displayName },
   });
 
-  return data ? established({ accessToken: data.access_token, user: data.user }) : asFailure(error);
+  return data
+    ? established({ accessToken: data.access_token, user: data.user })
+    : asFailure(error, response);
 }
 
 /**

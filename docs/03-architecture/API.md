@@ -61,12 +61,17 @@ Every error response uses one shape (see `NFR-4`):
 {
   "error": {
     "code": "VALIDATION_ERROR",
-    "message": "Email is already registered.",
-    "details": [{"field": "email", "issue": "duplicate"}],
+    "message": "Request validation failed.",
+    "details": [{"field": "body.email", "issue": "That email is already registered."}],
     "request_id": "01J9Z3K8Q2M4"
   }
 }
 ```
+
+Each `details` entry is `{field, issue}`, and `field` is the location with its source still on it —
+`body.email` for a rejected request body, `query.q` for a query parameter — so a client can tell a
+bad query string from a bad body. Clients match an input by stripping that prefix, and must cope with
+it being absent, because an error raised before a body is parsed has no source to name.
 
 Status codes: `400` validation, `401` unauthenticated, `403` forbidden, `404` not found,
 `409` conflict (e.g. stock), `422` semantic error, `429` rate-limited, `500` unexpected.

@@ -885,6 +885,72 @@ Notes:
   browser behaving correctly. That needs a page to click, so it is `M2.5`'s check (`QA-C43`); the unit
   tests cover the logic and the HTTP check covers the headers, and neither substitutes for the other.
 
+### M2.5 — the sign-in and registration pages
+
+`/login` and `/register` are the first pages that write to the API, and the header now reflects the
+session instead of always offering a link. Both pages are generated as static HTML: they are identical
+for everyone, because whether anyone is signed in is decided on the client, from a token that only
+exists in memory. Verify:
+
+```bash
+cd frontend
+pnpm format:check && pnpm lint && pnpm typecheck && pnpm test && pnpm build
+
+# The two shapes of a field error, and the sentence the form shows, over HTTP:
+cd ../backend
+PORT=8399
+uv run python manage.py runserver $PORT --noreload &
+BASE=http://localhost:$PORT/api/v1
+curl -sS $BASE/auth/register -H 'Content-Type: application/json' \
+  -d '{"email":"m25@example.com","password":"a-strong-one-9x","display_name":"M"}'; echo  # 201
+curl -sS $BASE/auth/register -H 'Content-Type: application/json' \
+  -d '{"email":"m25@example.com","password":"a-strong-one-9x"}'                         # taken
+curl -sS $BASE/auth/login -H 'Content-Type: application/json' \
+  -d '{"email":"m25@example.com","password":"wrong"}'                                   # 401
+```
+
+Notes:
+
+- **One form, two pages.** `AuthForm` takes a mode. Two components would have duplicated the part
+  worth having in one place: mapping the API's field errors onto inputs, the form-level message, the
+  busy state, and the rule that the server's answer replaces whatever the client guessed.
+- **The server names a field differently, and the form knows it.** The API calls it `display_name`
+  and the input is `displayName`, so the mapping is written out rather than relying on the two
+  happening to agree — which is exactly the coincidence that stops holding the moment a field is
+  renamed.
+- **A server field name carries its source, and is not an input name.** A rejected body comes back as
+  `body.email`: precise about *where* the error is, useless as a DOM id. The mapper strips
+  `body.`/`query.`/`path.` and falls back to the form-level message when a name matches no input, so
+  an error is never dropped silently — a field error with nowhere to land looks like nothing happened
+  at all. **`API.md` §3 documented this wrongly** (a bare `email`); the check over HTTP caught the
+  difference, so the contract now matches the code and both shapes are handled.
+- **Client-side validation is a courtesy, not the gate.** The rules in `lib/auth-form.ts` mirror the
+  published ones so obvious mistakes are caught before a round trip. The API still decides, and on a
+  rejection its `details` are what get displayed, so the client cannot call something valid that the
+  server refuses.
+- **Accessibility comes from the markup, not from colour.** Every input has a real `<label for>`, the
+  message sits in that field's own block with `aria-describedby` pointing at it and `aria-invalid`
+  set, and the form-level failure is a `role="alert"`. The error is a sentence in the flow, because
+  `SCOPE.md` NFR-2 forbids signalling by colour alone.
+- **`noValidate`, and no `required`.** The platform's validation bubble would appear first and say
+  something different from every other message on the page. Taking the form over means one voice, and
+  the messages become testable in `auth-form.test.ts` instead of belonging to the browser.
+- **The header has three states, not two.** The access token lives in memory, so on first paint the
+  app genuinely does not know whether the visitor is signed in. `restoring` exists so the header stays
+  neutral rather than showing "Sign in" to a signed-in customer and snatching it back a moment later.
+- **Sign-out tells the API first, then forgets.** `ADR-0009` requires the refresh token to be
+  invalidated server-side, so the request goes first and the local store is cleared in a `finally`
+  whatever comes back. A logout that failed because the token was already dead has still logged the
+  user out, and a signed-in header over an API that refuses every call would be worse than either.
+- **Verified:** both pages answered `200` with the form already in the HTML, the register password
+  field carrying `autocomplete="new-password"`; the header rendered no session state; a duplicate
+  address came back as `body.email` and a weak password as `body.password`; a failed sign-in returned
+  `401` `UNAUTHENTICATED` with the sentence the form shows. 0 tracebacks, 0 `500`s, 0 web errors.
+- **What this did not prove.** All of the above is the HTML the server sends; the behaviour it
+  triggers is JavaScript in a browser. The four browser cases — validation before a request goes out,
+  the `429` message, the silent restore, and sign-out — are `QA-C48`–`QA-C51`, not run until someone
+  drives a real browser.
+
 ## 7. Deployment (M7)
 
 > Filled in at M7 — Render, Vercel, Supabase steps, environment variables, and the production
