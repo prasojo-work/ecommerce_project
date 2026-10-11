@@ -2,11 +2,18 @@
 
 > How LYSHEIM is built, increment by increment. Recorded as a decision in
 > [`decisions/ADR-0004-working-agreement.md`](decisions/ADR-0004-working-agreement.md).
-> This file is binding for the assistant/builder; amend it only via a new ADR.
+> This file is binding for the assistant/builder; amend it only via a new ADR. Amended on
+> 2026-10-11 by [`ADR-0015`](decisions/ADR-0015-continuous-increments.md), which keeps every rule
+> here and changes only the cadence: the assistant runs increments continuously and stops solely for
+> a founder decision.
 
 ## 1. The rules
 
-1. **Small increments.** Every commit is one small, demoable step. No "big bang" changes.
+1. **Small increments, run continuously.** Every commit is one small, demoable step. No "big bang"
+   changes. The assistant does **not** pause between increments — it stops only when the founder has
+   to decide something: a product or UX choice, a scope change, a credential or external service, or
+   a deployment ([`ADR-0015`](decisions/ADR-0015-continuous-increments.md)). Reporting progress is
+   not a reason to stop.
 2. **Gates pass before commit.** Each increment must pass formatting and type checking. If a
    gate breaks, fix it *before* committing. The exact tooling is in §2.
 3. **Tests ship with the code.** Every increment gets unit tests using mock/fixture data,

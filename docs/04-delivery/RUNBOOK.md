@@ -829,6 +829,62 @@ Notes:
   Verified: a foreign `Origin` and a foreign `Referer` both answered `403` `FORBIDDEN`, the next
   trusted refresh still answered `200`, and a request with no origin at all was allowed.
 
+### M2.4 — the frontend session and cross-origin access
+
+The browser keeps the access token in memory, gets a new one silently when it expires (`US-2.3`), and
+can reach the API at all only because of the CORS configuration added here. Verify it:
+
+```bash
+cd backend
+uv run ruff format --check . && uv run ruff check . && uv run basedpyright && uv run pytest
+cd ../frontend
+pnpm format:check && pnpm lint && pnpm typecheck && pnpm test && pnpm build
+
+# The headers a browser needs, over HTTP:
+cd ../backend
+PORT=8388
+uv run python manage.py runserver $PORT --noreload &
+curl -sS -i -X OPTIONS "http://localhost:$PORT/api/v1/auth/refresh" \
+  -H 'Origin: http://localhost:3000' \
+  -H 'Access-Control-Request-Method: POST' \
+  -H 'Access-Control-Request-Headers: content-type' | head -12
+```
+
+Notes:
+
+- **The access token lives in a module variable and nowhere else.** Not `localStorage`, not
+  `sessionStorage`, not a cookie — anything a script can read, an injected script can read, which is
+  what `ADR-0009` rejected. The cost is that a reload loses it, so "no token" is *not* the same as
+  "signed out": `SessionProvider` renews once on mount and the UI has three states — `restoring`,
+  `authenticated`, `anonymous` — so the header cannot flash "Sign in" at a signed-in customer on every
+  navigation.
+- **One refresh at a time, for the whole app.** A correctness guard, not a cache. The API rotates
+  refresh tokens and treats a second use of an old one as theft, revoking *every* session for the
+  account. Two protected requests that 401 together — or a page-load restore racing a retry — would
+  therefore sign the customer out of everything. `lib/session.ts` holds one in-flight promise that
+  every caller shares, and two tests exist for that alone: two concurrent 401s, and a restore
+  overlapping a retry. The second of those failed when it was first written, for a reason worth
+  keeping: the mocked refresh resolved instantly, so the two never overlapped, and a browser cannot
+  produce that sequence because its refresh is a network call.
+- **CORS was missing entirely until now.** The `CORS_ALLOWED_ORIGINS` setting had existed since
+  `M0.6`, but nothing read it on the response path, so a browser could not have called this API.
+  `django-cors-headers` now supplies the middleware, placed above `CommonMiddleware` so it answers
+  the preflight before anything else can, with `CORS_ALLOW_CREDENTIALS` on because the refresh token
+  travels in a cookie.
+- **The allow-list is load-bearing in two places, deliberately.** `CORS_ALLOWED_ORIGINS` decides who
+  may *read* a response (the browser enforces that) and is also the list the refresh origin guard
+  compares against (the API enforces that). One list, so the two cannot disagree. It is empty by
+  default, so a deployment that forgets it fails closed: cross-origin calls stop working and every
+  browser refresh is refused.
+- **Verified over HTTP:** both preflights answered `200`, with `authorization` and `content-type`
+  among the allowed headers; a registration from the storefront origin answered `201` and was
+  readable, setting exactly one refresh cookie; the silent refresh answered `200` and rotated exactly
+  one cookie; and an unlisted origin received no allow-origin header at all while the same origin's
+  refresh was refused `403` by the guard. 0 tracebacks, 0 `500`s.
+- **What this did not prove.** The interceptor is JavaScript, and the headers being right is not the
+  browser behaving correctly. That needs a page to click, so it is `M2.5`'s check (`QA-C43`); the unit
+  tests cover the logic and the HTTP check covers the headers, and neither substitutes for the other.
+
 ## 7. Deployment (M7)
 
 > Filled in at M7 — Render, Vercel, Supabase steps, environment variables, and the production

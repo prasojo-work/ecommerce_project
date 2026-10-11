@@ -22,6 +22,7 @@ INSTALLED_APPS = [
     "django.contrib.auth",
     "django.contrib.contenttypes",
     "django.contrib.staticfiles",
+    "corsheaders",
     "core",
     "accounts",
     "catalog",
@@ -105,6 +106,9 @@ CACHES = {
 
 MIDDLEWARE = [
     "core.middleware.RequestIDMiddleware",
+    # Answers the browser's preflight itself and adds the CORS headers to every response, so it has
+    # to sit above anything that could answer first — `CommonMiddleware` most of all.
+    "corsheaders.middleware.CorsMiddleware",
     "django.middleware.security.SecurityMiddleware",
     "django.middleware.common.CommonMiddleware",
 ]
@@ -144,7 +148,18 @@ USE_TZ = True
 STATIC_URL = "static/"
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
+# Cross-origin access for the decoupled frontend (`ADR-0011`: the web app on Vercel, the API on
+# Render). This allow-list is the only thing that decides who may call the API from a browser, and it
+# is deliberately the same list `accounts/api.py` consults for the refresh origin guard, so the two
+# cannot drift apart. Empty by default: a deployment that forgets to set it refuses cross-origin
+# calls, which is the safe direction to fail in.
 CORS_ALLOWED_ORIGINS = env.list("CORS_ALLOWED_ORIGINS", default=[])
+
+# The refresh token travels in a cookie, so the browser has to be permitted to send credentials
+# cross-origin. That is only safe *because* the origins above are an explicit allow-list — the
+# package refuses to combine credentials with a wildcard, and a wildcard would defeat the origin
+# guard on `/auth/refresh` at the same time.
+CORS_ALLOW_CREDENTIALS = True
 
 LOGGING = {
     "version": 1,

@@ -6,6 +6,46 @@
 
 ## History
 
+### 2026-10-11 — v0.1.26 — M2.4 frontend session and cross-origin access
+
+**Context.** `M2.4`. `US-2.3` asks for token refresh to be silent and for logout to clear session
+state; `ADR-0009` puts the access token in memory and the refresh token in a cookie, which decides
+everything here. The frontend could not call the API at all before this increment.
+
+**What changed.**
+
+- `frontend/src/lib/session.ts` — new: the in-memory session, the three-state model, and
+  `authorizedFetch`/`renew` behind one shared in-flight refresh.
+- `frontend/src/api/auth.ts` — new: login, register, refresh, logout, each leaving the store correct;
+  failures come back as values, with the API's per-field `details` preserved for the forms.
+- `frontend/src/components/session-provider.tsx` — new: the React binding and the silent refresh on
+  load; `frontend/src/app/layout.tsx` wraps the app in it.
+- `backend/config/settings/base.py`, `backend/pyproject.toml` — `django-cors-headers` added, its
+  middleware installed above `CommonMiddleware`, credentials allowed.
+- `frontend/src/lib/session.test.ts` — 12 tests; `backend/tests/test_cors.py` — 5.
+- `docs/decisions/ADR-0015-continuous-increments.md` — new: amends how the working agreement of
+  `ADR-0004` is applied. Increments still land as small, gated, tested commits, but they now run
+  continuously, and the assistant stops only when a founder decision is genuinely required.
+
+**Decisions taken.**
+
+- **One refresh at a time.** Not an optimisation: rotation plus reuse detection turns two concurrent
+  refreshes into a forced logout, so this guard is what makes concurrent authenticated calls safe.
+- **Three session states, not two.** "Restoring" exists because losing the token on reload is normal
+  and must not render as signed out.
+- **CORS added here rather than deferred.** `CORS_ALLOWED_ORIGINS` had existed since `M0.6` with
+  nothing reading it, so the increment that first needs a browser call is the one that has to fix it.
+- **Errors as values, and the envelope narrowed rather than asserted**, so a proxy returning HTML
+  produces "please try again" instead of a crashed page.
+
+**Impact.** Backend gates green: 145 tests, `basedpyright` 0 errors, plus the 5 new CORS tests.
+Frontend gates green: `prettier`, `eslint`, `tsc --noEmit`, **62 vitest tests** (12 new) and a
+production build of all 7 routes. Verified over HTTP: both preflights `200` with `authorization`
+allowed, a credentialed registration `201` with one cookie, the silent refresh `200` rotating one
+cookie, an unlisted origin receiving no allow-origin header while its refresh was refused `403`, and 0
+tracebacks with 0 `500`s. The first version of one interceptor test failed because of the test, not
+the code: the mocked refresh resolved instantly, so the two calls never overlapped.
+
 ### 2026-10-11 — v0.1.25 — M2.3 rate limiting and the refresh origin guard
 
 **Context.** `M2.3`. `US-2.2` asks for a rate-limited sign-in and `NFR-3` for auth rate limiting

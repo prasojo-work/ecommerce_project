@@ -15,6 +15,9 @@
 - **Timestamps:** ISO-8601 UTC (`2026-10-09T12:00:00Z`).
 - **Money:** integer minor units plus a `currency` (`{"amount_cents": 18000, "currency": "USD"}`).
 - **Auth:** `Authorization: Bearer <access_token>` on protected routes.
+- **Cross-origin:** the web app runs on its own origin, so `CORS_ALLOWED_ORIGINS` decides who may
+  read a response and credentials are allowed so the refresh cookie travels. That same list is what
+  the origin guard on `/auth/refresh` compares against — one list, so the two cannot drift apart.
 
 ## 2. Authentication
 

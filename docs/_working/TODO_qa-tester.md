@@ -23,18 +23,21 @@ grouped by them rather than by endpoint.
 - **Scoping** — a credential is good only for the operation it was minted for.
 
 **Levels.** 44 API contract tests (`backend/tests/test_accounts_api.py`, 14 of them added at `M2.3`),
-20 model tests (`test_accounts_models.py`), and a scripted end-to-end pass over real HTTP, because
-cookie attributes, headers and rate limits cannot all be verified through the test client alone — a
-throttle lives in the process's own cache, so nothing outside that process can exercise it. `pytest`
-is **145 tests**. The suite and the flow were run twice: once on SQLite, then again on PostgreSQL
-17.11, because the two differ in exactly the place that matters (see `QA-C30`).
+20 model tests (`test_accounts_models.py`), 5 cross-origin tests (`test_cors.py`, `M2.4`), 62
+frontend unit tests (`vitest`, 12 of them the session store), and a scripted end-to-end pass over
+real HTTP — because cookie attributes, headers and rate limits cannot all be verified through the
+test client alone. A throttle lives in the process's own cache and CORS headers on the response path,
+so neither can be exercised from outside the process. `pytest` is **145 tests**. The suite and the
+flow were run twice: once on SQLite, then again on PostgreSQL 17.11, because the two differ in
+exactly the place that matters (see `QA-C30`).
 
 **Deliberately not tested.** JWT signing internals and password hashing internals (libraries' jobs, not
 ours), TLS and transport hardening (`M7`).
 
-**Blocked, not skipped.** Rate limiting and the `/auth/refresh` origin guard arrived at `M2.3`
-(`QA-C26`, `QA-C27`); browser-level CORS and cross-site cookie delivery are `M2.4` (`QA-C28`).
-Nothing else is blocked — the suite and the whole flow have been run on PostgreSQL as well as SQLite.
+**Blocked, not skipped.** Three cases wait on work that does not exist yet: `QA-C32` (`PATCH
+/auth/me`, `M2.6`), `QA-C43` (the interceptor driven in a real browser, `M2.5`), and `QA-C28`
+(cross-site cookie delivery with `SameSite=None`, which needs a second real origin, so `M7`).
+Everything else has been run, on PostgreSQL as well as SQLite.
 
 ## QA-CASE — cases and observed results
 
@@ -94,6 +97,33 @@ Nothing else is blocked — the suite and the whole flow have been run on Postgr
 - [x] `QA-C24` No server-side errors during the whole flow. **Observed:** 0 tracebacks, 0 `500`s.
 - [x] `QA-C25` The contract documents the new routes. **Observed:** all five `/api/v1/auth/*` paths in
       the regenerated `frontend/openapi.json`; the frontend typechecks and lints against it.
+
+### Cross-origin access in the browser (`M2.4`)
+
+- [x] `QA-C38` A preflight for `POST /auth/refresh` succeeds. **Observed:** `OPTIONS` with
+      `Origin: http://localhost:3000` answered `200`, echoing the origin, with
+      `access-control-allow-credentials: true`, `POST` among the allowed methods and `content-type`
+      among the allowed headers.
+- [x] `QA-C39` A preflight for an authorised call allows `authorization`. **Observed:**
+      `access-control-allow-headers` carries `authorization`, so the bearer header the interceptor
+      sends is not blocked before the request is even made.
+- [x] `QA-C40` A registration from the storefront origin is readable and sets the cookie.
+      **Observed:** `201` with the allow-origin and allow-credentials headers, and exactly one
+      `lysheim_refresh` cookie set.
+- [x] `QA-C41` The silent refresh rotates the cookie over CORS. **Observed:** `POST /auth/refresh`
+      with the cookie and the storefront origin answered `200`, echoed the origin, and rotated exactly
+      one refresh cookie.
+- [x] `QA-C42` An unlisted origin gets no access, and the API's own guard refuses it too.
+      **Observed:** the call with `Origin: https://evil.example` came back with **no**
+      `access-control-allow-origin` header — so a browser refuses to expose the response even though
+      the API answered — while `POST /auth/refresh` from that origin answered `403` `FORBIDDEN` from
+      the origin guard. The two layers are independent, which is exactly why both are checked.
+- [ ] `QA-C43` **Not run — `M2.5`.** The interceptor in a real browser: sign in, drop the access token
+      (or wait it out), and confirm a protected call renews silently and retries with nothing visible
+      to the customer. It needs a page that makes authenticated calls, which `M2.5` provides. The
+      JavaScript is covered by unit tests today — 12 in `src/lib/session.test.ts`, including the
+      single-refresh guard — but "the browser does the right thing with these headers" is precisely
+      what a unit test cannot claim.
 
 ### Not run
 
