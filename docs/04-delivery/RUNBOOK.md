@@ -1053,10 +1053,185 @@ Notes:
   0 tracebacks, 0 `500`s, 0 web errors. The interactive cases are `QA-C56`–`QA-C62`, recorded as not
   run because they need a browser.
 
-## 7. Deployment (M7)
+## 7. Deployment
 
-> Filled in at M7 — Render, Vercel, Supabase steps, environment variables, and the production
-> smoke journey. See [`../decisions/ADR-0011-deployment-stack.md`](../decisions/ADR-0011-deployment-stack.md).
+`M2.7` deploys the walking skeleton — a public URL serving the catalogue and auth. `M7` completes it
+(custom domains, backups, the production journey over a real customer path). What follows is the
+procedure `M2.7` establishes, written to be followed rather than admired.
+
+### 7.1 What runs where
+
+| Piece | Host | Consequence |
+| --- | --- | --- |
+| API | Render, free web service, Docker | `runtime: docker` builds `backend/Dockerfile`. Render has no compose runtime — `docker-compose.yml` is not one of its service types — so `compose.yml` stays a **local** tool and the Dockerfile is the only thing the two share. |
+| Web | Vercel | Next.js, root directory `frontend`. |
+| Database | Supabase, free | Reached through the **shared pooler** (7.3). |
+| Images | Vercel | All 46 are vendored in `frontend/public/images/`, so Django serves no media and no static files: no `collectstatic`, no WhiteNoise, no object storage in this milestone. |
+
+`render.yaml` in the repository root is the API as configuration. Four fields carry weight:
+
+- **`dockerCommand` is load-bearing.** Pre-deploy commands are for paid instance types, so the
+  migrations happen here instead (7.4). It also overrides the Dockerfile's `CMD`, which is why the
+  image can keep a host-neutral port 8000 and still bind Render's `$PORT`.
+- **`sync: false`** makes Render prompt for a value in the Dashboard and never store it in the file.
+  That is what lets a Blueprint be committed while the secrets are not.
+- **`generateValue: true`** makes Render invent a 256-bit value and keep it across syncs.
+  `DJANGO_SECRET_KEY` uses it, so no human ever handles that key.
+- **`DJANGO_ALLOWED_HOSTS` from `RENDER_EXTERNAL_HOSTNAME`** lets the service tell itself its own
+  hostname, which removes a manual step and a class of `400 DisallowedHost`. A custom domain added
+  later still has to be appended by hand.
+
+The file validates against Render's published schema, which is also served to editors through
+SchemaStore: `curl -sS https://render.com/schema/render.yaml.json` and check it with `jsonschema`
+before trusting a change to it, because a misspelled field is silently ignored by the platform and
+the service simply behaves as if it were absent.
+
+### 7.2 Credentials: `.env` locally, the dashboard in production
+
+`.env` is one *local* way to fill the process environment; in production the platform fills it. The
+code does not know the difference, and three verified facts make that true rather than aspirational:
+
+- `django-environ`'s `read_env()` does **not** overwrite variables that already exist
+  (`backend/config/settings/base.py`), so a dashboard variable beats a file. There is one code path,
+  not two.
+- `.gitignore` ignores `.env` and `.env.*` and un-ignores `.env.example`, and both `.dockerignore`
+  files exclude `.env` — so a local `.env` can reach neither the repository nor the image. Only the
+  *keys* are committed.
+- Three `.env` files locally, for three consumers: `backend/.env` (the API), `frontend/.env.local`
+  (the web app), and a root `.env` (Docker Compose's own `${...}` substitutions in `compose.yml`).
+  Confusing these is the usual local mistake; the cloud side is the simpler half.
+
+On the frontend, `NEXT_PUBLIC_API_BASE_URL` is **public**: Next inlines `NEXT_PUBLIC_*` into the
+browser bundle at build time, so nothing secret may ever carry that prefix, and changing the value
+needs a redeploy rather than a restart.
+
+### 7.3 Order
+
+Ordered, because of one dependency: `CORS_ALLOWED_ORIGINS` needs Vercel's URL and Vercel's
+`NEXT_PUBLIC_API_BASE_URL` needs Render's. Naming the Render service first breaks the circle, since a
+service called `lysheim-api` is reachable at `https://lysheim-api.onrender.com`.
+
+1. **Supabase.** Create the project in the region that matches Render's, and copy the **shared
+   pooler, session mode** string from Connect:
+   `aws-<n>-<region>.pooler.supabase.com:5432`, with `?sslmode=require`. Not the direct connection:
+   that resolves to IPv6 only on the free plan while Render's free tier is IPv4 only, and the symptom
+   is a "no route to host" on the first query.
+2. **Render.** New → Blueprint → this repository. Render reads `render.yaml` and prompts for
+   `DATABASE_URL` (the pooler string) and `CORS_ALLOWED_ORIGINS` (Vercel's URL, if known; it can be
+   edited and redeployed later). Watch the first deploy's log for the migration and seed output.
+3. **Vercel.** Import the repository, root directory `frontend`, and set
+   `NEXT_PUBLIC_API_BASE_URL=https://lysheim-api.onrender.com` for **Production** *before* the first
+   build, then deploy. Setting it afterwards does nothing until the next build.
+4. **Close the loop.** Put Vercel's production URL into Render's `CORS_ALLOWED_ORIGINS` — the exact
+   origin, scheme included, no trailing slash — and let Render redeploy.
+5. **Smoke journey.** 7.5.
+6. **Keep-alive.** `ADR-0011` accepts cold starts and mitigates them with a periodic ping. Whatever
+   does the pinging is an external account and a founder decision; until then the first visit after
+   idle is slow and is not a bug.
+
+### 7.4 Why migrations run in the start command
+
+Render's pre-deploy command is for paid instance types, and this service is free, so there is no
+separate stage to run migrations in. Render's own Docker documentation suggests folding them into the
+start command, and this repository already uses that shape locally — `compose.yml` runs
+`sh -c "python manage.py migrate --noinput && uvicorn ..."`. `render.yaml` does the same thing, with
+the seed added.
+
+Measured on a throwaway database, so the dev database was untouched:
+
+| Step | Cold | On every wake after |
+| --- | --- | --- |
+| `migrate` | 1.18s | 0.74s |
+| `seed` (46 products) | 0.98s | 0.91s |
+
+Almost all of that is Django's interpreter boot (about 0.65s floor per command); the work itself is a
+quarter of a second. Against a cold start measured in tens of seconds it is noise.
+
+Three things hold this up, and each can stop being true:
+
+- **`seed` is idempotent by contract** — `core/management/commands/seed.py` wraps the whole run in one
+  transaction. **Never put `--reset` in the start command:** it clears the seeded rows first, so every
+  cold start would wipe the catalogue.
+- **Migrations are not safe to run concurrently**, and this shape assumes one instance. The free plan
+  runs one with no autoscaling, which is why it is accepted rather than guarded (`QA`-level decision,
+  recorded here on purpose). If the service ever scales, or if `M7` moves it to a paid plan where
+  zero-downtime deploys overlap two instances, take an advisory lock before migrating.
+- **`initialDeployHook`** (alias `afterFirstDeployCommand`) is the tidier home for the seed: Render
+  runs it once after the first successful deploy. The Blueprint spec does not mark it plan-restricted,
+  but unlike the pre-deploy restriction that is documented, this is not — so treat it as an
+  improvement to try, not a fact.
+
+### 7.5 The smoke journey
+
+Pointed at the two public hosts, and worth running on every deploy that touches configuration:
+
+```bash
+API=https://lysheim-api.onrender.com
+WEB=https://lysheim.vercel.app          # the real production URL
+
+curl -sS "$API/healthz"                                    # {"status": "ok", ...}
+curl -sS -o /dev/null -w '%{http_code}\n' "$WEB/"          # 200
+curl -sS -o /dev/null -w '%{http_code}\n' "$WEB/products"  # 200
+
+TOKEN=$(curl -sS "$API/api/v1/auth/register" -H 'Content-Type: application/json' \
+  -d '{"email":"smoke@example.com","password":"correct-horse-9!"}' \
+  | python3 -c 'import json,sys; print(json.load(sys.stdin)["access_token"])')
+curl -sS "$API/api/v1/addresses" -H "Authorization: Bearer $TOKEN"
+```
+
+Then the three things only a real deployment can show, none of which a local stack can:
+
+```bash
+# 1. The refresh cookie's attributes, which is what makes the cross-site call work at all.
+curl -si -X POST "$API/api/v1/auth/login" -H 'Content-Type: application/json' \
+  -d '{"email":"smoke@example.com","password":"correct-horse-9!"}' \
+  | grep -i '^set-cookie'          # expect: Secure; HttpOnly; SameSite=None; Path=/api/v1/auth
+
+# 2. The rate limit, which must count the real client and not Render's balancer.
+for i in $(seq 1 11); do
+  curl -sS -o /dev/null -w '%{http_code} ' -X POST "$API/api/v1/auth/login" \
+    -H 'Content-Type: application/json' -d '{"email":"smoke@example.com","password":"wrong"}'
+done; echo                                       # expect: ten 401s then 429
+
+# 3. The CORS preflight from the real origin.
+curl -si -X OPTIONS "$API/api/v1/addresses" -H "Origin: $WEB" \
+  -H 'Access-Control-Request-Method: GET' | grep -i 'access-control-allow-origin'
+```
+
+`NINJA_NUM_PROXIES=1` is what makes check 2 pass: at `0` every visitor shares one bucket, and at an
+unset value Ninja trusts a client-supplied header that anyone can forge. Delete the smoke account
+afterwards — `manage.py shell`, or a local `DATABASE_URL=<pooler> .venv/bin/python manage.py shell`.
+
+### 7.6 If the first deploy fails
+
+Anticipated rather than observed, so this is the order to check them in:
+
+- **`400 DisallowedHost` on every request.** `DJANGO_ALLOWED_HOSTS` did not resolve. The
+  `RENDER_EXTERNAL_HOSTNAME` reference in `render.yaml` is the likely cause; replace it with the
+  hostname as a plain value.
+- **`ImproperlyConfigured: DJANGO_SECRET_KEY must be set in production`.** `prod.py` refusing to boot
+  with the development key, which is the guard working. The `generateValue` field is missing.
+- **Browser requests fail while `curl` works.** CORS: `CORS_ALLOWED_ORIGINS` is empty or holds an
+  origin that does not match exactly (a trailing slash or the `www` host is enough). The API answers
+  `400` for a refresh from an unrecognised origin by design.
+- **Signed in, then signed out on reload.** The refresh cookie is not surviving the cross-site call:
+  both sides must be HTTPS, and `prod.py` must be in play rather than `dev.py`.
+- **"No route to host" from the API to the database.** The direct Supabase connection instead of the
+  shared pooler — IPv6 versus IPv4, per 7.3 step 1.
+- **The health check never passes.** The command is not binding `$PORT`, which `dockerCommand` handles
+  with `${PORT:-8000}`; if that field is ever removed, the Dockerfile's hardcoded 8000 is what
+  remains.
+- **The first request after a quiet spell takes a minute.** A cold start, not a fault (`ADR-0011`).
+
+### 7.7 Accepted, with the reason
+
+- **Cold starts.** The price of zero running cost, mitigated by a keep-alive ping when one exists.
+- **One instance.** Which is also what makes the per-process throttle cache correct: `base.py` warns
+  that more than one worker means each allows the full rate on its own.
+- **`CONN_MAX_AGE` is not set.** `ADR-0011` says the pooler is used "with `CONN_MAX_AGE` tuned
+  accordingly", but nothing sets it, so it is Django's default of `0` — which is the right value
+  behind a pooler, since a persistent connection would sit in a pooled slot it does not need. The
+  setting is correct by omission; the ADR's wording implies a knob that does not exist.
 
 ## 8. Troubleshooting
 

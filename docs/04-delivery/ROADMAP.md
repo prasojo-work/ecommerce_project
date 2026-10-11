@@ -69,11 +69,13 @@ Status legend: `[ ]` planned · `[~]` in progress · `[x]` done.
 - [x] `M2.4` Frontend session: the access token in memory only, with one shared in-flight refresh so two concurrent calls cannot trip `ADR-0009`'s reuse detection and sign the customer out of everything; a three-state session (`restoring`/`authenticated`/`anonymous`) so a reload never flashes "signed out"; and the CORS configuration the browser needs, which had been missing entirely.
 - [x] `M2.5` Login / register pages with validation.
 - [x] `M2.6` Profile + addresses CRUD (API and UI) — ownership held by the query rather than a check after it, so another account's address is a `404` and not a `403` that would confirm the id exists; exactly one default while an account has any address, with `409` for clearing it; `/account` is one route with two sections, because `UX.md` gives one route, and it sends the restoring state rather than the signed-out one.
-- [ ] `M2.7` **Deploy the walking skeleton.** A public URL that serves the catalog and auth: the
-  backend `Dockerfile`, Render (web), Supabase, and Vercel, migrations and seed on the demo
-  database, `CORS_ALLOWED_ORIGINS` set for the real origins, and a smoke journey over the public
-  URL. Pulls `M7`'s configuration work forward to the first point where there is something worth
-  showing, so a live URL exists halfway through Phase 1.
+- [~] `M2.7` **Deploy the walking skeleton.** A public URL that serves the catalogue and auth. The
+  configuration is done and schema-validated — `render.yaml` with the Docker runtime, the `/healthz`
+  health check, secrets as `sync: false`, a generated signing key, and migrations folded into the
+  start command because pre-deploy commands are paid-only — and the procedure is `RUNBOOK.md`
+  section 7. What remains cannot be done from the repository: the Supabase, Render and Vercel
+  accounts, the values pasted into two dashboards, and the smoke journey over the real hosts. Pulls
+  `M7`'s configuration work forward to the first point where there is something worth showing.
 
 ### M3 — Cart
 
