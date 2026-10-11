@@ -951,10 +951,11 @@ Notes:
   the `429` message, the silent restore, and sign-out — are `QA-C48`–`QA-C51`, not run until someone
   drives a real browser.
 
-### M2.6 — the profile and the address book (API)
+### M2.6 — the profile and the address book
 
-`PATCH /auth/me` edits the display name (`US-2.4`) and `/addresses` is the delivery book (`US-2.5`).
-Both act only on the token holder's own rows. Verify:
+`PATCH /auth/me` edits the display name (`US-2.4`) and `/addresses` is the delivery book (`US-2.5`),
+with `/account` as the screen for both. Every route acts only on the token holder's own rows, and
+every screen shows only what the token holder's own rows contain. Verify:
 
 ```bash
 cd backend
@@ -1009,7 +1010,48 @@ Notes:
   `DELETE`, with the first account's rows unchanged afterwards; deleting the default promotes the
   oldest survivor; `PATCH /auth/me` edits the display name and an empty body leaves it alone; and all
   three field-error shapes report `body.<field>`. 0 tracebacks, 0 `500`s.
-- **Not done here:** the profile and address UI. `M2.6` is marked `[~]` until that lands.
+- **The screens are two sections on one route.** `UX.md` section 3 gives `/account` and no more, so
+  the profile and the address book are two `<section>`s there rather than two routes. The page is a
+  Server Component — heading, title, frame — wrapping one client component, because everything inside
+  it is behind a token that only exists in memory (`ADR-0009`). It builds as **static** (`○`).
+- **The consequence of that, stated plainly:** a visitor without JavaScript sees "Loading your
+  account…" and nothing else, forever. The alternative — having the server send the signed-out state
+  — would flash "not signed in" at a signed-in customer on every navigation, which is a lie told to
+  a real customer to tidy up a case where no session is even possible. Verified: the signed-out copy
+  is absent from the server HTML.
+- **`defaultControl` is a three-way decision, not a boolean.** The add form offers the checkbox only
+  when the account already has an address; for the first address it shows a sentence instead, because
+  the API makes the first one default whether or not anyone asks and a checkbox there could not do
+  anything; editing shows neither, because `API.md` section 8 refuses to let a default be cleared.
+  `toUpdatePayload` therefore emits no `is_default` key at all — a save cannot try to unset it.
+- **The default is presented as a word.** `Default` is a badge beside the heading, not a highlight:
+  `SCOPE.md` NFR-2 forbids encoding state by colour alone, and "which one will checkout use" is the
+  one thing this list is scanned for.
+- **Two shared modules came out of the second form.** The envelope reader and the field-name mapper
+  moved from `lib/auth-form.ts` to `lib/api-failure.ts`, and the labelled input became
+  `components/text-field.tsx` — the accessibility wiring (`aria-invalid` plus `aria-describedby`) is
+  the part that must not drift between forms. `required` and `maxLength` are still deliberately
+  absent for the reasons that file records.
+- **A lint rule to know about.** `react-hooks/set-state-in-effect` fails the mount fetch if it is
+  called directly, even though its state lands after the await. Wrapping it in the async IIFE — the
+  shape `session-provider` already uses — is what it accepts, and it means the same thing.
+- **The check found its own bug, and it is the interesting kind.** The "no session-bound content in
+  the server HTML" assertion first searched for the words `Profile` and `Addresses`. Both appear in
+  the page's meta description as prose, so it reported two rendered sections that were not there.
+  It now matches the section ids. The page was right, the check was wrong, and a passing check that
+  passes for the wrong reason is worth catching in the same session it was written.
+- **A script bug worth not repeating.** The first version of the end-to-end script killed the `pnpm`
+  process it backgrounded, which is not the process holding the port: `pnpm start` runs `next start`
+  as a child, and the child survived. The script uses `setsid` and `kill -- -$PID` now, so the whole
+  group goes. Also: it must not be pointed at ports 3000 or 8000 if the development instance is
+  running — it refuses to start rather than taking them, which is how this was noticed.
+- **Verified over HTTP:** `/account` answered `200` with one `<h1>` and its own title, carrying the
+  restoring state and not the signed-out copy, with 0 `<h2>` elements in the shell; a body built as
+  the add form builds it answered `201` and became the default unasked; the edit shape (no
+  `is_default`) answered `200` and left it default; `PATCH /auth/me` answered `200`; the list came
+  back default-first; `/`, `/products`, `/login`, `/register` and `/pages/credits` are unregressed;
+  0 tracebacks, 0 `500`s, 0 web errors. The interactive cases are `QA-C56`–`QA-C62`, recorded as not
+  run because they need a browser.
 
 ## 7. Deployment (M7)
 

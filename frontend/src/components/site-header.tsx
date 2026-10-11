@@ -31,7 +31,11 @@ export function SiteHeader() {
             <span className="inline-block h-5 min-w-40" aria-hidden="true" />
           ) : status === "authenticated" && user !== null ? (
             <>
-              <span className="text-muted">{user.display_name || user.email}</span>
+              {/* The account entry `UX.md` section 3 asks for, and the only way to reach `/account`
+                  without typing the URL. */}
+              <Link href="/account" className="inline-flex min-h-11 items-center">
+                {user.display_name || user.email}
+              </Link>
               <button
                 type="button"
                 onClick={() => void signOut()}

@@ -6,6 +6,45 @@
 
 ## History
 
+### 2026-10-12 — v0.1.30 — M2.6 account screen; the milestone closes
+
+**What changed.** `/account` (`UX.md` section 3) with `ProfileForm`, `AddressList` and `AddressForm`;
+`frontend/src/api/account.ts`, the first client that needs a token and therefore the first to go
+through `lib/session.ts`; `lib/address-form.ts`, the fields' rules and the camelCase-to-snake_case
+translation; the sign-in form now lands on `/account` rather than the home page, and the header's
+name is the link to it.
+
+**Decisions.** One route with two sections, because `UX.md` gives one route. The default flag is a
+three-way choice rather than a checkbox — offered when an account already has an address, replaced by
+a sentence for the first one (the API defaults it anyway), and absent when editing (`API.md` §8
+refuses to let a default be cleared), so `toUpdatePayload` sends no `is_default` at all. The default
+is a word, not a colour (`NFR-2`). The server sends the *restoring* state, never the signed-out one,
+because that is the flash `M2.4`'s three-state model exists to prevent; the cost, accepted, is that a
+visitor without JavaScript sees only the loading line. `PATCH /auth/me` writes the new name into the
+session store, since the header renders from it. The envelope reader and the labelled input were
+extracted to `lib/api-failure.ts` and `components/text-field.tsx` when a second form needed them,
+rather than imported across from the auth form.
+
+**Found while building it.** The end-to-end check's assertion that no session-bound content reaches
+the server HTML passed for the wrong reason: it searched for the words "Profile" and "Addresses",
+which the page's meta description carries in prose, and reported two rendered sections that were not
+there. It matches section ids now. Separately, `react-hooks/set-state-in-effect` refuses a mount fetch
+called directly even when its state lands after the `await`; the async IIFE `session-provider` already
+uses is the shape it accepts. And the first version of the end-to-end script killed the `pnpm`
+wrapper instead of the `next-server` child, leaving a process holding the port — it uses `setsid` and
+a process-group kill now.
+
+**Impact.** Frontend gates green: `prettier`, `eslint`, `tsc --noEmit`, **99 vitest tests (up from
+79)** across 13 files, and a production build of 10 routes with `/account` **static**. Backend
+untouched. Verified over HTTP against PostgreSQL: `/account` answered `200` with one `<h1>` and its
+own title, carrying the restoring state and no `<h2>` from the signed-in screen; a body built exactly
+as the add form builds it answered `201` and became the default unasked; the edit payload (no
+`is_default`) answered `200` and left it default; `PATCH /auth/me` answered `200`; the list came back
+default-first; `/`, `/products`, `/login`, `/register` and `/pages/credits` unregressed; 0
+tracebacks, 0 `500`s, 0 web errors. The seven interactive cases (`QA-C56`–`QA-C62`) are recorded as
+not run: they need a browser, which is also true of `QA-C43`–`QA-C51` from the two increments before
+this one. `M2.6` is `[x]`.
+
 ### 2026-10-12 — v0.1.29 — M2.6 profile and the address book (API)
 
 **What changed.** `PATCH /auth/me` (`US-2.4`) and the `/addresses` routes (`US-2.5`) with their

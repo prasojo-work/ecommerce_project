@@ -5,13 +5,10 @@ import { useRouter } from "next/navigation";
 import { useState, type FormEvent } from "react";
 
 import { login, register } from "@/api/auth";
-import {
-  fieldMessages,
-  messageForFailure,
-  validate,
-  type AuthMode,
-  type AuthValues,
-} from "@/lib/auth-form";
+import { fieldMessages, messageForFailure } from "@/lib/api-failure";
+import { validate, type AuthMode, type AuthValues } from "@/lib/auth-form";
+
+import { TextField } from "./text-field";
 
 /**
  * One form for both endpoints (`US-2.1`, `US-2.2`, `UX.md` flow D).
@@ -55,9 +52,9 @@ export function AuthForm({ mode }: { mode: AuthMode }) {
     setBusy(false);
 
     if (outcome.ok) {
-      // Home for now, because `/account` arrives with `M2.6`. The header is the confirmation: it
-      // reads the session store, so it switches to the account as soon as this resolves.
-      router.push("/");
+      // The account screen, because a signed-in visitor's next move is usually to check or edit
+      // something — and because the header's account entry now leads somewhere.
+      router.push("/account");
       return;
     }
 
@@ -84,7 +81,7 @@ export function AuthForm({ mode }: { mode: AuthMode }) {
       )}
 
       {registering && (
-        <Field
+        <TextField
           id="display-name"
           label="Name"
           optional
@@ -95,7 +92,7 @@ export function AuthForm({ mode }: { mode: AuthMode }) {
         />
       )}
 
-      <Field
+      <TextField
         id="email"
         label="Email"
         type="email"
@@ -105,7 +102,7 @@ export function AuthForm({ mode }: { mode: AuthMode }) {
         onChange={(value) => update("email", value)}
       />
 
-      <Field
+      <TextField
         id="password"
         label="Password"
         type="password"
@@ -135,62 +132,5 @@ export function AuthForm({ mode }: { mode: AuthMode }) {
         )}
       </p>
     </form>
-  );
-}
-
-/**
- * A labelled input with its error.
- *
- * `aria-invalid` plus `aria-describedby` is what turns the message beside the input into something a
- * screen reader announces as belonging to it. The error is also a sentence in the flow, never a
- * colour: `SCOPE.md` NFR-2 forbids encoding state by colour alone.
- *
- * There is no `required` attribute, because the browser's own message would be a second voice; the
- * error text below is the only one.
- */
-function Field({
-  id,
-  label,
-  value,
-  error,
-  onChange,
-  type = "text",
-  autoComplete,
-  optional = false,
-}: {
-  id: string;
-  label: string;
-  value: string;
-  error: string | undefined;
-  onChange: (value: string) => void;
-  type?: "text" | "email" | "password";
-  autoComplete: string;
-  optional?: boolean;
-}) {
-  const errorId = `${id}-error`;
-
-  return (
-    <div className="flex flex-col gap-1.5">
-      <label htmlFor={id} className="text-sm">
-        {label}
-        {optional && <span className="text-muted"> (optional)</span>}
-      </label>
-      <input
-        id={id}
-        name={id}
-        type={type}
-        value={value}
-        autoComplete={autoComplete}
-        aria-invalid={error !== undefined}
-        aria-describedby={error === undefined ? undefined : errorId}
-        onChange={(event) => onChange(event.target.value)}
-        className="min-h-11 rounded-lg border border-border bg-surface px-3 aria-[invalid=true]:border-danger"
-      />
-      {error !== undefined && (
-        <p id={errorId} className="text-sm text-danger">
-          {error}
-        </p>
-      )}
-    </div>
   );
 }

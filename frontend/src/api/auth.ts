@@ -1,5 +1,6 @@
 import createClient from "openapi-fetch";
 
+import { asFailure, type ApiFailure } from "@/lib/api-failure";
 import { getApiBaseUrl } from "@/lib/config";
 import {
   clearSession,
@@ -29,44 +30,12 @@ const client = createClient<paths>({
 /** The refresh cookie is scoped to `/api/v1/auth`, so every call here must be allowed to send it. */
 const WITH_COOKIE = { credentials: "include" } as const;
 
-export type FieldIssue = { field: string; issue: string };
-
-export type AuthFailure = {
-  ok: false;
-  code: string;
-  message: string;
-  details: FieldIssue[];
-  /** The HTTP status, so a caller can recognise the states it has to handle specially. */
-  status: number;
-};
+/** The envelope as this module's callers see it. Reading it is `lib/api-failure.ts`'s job. */
+export type AuthFailure = ApiFailure;
 
 export type AuthSuccess = { ok: true; session: Session };
 
 export type AuthOutcome = AuthSuccess | AuthFailure;
-
-const GENERIC_FAILURE = "Something went wrong. Please try again.";
-
-/**
- * Read the `API.md` section 3 envelope out of whatever came back.
- *
- * Narrowed rather than asserted, because not everything that answers a request is the API: a proxy
- * or a cold start can return HTML, and a form that crashes on that is a worse failure than a form
- * that says it could not reach the server. `details` carries the per-field issues the API reports,
- * which is what lets the register form point at the field that was rejected.
- */
-function asFailure(error: unknown, response: Response): AuthFailure {
-  const envelope = (error as { error?: unknown } | undefined)?.error;
-  const body =
-    typeof envelope === "object" && envelope !== null ? (envelope as Record<string, unknown>) : {};
-
-  return {
-    ok: false,
-    code: typeof body.code === "string" ? body.code : "ERROR",
-    message: typeof body.message === "string" ? body.message : GENERIC_FAILURE,
-    details: Array.isArray(body.details) ? (body.details as FieldIssue[]) : [],
-    status: response.status,
-  };
-}
 
 function established(session: Session): AuthSuccess {
   setSession(session);

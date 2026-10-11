@@ -68,8 +68,7 @@ Status legend: `[ ]` planned · `[~]` in progress · `[x]` done.
 - [x] `M2.3` Rate limiting on every auth endpoint (`US-2.2`, `NFR-3`) — keyed on the client rather than the account, so a limiter cannot be turned into a way to lock someone out of their own sign-in — with the limits themselves in settings, plus `ADR-0009`'s origin guard on `/auth/refresh`, which answers `403` before reading the cookie.
 - [x] `M2.4` Frontend session: the access token in memory only, with one shared in-flight refresh so two concurrent calls cannot trip `ADR-0009`'s reuse detection and sign the customer out of everything; a three-state session (`restoring`/`authenticated`/`anonymous`) so a reload never flashes "signed out"; and the CORS configuration the browser needs, which had been missing entirely.
 - [x] `M2.5` Login / register pages with validation.
-- [~] `M2.6` Profile + addresses CRUD (API and UI) — API half done (`PATCH /auth/me`, the `/addresses`
-  routes); the profile and address UI is the other half.
+- [x] `M2.6` Profile + addresses CRUD (API and UI) — ownership held by the query rather than a check after it, so another account's address is a `404` and not a `403` that would confirm the id exists; exactly one default while an account has any address, with `409` for clearing it; `/account` is one route with two sections, because `UX.md` gives one route, and it sends the restoring state rather than the signed-out one.
 - [ ] `M2.7` **Deploy the walking skeleton.** A public URL that serves the catalog and auth: the
   backend `Dockerfile`, Render (web), Supabase, and Vercel, migrations and seed on the demo
   database, `CORS_ALLOWED_ORIGINS` set for the real origins, and a smoke journey over the public

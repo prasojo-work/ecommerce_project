@@ -24,8 +24,9 @@ grouped by them rather than by endpoint.
 
 **Levels.** 50 auth contract tests (`backend/tests/test_accounts_api.py`, 14 added at `M2.3` and 6 at
 `M2.6`), 24 address tests (`test_addresses_api.py`, `M2.6`), 20 model tests
-(`test_accounts_models.py`), 5 cross-origin tests (`test_cors.py`, `M2.4`), 79 frontend unit tests
-(`vitest`, 12 of them the session store), and a scripted end-to-end pass over real HTTP — because
+(`test_accounts_models.py`), 5 cross-origin tests (`test_cors.py`, `M2.4`), 99 frontend unit tests
+(`vitest`: 12 for the session store, 17 for the address form's rules, 12 for the failure envelope),
+and a scripted end-to-end pass over real HTTP — because
 cookie attributes, headers and rate limits cannot all be verified through the test client alone. A
 throttle lives in the process's own cache and CORS headers on the response path, so neither can be
 exercised from outside the process. `pytest` is **181 tests**. `M2.1`–`M2.3` were run on SQLite and
@@ -36,11 +37,12 @@ the engine that serves production and the two differ in exactly the place that m
 **Deliberately not tested.** JWT signing internals and password hashing internals (libraries' jobs, not
 ours), TLS and transport hardening (`M7`).
 
-**Blocked, not skipped.** Two groups wait on things that do not exist yet: `QA-C43`–`QA-C51`, the
-sign-in, registration and session behaviour driven in a *real browser* (the pages exist as of
-`M2.5`; what is missing is a browser, not a back end), and `QA-C28`, cross-site cookie delivery with
-`SameSite=None`, which needs a second real origin and therefore `M7`. The address and profile
-*screens* are likewise unbuilt — `M2.6`'s API is tested here, its UI is not.
+**Blocked, not skipped.** Two groups wait on things that do not exist yet: `QA-C43`–`QA-C51` and
+`QA-C56`–`QA-C62`, the sign-in, registration, session and account behaviour driven in a *real
+browser* (every screen involved exists now; what is missing is a browser, not a back end), and
+`QA-C28`, cross-site cookie delivery with `SameSite=None`, which needs a second real origin and
+therefore `M7`. The remainder has been run, on PostgreSQL — the browser cases are the gap, not a hole
+in the plan.
 
 ## QA-CASE — cases and observed results
 
@@ -128,7 +130,7 @@ sign-in, registration and session behaviour driven in a *real browser* (the page
       single-refresh guard — but "the browser does the right thing with these headers" is precisely
       what a unit test cannot claim.
 
-### Not run
+### Everything else
 
 - [x] `QA-C26` Rate limiting: `N` failed logins within a window produce `429` with `Retry-After`.
       **Observed:** the eleventh attempt answered `429` — exactly the configured `10/min` — in the
@@ -177,6 +179,42 @@ sign-in, registration and session behaviour driven in a *real browser* (the page
       from the same endpoints. Before the fix the first arrived as `body.payload.recipient`; a client
       stripping the view prefix as `API.md` §3 instructs would have matched one shape and fallen back
       to a form-level message for the other. See `QA-B5`.
+
+### The account screen (`M2.6`)
+
+- [x] `QA-C54` `/account` serves without a session, and the server's HTML carries the *restoring*
+      state rather than the signed-out one. **Observed:** `GET /account` answered `200` (7761 bytes)
+      with `<title>Your account — LYSHEIM</title>` and exactly one `<h1>`; the HTML carries the
+      loading state and does **not** carry the signed-out copy — the flash that would otherwise hit a
+      signed-in customer on every navigation, which is the whole reason `M2.4` has a three-state
+      model. Neither session-bound section is in the server HTML: 0 `<h2>` elements, and both section
+      ids absent. **The check itself was wrong before it was right.** It searched for the words
+      "Profile" and "Addresses", which the page's own meta description contains in prose, so it
+      reported two rendered sections that were not there. It matches by section id now. A check that
+      passes for the wrong reason is worth less than one that fails.
+- [x] `QA-C55` The payloads the forms build are the payloads the API accepts. **Observed:** a body
+      carrying `postal_code` and `is_default` exactly as `toCreatePayload` builds it answered `201`,
+      and the first address came back `is_default: true` without being asked; the `PATCH` shape from
+      `toUpdatePayload` — which carries no `is_default` key at all — answered `200` and left the
+      address default; `PATCH /auth/me` with `display_name` answered `200`. A field-name mismatch
+      between a form and the contract is invisible to `tsc` wherever the body is typed as the
+      generated schema, so the wire is worth asking directly.
+- [ ] `QA-C56` **Not run — needs a browser.** Signing in lands on `/account`, not the home page.
+- [ ] `QA-C57` **Not run — needs a browser.** Saving the profile form changes the name the header
+      shows, with no reload. Both read one store; this is what would catch them drifting apart.
+- [ ] `QA-C58` **Not run — needs a browser.** Adding an address: the first becomes the default without
+      being asked, a later one only when the box is ticked, and `Default` appears as a word rather
+      than as a colour (`NFR-2`).
+- [ ] `QA-C59` **Not run — needs a browser.** Editing: the form opens holding that address's values,
+      switching to another row replaces them rather than leaving one address's text in another's
+      inputs, and saving does not clear the default.
+- [ ] `QA-C60` **Not run — needs a browser.** A rejected field error appears beside its own input — a
+      postal code past 32 characters — with `aria-invalid` and `aria-describedby` pointing at it, and
+      a submit with a required field blank never leaves the browser.
+- [ ] `QA-C61` **Not run — needs a browser.** Removing asks first, and once the default is removed the
+      surviving address is shown as the default.
+- [ ] `QA-C62` **Not run — needs a browser.** `/account` while signed out says so and offers a way to
+      sign in, rather than showing an empty account.
 
 ## QA-BUG — defects found and their state
 
