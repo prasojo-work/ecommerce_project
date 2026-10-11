@@ -19,8 +19,8 @@ services:
       timeout: 5s
       retries: 10
     # Uncomment to reach the database from a host client (psql, DBeaver, …).
-    # ports:
-    #   - "5432:5432"
+    ports:
+      - "5432:5432"
 
   api:
     build:
