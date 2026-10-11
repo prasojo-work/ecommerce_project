@@ -26,6 +26,19 @@ SECURE_REFERRER_POLICY = "strict-origin-when-cross-origin"
 SESSION_COOKIE_SECURE = True
 CSRF_COOKIE_SECURE = True
 
+# The balancer terminates TLS and forwards plain HTTP, so Django has to be told to believe
+# `X-Forwarded-Proto`. Without this line `SECURE_SSL_REDIRECT` above sees an insecure connection on
+# every single request — including one that arrived over HTTPS — and redirects to the HTTPS URL it is
+# already serving: a loop, for every visitor and for the health check. Trusting the header is safe
+# for the same reason `NINJA_NUM_PROXIES = 1` below is safe: the app is not reachable except through
+# the balancer.
+SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+
+# ...except for the health probe, which is not a browser and has nothing to upgrade to. Exempting it
+# means the probe answers `200` whether it arrives over HTTP or HTTPS, so a redirect can never be the
+# reason a deploy fails to come up.
+SECURE_REDIRECT_EXEMPT = [r"^healthz$"]
+
 # The API and the web app are different sites in production (Render and Vercel), so the refresh
 # cookie has to be `SameSite=None` to survive the cross-site call — and browsers only accept
 # `SameSite=None` together with `Secure` (`ADR-0009`).

@@ -22,6 +22,11 @@ RUN uv sync --frozen --no-dev
 
 COPY . .
 
+# The start-up work — migrate, seed, then serve — lives in a script rather than in a host's
+# start-command field, which is where it was and where it broke (`RUNBOOK.md` section 7.4). The exec
+# bit is set here rather than trusted from the host filesystem, because a build context can lose it.
+RUN chmod +x /app/docker-entrypoint.sh
+
 EXPOSE 8000
 
-CMD ["uvicorn", "config.asgi:application", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["/app/docker-entrypoint.sh"]

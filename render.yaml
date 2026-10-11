@@ -25,24 +25,22 @@ services:
     healthCheckPath: /healthz
     autoDeployTrigger: commit
 
-    # Pre-deploy commands are for paid instance types, and this is a free service, so the work is
-    # folded into the start command. Render's own documentation suggests this shape for Docker
-    # services; see section 7 of the runbook for why it is safe and what it costs.
+    # A single token, and that is the whole point. This field is a string Render parses: it strips a
+    # leading `/bin/sh -c` and hands the remainder to its own shell, so the compound command that
+    # used to be here — quoted, as it must be to hold `&&` — collapsed into one word and the first
+    # deploy of `M2.7` died with
+    #     python manage.py migrate --noinput && ... --port 10000: not found
+    # Reproduced locally, same shape: `sh -c '"echo a && echo b"'` gives
+    # `sh: echo a && echo b: not found`, while the unquoted form runs both. The work lives in
+    # `/app/docker-entrypoint.sh` inside the image now, where it can be read and tested, and this
+    # line only names it. The Dockerfile's CMD is that same script, so the image still starts
+    # correctly on a host that ignores this field.
     #
-    #   - `migrate` on every boot is what makes a deploy self-contained, and costs 0.74s when there
-    #     is nothing to apply.
-    #   - `seed` is idempotent by contract (`core/management/commands/seed.py` wraps the whole run in
-    #     one transaction) and clears nothing without `--reset`. Never add `--reset` here: it would
-    #     wipe the catalogue on every cold start.
-    #   - Neither is safe to run concurrently. The free plan runs one instance with no autoscaling;
-    #     if that ever changes, take a lock before migrating.
-    #
-    # This overrides the Dockerfile's CMD, which is deliberate: the image keeps a host-neutral
-    # 8000, and the host-specific binding policy lives here.
-    dockerCommand: >-
-      /bin/sh -c "python manage.py migrate --noinput &&
-      python manage.py seed &&
-      exec uvicorn config.asgi:application --host 0.0.0.0 --port ${PORT:-8000}"
+    # Pre-deploy commands are for paid instance types, which is why the migrations are on the boot
+    # path at all; runbook section 7.4 has the costs. The one invariant to keep: the free plan runs a
+    # single instance, so two migrations cannot run at once. If that ever changes, the script needs a
+    # lock before it migrates.
+    dockerCommand: /app/docker-entrypoint.sh
 
     envVars:
       - key: DJANGO_ENV

@@ -6,6 +6,43 @@
 
 ## History
 
+### 2026-10-12 — v0.1.32 — M2.7 first deploy: the start command was unparsable, and a redirect loop behind it
+
+**What changed.** The compound start command moved out of `render.yaml` and into
+`backend/docker-entrypoint.sh`, which the Dockerfile's `CMD` now runs; `dockerCommand` names that
+file with a single token. `prod.py` gained `SECURE_PROXY_SSL_HEADER` and a `SECURE_REDIRECT_EXEMPT`
+entry for `/healthz`.
+
+**The defect, reproduced rather than guessed at.** Render's "Docker Command" is a string the platform
+parses: it strips a leading `/bin/sh -c` and hands the remainder to its own shell, so the double
+quotes that hold a `&&` chain together made the entire command a single word. The deploy died with
+`python manage.py migrate --noinput && … --port 10000: not found`. Reproduced without Render in two
+lines — `docker run --rm alpine sh -c '"echo a && echo b"'` gives `sh: echo a && echo b: not found`,
+while the same string unquoted prints both lines — which also explains why Render's documented
+*unquoted* example works and a quoted one cannot: after the prefix is stripped, quotes turn the
+command into a program name. The field is one token now, and the work sits in a file that can be read,
+tested and linted.
+
+**The blocker behind it, found by testing instead of by deploying.** `prod.py` sets
+`SECURE_SSL_REDIRECT = True`, and nothing told Django that TLS is terminated in front of it. Render's
+balancer forwards plain HTTP with `X-Forwarded-Proto`, so every request — ones that arrived over
+HTTPS, and Render's health probe — would have been redirected to the HTTPS URL it was already
+serving, forever. `SECURE_PROXY_SSL_HEADER` removes the loop. `SECURE_REDIRECT_EXEMPT` for `/healthz`
+means the probe answers `200` over either scheme, so a redirect can never be the reason a deploy does
+not come up. Trusting the header is safe for the same reason `NINJA_NUM_PROXIES = 1` is: the app is
+not reachable except through the balancer.
+
+**Verified.** The image was built and booted against an empty PostgreSQL with `PORT=9999`. First
+boot: 19 migrations applied to nothing, 46 products and 7 categories seeded, uvicorn bound 9999
+rather than 8000. The three scheme behaviours: `/healthz` `200` with no header,
+`/api/v1/products` `301` to `https://` with no header, `200` with `X-Forwarded-Proto: https` and real
+rows in the body. Second boot, which is the shape every wake takes: nothing to migrate, the seed a
+no-op, serving about 9s after `docker run`, most of it container start. Backend gates after the
+settings change: `ruff format`, `ruff check`, `basedpyright` (0 errors) and 181 `pytest` tests.
+
+**Impact.** `M2.7` stays `[~]` — the deploy still needs the three accounts and the values pasted into
+two dashboards. Nothing outside production settings changed behaviour.
+
 ### 2026-10-12 — v0.1.31 — M2.7 deployment configuration
 
 **What changed.** `render.yaml`, a Render Blueprint for the API: Docker runtime on

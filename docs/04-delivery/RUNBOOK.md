@@ -1070,9 +1070,12 @@ procedure `M2.7` establishes, written to be followed rather than admired.
 
 `render.yaml` in the repository root is the API as configuration. Four fields carry weight:
 
-- **`dockerCommand` is load-bearing.** Pre-deploy commands are for paid instance types, so the
-  migrations happen here instead (7.4). It also overrides the Dockerfile's `CMD`, which is why the
-  image can keep a host-neutral port 8000 and still bind Render's `$PORT`.
+- **`dockerCommand` names one file and nothing else.** It is a string Render *parses*: it strips a
+  leading `/bin/sh -c` and runs the remainder through its own shell, which is why the compound command
+  that used to live here — quoted, as holding `&&` requires — became a single unfindable word and
+  failed the first deploy (7.4 and section 8). It now points at `/app/docker-entrypoint.sh`: one
+  token, nothing to strip, nothing to quote. The Dockerfile's `CMD` is the same script, so the image
+  also starts correctly on a host that ignores this field.
 - **`sync: false`** makes Render prompt for a value in the Dashboard and never store it in the file.
   That is what lets a Blueprint be committed while the secrets are not.
 - **`generateValue: true`** makes Render invent a 256-bit value and keep it across syncs.
@@ -1133,9 +1136,46 @@ service called `lysheim-api` is reachable at `https://lysheim-api.onrender.com`.
 
 Render's pre-deploy command is for paid instance types, and this service is free, so there is no
 separate stage to run migrations in. Render's own Docker documentation suggests folding them into the
-start command, and this repository already uses that shape locally — `compose.yml` runs
-`sh -c "python manage.py migrate --noinput && uvicorn ..."`. `render.yaml` does the same thing, with
-the seed added.
+start command, and this repository already used that shape locally — `compose.yml` runs
+`sh -c "python manage.py migrate --noinput && uvicorn ..."`.
+
+**That shape belongs in a file, not in a YAML field.** Copying the one-liner into Render's "Docker
+Command" failed the first deploy of `M2.7`: Render strips a leading `/bin/sh -c` from that field and
+hands the rest to its own shell, so the double quotes holding the `&&` switch together made the whole
+command a single word —
+
+```
+python manage.py migrate --noinput && python manage.py seed && exec uvicorn … --port 10000: not found
+```
+
+The compound command now lives in `backend/docker-entrypoint.sh` (`migrate`, then `seed`, then
+`exec uvicorn … --port "${PORT:-8000}"`), and `render.yaml` names that file with one token. `exec` is
+not decoration: it hands the platform's `SIGTERM` to uvicorn rather than to a shell that would sit out
+the shutdown delay and never pass it on.
+
+Verified by building the image and booting it against an **empty** PostgreSQL with `PORT=9999` — the
+production path, minus Render. Note the published port rather than `--network host`, which on Docker
+Desktop binds inside its VM and is then unreachable from the host:
+
+```bash
+docker run -d --name m27-pg -p 5599:5432 -e POSTGRES_USER=lysheim \
+  -e POSTGRES_PASSWORD=lysheim -e POSTGRES_DB=lysheim postgres:17-alpine
+
+docker build -t lysheim-api-m27 ./backend
+docker run -d --name m27-api -p 9999:9999 --add-host=host.docker.internal:host-gateway \
+  -e PORT=9999 -e DJANGO_ENV=prod \
+  -e DJANGO_SECRET_KEY=$(python3 -c 'import secrets; print(secrets.token_urlsafe(48))') \
+  -e DJANGO_ALLOWED_HOSTS=localhost -e NINJA_NUM_PROXIES=1 \
+  -e DATABASE_URL=postgres://lysheim:lysheim@host.docker.internal:5599/lysheim lysheim-api-m27
+
+curl -s -o /dev/null -w '%{http_code}\n' localhost:9999/healthz   # 200 — and it must not redirect
+```
+
+The first boot applied all 19 migrations to nothing, seeded 46 products and 7 categories, and bound
+9999 rather than 8000; `/healthz` answered `200`, and a product request carrying
+`X-Forwarded-Proto: https` answered `200` with real rows. The second boot — the shape every wake takes
+— found nothing to migrate, re-ran the seed as a no-op, and was serving about 9s after `docker run`,
+most of that container start rather than work.
 
 Measured on a throwaway database, so the dev database was untouched:
 
@@ -1228,6 +1268,14 @@ Anticipated rather than observed, so this is the order to check them in:
 - **Cold starts.** The price of zero running cost, mitigated by a keep-alive ping when one exists.
 - **One instance.** Which is also what makes the per-process throttle cache correct: `base.py` warns
   that more than one worker means each allows the full rate on its own.
+- **`X-Forwarded-Proto` is trusted, and `/healthz` is exempt from the HTTPS redirect.** Both are in
+  `prod.py`, and both are load-bearing. Without the first, `SECURE_SSL_REDIRECT` would bounce every
+  request — including ones that arrived over HTTPS — in a loop, because the balancer forwards plain
+  HTTP. The container test showed the pair precisely: `301` to the `https://` URL with no header,
+  `200` with it. The exemption exists because a health probe is not a browser and has nothing to
+  upgrade to, so the probe answers `200` over either scheme and a redirect can never be the reason a
+  deploy fails to come up. Trusting the header is safe for the same reason `NINJA_NUM_PROXIES = 1` is:
+  the app is not reachable except through the balancer.
 - **`CONN_MAX_AGE` is not set.** `ADR-0011` says the pooler is used "with `CONN_MAX_AGE` tuned
   accordingly", but nothing sets it, so it is Django's default of `0` — which is the right value
   behind a pooler, since a persistent connection would sit in a pooled slot it does not need. The
@@ -1237,6 +1285,20 @@ Anticipated rather than observed, so this is the order to check them in:
 
 > Accumulates as real problems occur (e.g. Postgres connection, port conflicts, cold-start
 > latency, migration drift).
+
+- **A Render deploy fails at start-up with `python manage.py migrate … : not found`.** A compound
+  command in `render.yaml`'s `dockerCommand`. Render strips a leading `/bin/sh -c` from that field and
+  runs the remainder through its own shell, so the quotes that a `&&` chain needs turn the entire
+  command into one word that does not exist. Observed at `M2.7`, and reproduced without Render:
+
+  ```bash
+  docker run --rm alpine sh -c '"echo a && echo b"'   # sh: echo a && echo b: not found
+  docker run --rm alpine sh -c 'echo a && echo b'     # prints both lines
+  ```
+
+  The field holds one token now (`/app/docker-entrypoint.sh`) and the compound command lives in the
+  image, where it can be read and tested. The same trap applies to any `&&` chain in a platform field
+  that parses its own shell — put it in a file.
 
 - **`Backend CI` fails at "Set up job" with `unable to resolve action 'astral-sh/setup-uv@vN'`.**
   setup-uv stopped publishing floating major tags after `v7`; `v8`, `v9`, and `v10` do not
