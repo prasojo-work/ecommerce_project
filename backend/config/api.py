@@ -7,6 +7,7 @@ contexts are built. The generated OpenAPI schema is the shared contract with the
 
 from ninja import NinjaAPI
 
+from accounts.addresses_api import router as addresses_router
 from accounts.api import router as accounts_router
 from catalog.api import router as catalog_router
 from core.errors import install_error_handlers
@@ -26,3 +27,6 @@ api.add_router("", catalog_router)
 
 # `API.md` section 2 documents the auth routes under `/auth`.
 api.add_router("auth", accounts_router)
+
+# `API.md` section 8 documents the address book under `/addresses`.
+api.add_router("addresses", addresses_router)

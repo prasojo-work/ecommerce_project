@@ -31,6 +31,7 @@ returned in the response body and held **in memory** by the client (`ADR-0009`).
 | POST | `/auth/refresh` | cookie | New access token from the refresh cookie |
 | POST | `/auth/logout` | access | Invalidate refresh; clear cookie |
 | GET | `/auth/me` | access | Current user profile |
+| PATCH | `/auth/me` | access | Update the profile (`display_name`) |
 
 Auth endpoints are **rate-limited**; a `429` carries `Retry-After` in whole seconds and the
 `RATE_LIMITED` code. Limits are **per client, not per account**: keying on a submitted address would
@@ -53,6 +54,10 @@ only `POST /auth/refresh` is ever sent it (`ADR-0009`). `refresh` rotates that c
 `401` when the token is missing, expired, unreadable or already revoked. `logout` answers `204` and
 ends the session server-side; `me` returns the current account.
 
+`PATCH /auth/me` accepts `{display_name}` and returns the updated account. A field left out of the
+body is left **unchanged**, so an empty object is a no-op rather than a clear — the difference
+between editing a name and erasing one (`US-2.4`).
+
 ## 3. Error envelope
 
 Every error response uses one shape (see `NFR-4`):
@@ -70,8 +75,10 @@ Every error response uses one shape (see `NFR-4`):
 
 Each `details` entry is `{field, issue}`, and `field` is the location with its source still on it —
 `body.email` for a rejected request body, `query.q` for a query parameter — so a client can tell a
-bad query string from a bad body. Clients match an input by stripping that prefix, and must cope with
-it being absent, because an error raised before a body is parsed has no source to name.
+bad query string from a bad body. The view parameter's own name is **not** part of the field: the API
+reports `body.country`, never `body.payload.country`. Clients match an input by stripping the source
+prefix, and must cope with it being absent, because an error raised before a body is parsed has no
+source to name.
 
 Status codes: `400` validation, `401` unauthenticated, `403` forbidden, `404` not found,
 `409` conflict (e.g. stock), `422` semantic error, `429` rate-limited, `500` unexpected.
@@ -129,12 +136,27 @@ when a real provider is integrated.
 
 ## 8. Addresses (authenticated)
 
+Requires `Authorization: Bearer <access_token>`; `401` without one. Every route is scoped to the
+caller, and an address belonging to another account is a **`404`, never a `403`** — `403` would
+confirm that the id exists, which is what an attempt to enumerate addresses wants to learn.
+
 | Method | Path | Purpose |
 |---|---|---|
-| GET | `/addresses` | List |
-| POST | `/addresses` | Create |
-| PATCH | `/addresses/{id}` | Update |
-| DELETE | `/addresses/{id}` | Delete |
+| GET | `/addresses` | List the caller's addresses, default first |
+| POST | `/addresses` | Create; `201` with the stored address |
+| PATCH | `/addresses/{address_id}` | Update the fields present in the body |
+| DELETE | `/addresses/{address_id}` | Remove; `204` with no body |
+
+An address is `{id, label, recipient, line1, line2, city, region, postal_code, country, phone,
+is_default}`. Only `recipient`, `line1`, `city`, `postal_code` and `country` are required; the rest
+default to empty, and `country` is a two-letter ISO-3166 code.
+
+**Exactly one default.** For as long as an account has any address, one of them is the default: the
+first address created becomes it whether or not the client asked, promoting another demotes the
+previous one, and deleting the default promotes the oldest survivor. Clearing the default outright is
+refused with `409` `CONFLICT` (`QA-C31`) — set another address as the default instead. The database
+enforces *at most one* (a partial unique index per user); these routes hold the stronger rule so that
+checkout never has to ask which of several defaults won.
 
 ## 9. Operations
 

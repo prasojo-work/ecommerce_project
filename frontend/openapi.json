@@ -1,6 +1,274 @@
 {
   "components": {
     "schemas": {
+      "AddressCreateSchema": {
+        "description": "A new address. `label`, `line2`, `region` and `phone` are optional, as the model has them.\n\nThe lengths are the model's, repeated here so an over-long field is a `400` naming the field\nrather than a database error on PostgreSQL and a silent pass on SQLite \u2014 the difference `M1.2`\nfound the hard way. The required fields also carry a floor of one character: the model declares\nthem non-blank, and nothing in the database refuses `recipient = \"\"`, so without this an address\ncheckout could not use would be stored happily.",
+        "properties": {
+          "city": {
+            "maxLength": 120,
+            "minLength": 1,
+            "title": "City",
+            "type": "string"
+          },
+          "country": {
+            "maxLength": 2,
+            "minLength": 2,
+            "title": "Country",
+            "type": "string"
+          },
+          "is_default": {
+            "default": false,
+            "title": "Is Default",
+            "type": "boolean"
+          },
+          "label": {
+            "default": "",
+            "maxLength": 60,
+            "title": "Label",
+            "type": "string"
+          },
+          "line1": {
+            "maxLength": 120,
+            "minLength": 1,
+            "title": "Line1",
+            "type": "string"
+          },
+          "line2": {
+            "default": "",
+            "maxLength": 120,
+            "title": "Line2",
+            "type": "string"
+          },
+          "phone": {
+            "default": "",
+            "maxLength": 32,
+            "title": "Phone",
+            "type": "string"
+          },
+          "postal_code": {
+            "maxLength": 32,
+            "minLength": 1,
+            "title": "Postal Code",
+            "type": "string"
+          },
+          "recipient": {
+            "maxLength": 120,
+            "minLength": 1,
+            "title": "Recipient",
+            "type": "string"
+          },
+          "region": {
+            "default": "",
+            "maxLength": 120,
+            "title": "Region",
+            "type": "string"
+          }
+        },
+        "required": [
+          "recipient",
+          "line1",
+          "city",
+          "postal_code",
+          "country"
+        ],
+        "title": "AddressCreateSchema",
+        "type": "object"
+      },
+      "AddressSchema": {
+        "description": "A stored address, as a client sees it (`API.md` section 8).",
+        "properties": {
+          "city": {
+            "title": "City",
+            "type": "string"
+          },
+          "country": {
+            "title": "Country",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "is_default": {
+            "title": "Is Default",
+            "type": "boolean"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "line1": {
+            "title": "Line1",
+            "type": "string"
+          },
+          "line2": {
+            "title": "Line2",
+            "type": "string"
+          },
+          "phone": {
+            "title": "Phone",
+            "type": "string"
+          },
+          "postal_code": {
+            "title": "Postal Code",
+            "type": "string"
+          },
+          "recipient": {
+            "title": "Recipient",
+            "type": "string"
+          },
+          "region": {
+            "title": "Region",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "label",
+          "recipient",
+          "line1",
+          "line2",
+          "city",
+          "region",
+          "postal_code",
+          "country",
+          "phone",
+          "is_default"
+        ],
+        "title": "AddressSchema",
+        "type": "object"
+      },
+      "AddressUpdateSchema": {
+        "description": "Every field optional: a `PATCH` sends only what changed (`API.md` section 8).",
+        "properties": {
+          "city": {
+            "anyOf": [
+              {
+                "maxLength": 120,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "City"
+          },
+          "country": {
+            "anyOf": [
+              {
+                "maxLength": 2,
+                "minLength": 2,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Country"
+          },
+          "is_default": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Is Default"
+          },
+          "label": {
+            "anyOf": [
+              {
+                "maxLength": 60,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Label"
+          },
+          "line1": {
+            "anyOf": [
+              {
+                "maxLength": 120,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Line1"
+          },
+          "line2": {
+            "anyOf": [
+              {
+                "maxLength": 120,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Line2"
+          },
+          "phone": {
+            "anyOf": [
+              {
+                "maxLength": 32,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Phone"
+          },
+          "postal_code": {
+            "anyOf": [
+              {
+                "maxLength": 32,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Postal Code"
+          },
+          "recipient": {
+            "anyOf": [
+              {
+                "maxLength": 120,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Recipient"
+          },
+          "region": {
+            "anyOf": [
+              {
+                "maxLength": 120,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Region"
+          }
+        },
+        "title": "AddressUpdateSchema",
+        "type": "object"
+      },
       "AvailabilitySchema": {
         "properties": {
           "in_stock": {
@@ -539,6 +807,25 @@
         "title": "ProductPageSchema",
         "type": "object"
       },
+      "ProfileUpdateSchema": {
+        "description": "`US-2.4`. An absent field means \"leave it unchanged\", because a `PATCH` sends only changes.",
+        "properties": {
+          "display_name": {
+            "anyOf": [
+              {
+                "maxLength": 120,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Display Name"
+          }
+        },
+        "title": "ProfileUpdateSchema",
+        "type": "object"
+      },
       "RegisterSchema": {
         "properties": {
           "display_name": {
@@ -682,6 +969,151 @@
   },
   "openapi": "3.1.0",
   "paths": {
+    "/api/v1/addresses": {
+      "get": {
+        "description": "`US-2.5`.",
+        "operationId": "accounts_addresses_api_list_addresses",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/AddressSchema"
+                  },
+                  "title": "Response",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "AccessTokenAuth": []
+          }
+        ],
+        "summary": "List addresses",
+        "tags": [
+          "accounts"
+        ]
+      },
+      "post": {
+        "description": "The first address becomes the default whether or not the client asked for it.\n\nAn account whose only address is not the default is a state checkout would have to special-case\nfor no benefit, so it is not reachable.",
+        "operationId": "accounts_addresses_api_create_address",
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AddressCreateSchema"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AddressSchema"
+                }
+              }
+            },
+            "description": "Created"
+          }
+        },
+        "security": [
+          {
+            "AccessTokenAuth": []
+          }
+        ],
+        "summary": "Add an address",
+        "tags": [
+          "accounts"
+        ]
+      }
+    },
+    "/api/v1/addresses/{address_id}": {
+      "delete": {
+        "description": "`US-2.5`.\n\nDeleting the default promotes the oldest survivor, so the account keeps exactly one default for\nas long as it has any address at all \u2014 the same invariant the other endpoints hold.",
+        "operationId": "accounts_addresses_api_delete_address",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "address_id",
+            "required": true,
+            "schema": {
+              "title": "Address Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          }
+        },
+        "security": [
+          {
+            "AccessTokenAuth": []
+          }
+        ],
+        "summary": "Remove an address",
+        "tags": [
+          "accounts"
+        ]
+      },
+      "patch": {
+        "description": "`US-2.5`. Only the fields present in the body are touched.",
+        "operationId": "accounts_addresses_api_update_address",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "address_id",
+            "required": true,
+            "schema": {
+              "title": "Address Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AddressUpdateSchema"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AddressSchema"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "AccessTokenAuth": []
+          }
+        ],
+        "summary": "Update an address",
+        "tags": [
+          "accounts"
+        ]
+      }
+    },
     "/api/v1/auth/login": {
       "post": {
         "description": "`US-2.2`.\n\nOne message for every failure, so the endpoint cannot be used to find out which addresses have\naccounts. Django runs the password hasher even for an unknown address, so the timing does not\ngive it away either.",
@@ -738,7 +1170,7 @@
     },
     "/api/v1/auth/me": {
       "get": {
-        "description": "`US-2.4` reads the profile from here; updating it is `M2.6`.",
+        "description": "`US-2.4` reads the profile from here.",
         "operationId": "accounts_api_me",
         "parameters": [],
         "responses": {
@@ -759,6 +1191,42 @@
           }
         ],
         "summary": "Current user",
+        "tags": [
+          "accounts"
+        ]
+      },
+      "patch": {
+        "description": "`US-2.4`: change the display name.\n\nAn absent field means \"leave it\", not \"clear it\" \u2014 the difference between editing a name and\nerasing one. There is a single editable field today; the schema is written so it stays correct\nif that stops being true.",
+        "operationId": "accounts_api_update_me",
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProfileUpdateSchema"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserSchema"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "AccessTokenAuth": []
+          }
+        ],
+        "summary": "Update the profile",
         "tags": [
           "accounts"
         ]

@@ -6,6 +6,37 @@
 
 ## History
 
+### 2026-10-12 — v0.1.29 — M2.6 profile and the address book (API)
+
+**What changed.** `PATCH /auth/me` (`US-2.4`) and the `/addresses` routes (`US-2.5`) with their
+schemas; `AccessTokenAuth` moved to `accounts/auth.py` so the two routers share one authentication
+instead of one importing the other; `API.md` §2 gained the `PATCH` row and §8 the payload, the
+`404`-not-`403` rule and the default rule; the OpenAPI snapshot was regenerated.
+
+**Decisions.** An address is reached through the caller's own scope rather than fetched and then
+checked, so the ownership check has no branch to forget (`QA-C31`); another account's address is
+`404`, not `403`, which would confirm the id exists; the routes hold *exactly one* default where the
+database's partial index holds *at most one*; clearing the default is `409`, because it is the
+resource's state rather than a field error and `400` is what the frontend maps onto inputs; required
+fields carry a floor of one character, which the database does not enforce.
+
+**Found by the tests.** Pydantic's own errors arrived as `body.payload.country` while errors raised by
+hand produced `body.email` — one contract, two spellings, and a client that strips the source prefix
+as `API.md` instructs would match one and quietly fall back to a form-level message for the other.
+`core/errors.py` now drops the view parameter's name, and a test pins both paths to the same shape. It
+had survived because every existing field-error test exercised the hand-raised path, so nothing had
+ever asserted a pydantic-generated body error.
+
+**Impact.** Backend gates green: `ruff format --check`, `ruff check`, `basedpyright` (**0 errors**),
+**181 tests, 30 new** (24 for the address book, 6 for the profile). Frontend gates re-run green
+against the regenerated snapshot: `prettier`, `eslint`, `tsc --noEmit`, 79 vitest tests. Verified over
+HTTP against PostgreSQL: the first address is created `201` and becomes the default unasked, a second
+is not, promotion moves the default and leaves exactly one, clearing it answers `409` `CONFLICT`; a
+second account lists nothing and gets `404` on both `PATCH` and `DELETE`, with the row unchanged
+afterwards; deleting the default promotes the survivor; `PATCH /auth/me` edits the name and an empty
+body changes nothing; and all three field-error shapes now report `body.<field>`. 0 tracebacks, 0
+`500`s. The UI half of `M2.6` is still to come.
+
 ### 2026-10-12 — v0.1.28 — Lean increment ceremony; roadmap recut (M2.6–M7)
 
 **Context.** Two costs were slowing the build without buying anti-slop: a ~500-word change-log essay

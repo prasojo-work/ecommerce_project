@@ -209,6 +209,26 @@ def test_an_inactive_account_cannot_sign_in(client: Client, user: User) -> None:
     assert login(client).status_code == 401
 
 
+def test_a_pydantic_field_error_names_the_field_without_the_parameter(
+    client: Client,
+) -> None:
+    """Both ways an error can be raised must spell a field the same way.
+
+    Ninja puts the view parameter's name into the location for a body model, so pydantic's own
+    errors would arrive as `body.payload.email` while `_field_errors` produces `body.email` from
+    the very same endpoint. One contract with two spellings defeats a client mapper that strips
+    the source prefix, which is what `API.md` section 3 tells it to do.
+    """
+    response = client.post(
+        "/api/v1/auth/register",
+        data=json.dumps({"password": PASSWORD}),
+        content_type="application/json",
+    )
+
+    assert response.status_code == 400
+    assert response.json()["error"]["details"][0]["field"] == "body.email"
+
+
 # --- the access token on protected routes -------------------------------------------------
 
 
@@ -242,6 +262,67 @@ def test_me_refuses_an_expired_access_token(client: Client, user: User) -> None:
     token = login(client).json()["access_token"]
 
     assert client.get("/api/v1/auth/me", headers=auth_header(token)).status_code == 401
+
+
+def update_profile(client: Client, token: str, **changes: Any) -> Any:
+    return client.patch(
+        "/api/v1/auth/me",
+        data=json.dumps(changes),
+        content_type="application/json",
+        headers=auth_header(token),
+    )
+
+
+def test_me_updates_the_display_name(client: Client, user: User) -> None:
+    """`US-2.4`."""
+    token = login(client).json()["access_token"]
+
+    response = update_profile(client, token, display_name="Ada Lovelace")
+
+    assert response.status_code == 200
+    assert response.json()["display_name"] == "Ada Lovelace"
+    user.refresh_from_db()
+    assert user.display_name == "Ada Lovelace"
+
+
+def test_me_trims_the_display_name(client: Client, user: User) -> None:
+    token = login(client).json()["access_token"]
+
+    response = update_profile(client, token, display_name="  Ada  ")
+
+    assert response.json()["display_name"] == "Ada"
+
+
+def test_me_leaves_an_absent_field_alone(client: Client, user: User) -> None:
+    """A `PATCH` sends only what changed, so an empty body must not erase the name."""
+    token = login(client).json()["access_token"]
+    update_profile(client, token, display_name="Ada")
+
+    response = update_profile(client, token)
+
+    assert response.status_code == 200
+    assert response.json()["display_name"] == "Ada"
+
+
+def test_me_refuses_an_over_long_display_name(client: Client, user: User) -> None:
+    token = login(client).json()["access_token"]
+
+    response = update_profile(client, token, display_name="x" * 121)
+
+    assert response.status_code == 400
+    assert response.json()["error"]["details"][0]["field"] == "body.display_name"
+
+
+def test_a_profile_cannot_be_changed_without_a_token(client: Client, user: User) -> None:
+    response = client.patch(
+        "/api/v1/auth/me",
+        data=json.dumps({"display_name": "Nobody"}),
+        content_type="application/json",
+    )
+
+    assert response.status_code == 401
+    user.refresh_from_db()
+    assert user.display_name == ""
 
 
 def test_an_access_token_cannot_be_traded_for_a_new_pair(client: Client, user: User) -> None:

@@ -951,6 +951,66 @@ Notes:
   the `429` message, the silent restore, and sign-out — are `QA-C48`–`QA-C51`, not run until someone
   drives a real browser.
 
+### M2.6 — the profile and the address book (API)
+
+`PATCH /auth/me` edits the display name (`US-2.4`) and `/addresses` is the delivery book (`US-2.5`).
+Both act only on the token holder's own rows. Verify:
+
+```bash
+cd backend
+uv run ruff format --check . && uv run ruff check . && uv run basedpyright && uv run pytest
+
+# The ownership rule over HTTP: a second account must not see or touch the first one's address.
+PORT=8401
+uv run python manage.py runserver $PORT --noreload &
+BASE=http://localhost:$PORT/api/v1
+ADA=$(curl -sS $BASE/auth/register -H 'Content-Type: application/json' \
+  -d '{"email":"m26.ada@example.com","password":"correct-horse-9!"}' | python3 -c 'import json,sys; print(json.load(sys.stdin)["access_token"])')
+curl -sS -H "Authorization: Bearer $ADA" -H 'Content-Type: application/json' $BASE/addresses \
+  -d '{"recipient":"Ada Lovelace","line1":"12 Analytical Way","city":"London","postal_code":"N1 9AB","country":"GB"}'
+# -> 201, "is_default": true, and the optional fields defaulted to ""
+```
+
+Notes:
+
+- **Ownership is held by the query, not by a comparison.** Every route reads
+  `Address.objects.filter(user=request.auth, pk=...)` rather than fetching by primary key and then
+  checking the owner, so somebody else's row is simply not found and there is no branch in which the
+  check can be omitted. `QA-C31` is that failure; the tests assert both that the row is unreachable
+  *and* that it is untouched after a refused request.
+- **`404`, not `403`, for another account's address.** `403` confirms that the id exists, which is
+  precisely what an attempt to enumerate addresses is trying to learn.
+- **`filter(user=...)` rather than `user.addresses`.** The reverse accessor is invisible to
+  `basedpyright` (`ADR-0014`), and the explicit query is also what makes the owner part of the lookup
+  rather than a following check — one decision, two reasons.
+- **Exactly one default, which is stronger than the database promises.** `DATA-MODEL.md`'s partial
+  unique index enforces *at most one* default per user; these routes hold *exactly one* while the
+  account has any address, so checkout never has to ask which of several defaults won. The first
+  address becomes the default whether or not the client asked, promoting another demotes the previous
+  one, and deleting the default promotes the oldest survivor.
+- **Clearing the default is a `409`, not a `400`.** The body is well-formed and it is the state of the
+  resource that refuses it. `400` is what the frontend maps onto form fields, so reusing it would put
+  a sentence about defaults onto an input the customer just edited. Verified over HTTP.
+- **The required fields have a floor of one character.** The model declares them non-blank and nothing
+  in the database refuses `recipient = ""`, so the schema refuses it — the same class of hole `M1.2`
+  found with `max_length` on SQLite.
+- **A bug the new tests found, in the error envelope.** Pydantic's errors arrived as
+  `body.payload.country` — Ninja inserts the *view parameter's* name into the location — while a
+  `ValidationError` raised by hand produces `body.email` from the same endpoint. One contract with two
+  spellings: a client that strips the source prefix, as `API.md` §3 tells it to, would match one shape
+  and quietly fall back to a form-level message for the other. `core/errors.py` drops that segment now
+  and a test pins both paths. It is worth knowing *why* it lasted: every field-error test until now
+  asserted the hand-raised path, so no test had ever looked at a pydantic-generated body error.
+- **`ninja.Status` rather than a `(status, body)` tuple.** Ninja 1.7 deprecates the tuple, and the
+  warning appeared 28 times in a single test file.
+- **Verified over HTTP, against PostgreSQL:** the first address is created `201` and default, a second
+  is not, the list puts the default first, promoting moves the default while exactly one remains,
+  clearing it answers `409` `CONFLICT`; a second account sees `[]` and gets `404` on `PATCH` and
+  `DELETE`, with the first account's rows unchanged afterwards; deleting the default promotes the
+  oldest survivor; `PATCH /auth/me` edits the display name and an empty body leaves it alone; and all
+  three field-error shapes report `body.<field>`. 0 tracebacks, 0 `500`s.
+- **Not done here:** the profile and address UI. `M2.6` is marked `[~]` until that lands.
+
 ## 7. Deployment (M7)
 
 > Filled in at M7 — Render, Vercel, Supabase steps, environment variables, and the production

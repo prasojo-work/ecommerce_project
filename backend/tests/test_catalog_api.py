@@ -279,6 +279,8 @@ def test_openapi_documents_every_api_path() -> None:
     schema = client.get("/api/v1/openapi.json").json()
 
     assert set(schema["paths"]) == {
+        "/api/v1/addresses",
+        "/api/v1/addresses/{address_id}",
         "/api/v1/auth/login",
         "/api/v1/auth/logout",
         "/api/v1/auth/me",

@@ -25,10 +25,16 @@ from django.http import HttpRequest, HttpResponse
 from django.utils import timezone
 from ninja import Router
 from ninja.errors import HttpError, ValidationError
-from ninja.security import HttpBearer
 
+from accounts.auth import AuthenticatedRequest, auth
 from accounts.models import User
-from accounts.schemas import LoginSchema, RegisterSchema, TokenSchema, UserSchema
+from accounts.schemas import (
+    LoginSchema,
+    ProfileUpdateSchema,
+    RegisterSchema,
+    TokenSchema,
+    UserSchema,
+)
 from accounts.throttling import (
     AuthenticatedRateThrottle,
     LoginRateThrottle,
@@ -40,33 +46,12 @@ from accounts.tokens import (
     TokenError,
     TokenPair,
     issue_tokens,
-    resolve_access_token,
     revoke,
     rotate,
 )
 from core.errors import error_body
 
 router = Router(tags=["accounts"])
-
-
-class AccessTokenAuth(HttpBearer):
-    """`Authorization: Bearer <access_token>` (`API.md` section 2)."""
-
-    def authenticate(self, request: HttpRequest, token: str) -> User | None:
-        return resolve_access_token(token)
-
-
-class AuthenticatedRequest(HttpRequest):
-    """A request that Ninja has attached the authenticated user to.
-
-    Ninja assigns whatever `authenticate()` returned to `request.auth`, which `django-stubs` does
-    not know about. Declaring it here keeps the endpoints typed instead of reaching for `Any`.
-    """
-
-    auth: User
-
-
-auth = AccessTokenAuth()
 
 
 def _field_errors(field: str, issues: list[str]) -> ValidationError:
@@ -309,5 +294,26 @@ def logout(request: AuthenticatedRequest, response: HttpResponse) -> None:
     summary="Current user",
 )
 def me(request: AuthenticatedRequest) -> UserSchema:
-    """`US-2.4` reads the profile from here; updating it is `M2.6`."""
+    """`US-2.4` reads the profile from here."""
     return _user_schema(request.auth)
+
+
+@router.patch(
+    "/me",
+    response=UserSchema,
+    auth=auth,
+    throttle=[AuthenticatedRateThrottle()],
+    summary="Update the profile",
+)
+def update_me(request: AuthenticatedRequest, payload: ProfileUpdateSchema) -> UserSchema:
+    """`US-2.4`: change the display name.
+
+    An absent field means "leave it", not "clear it" — the difference between editing a name and
+    erasing one. There is a single editable field today; the schema is written so it stays correct
+    if that stops being true.
+    """
+    user = request.auth
+    if payload.display_name is not None:
+        user.display_name = payload.display_name.strip()
+        user.save(update_fields=["display_name", "updated_at"])
+    return _user_schema(user)

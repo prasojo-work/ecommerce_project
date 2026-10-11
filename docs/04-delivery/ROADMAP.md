@@ -68,7 +68,8 @@ Status legend: `[ ]` planned · `[~]` in progress · `[x]` done.
 - [x] `M2.3` Rate limiting on every auth endpoint (`US-2.2`, `NFR-3`) — keyed on the client rather than the account, so a limiter cannot be turned into a way to lock someone out of their own sign-in — with the limits themselves in settings, plus `ADR-0009`'s origin guard on `/auth/refresh`, which answers `403` before reading the cookie.
 - [x] `M2.4` Frontend session: the access token in memory only, with one shared in-flight refresh so two concurrent calls cannot trip `ADR-0009`'s reuse detection and sign the customer out of everything; a three-state session (`restoring`/`authenticated`/`anonymous`) so a reload never flashes "signed out"; and the CORS configuration the browser needs, which had been missing entirely.
 - [x] `M2.5` Login / register pages with validation.
-- [ ] `M2.6` Profile + addresses CRUD (API and UI).
+- [~] `M2.6` Profile + addresses CRUD (API and UI) — API half done (`PATCH /auth/me`, the `/addresses`
+  routes); the profile and address UI is the other half.
 - [ ] `M2.7` **Deploy the walking skeleton.** A public URL that serves the catalog and auth: the
   backend `Dockerfile`, Render (web), Supabase, and Vercel, migrations and seed on the demo
   database, `CORS_ALLOWED_ORIGINS` set for the real origins, and a smoke journey over the public
@@ -125,7 +126,9 @@ Status legend: `[ ]` planned · `[~]` in progress · `[x]` done.
 
 `M0 → M1 → M2 → M3 → M4 → M5 → M6 → M7`, then `M8`. Cart (M3) depends on Catalog (M1) and
 Identity (M2); Checkout (M4) depends on Cart; Operator (M5) depends on Catalog and Orders.
-M6 hardens everything already built, so it follows M5; M7 deploys the hardened build.
+`M2.7` deploys the walking skeleton as soon as auth works, so the catalog and sign-in are publicly
+reachable from the middle of `M2` and every later increment lands on a live system. M6 hardens
+everything already built, so it follows M5; M7 finalises that hardened build on the public URL.
 
 ## 5. RACI
 

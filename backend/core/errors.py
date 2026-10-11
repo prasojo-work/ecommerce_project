@@ -39,6 +39,10 @@ STATUS_CODES: dict[int, str] = {
     500: "INTERNAL_ERROR",
 }
 
+# The first element of a pydantic location says where the value came from, and is what `API.md`
+# section 3 documents the field name as being prefixed with.
+PARAMETER_SOURCES = frozenset({"body", "query", "path", "header", "cookie"})
+
 
 def error_body(
     code: str, message: str, details: list[dict[str, str]] | None = None
@@ -59,13 +63,22 @@ def _validation_details(exc: ValidationError) -> list[dict[str, str]]:
 
     Ninja prefixes each location with the parameter source (`query`, `body`, ...), which is
     exactly the context a client needs to tell a bad query string from a bad body.
+
+    For a body it also inserts the *view parameter's* name, so the location arrives as
+    `body.payload.country`. That segment is our implementation detail — no client has a `payload`
+    field — and it is dropped here. Without that, one endpoint reports the same mistake two ways:
+    `body.payload.country` from pydantic, `body.email` from a `ValidationError` raised by hand. A
+    client that strips the source prefix, as `API.md` section 3 tells it to, would then match one
+    of them and silently fall back to a form-level message for the other.
     """
     details: list[dict[str, str]] = []
     for error in getattr(exc, "errors", []):
-        location = error.get("loc", ())
+        location = [str(part) for part in error.get("loc", ())]
+        if location and location[0] in PARAMETER_SOURCES and len(location) > 2:
+            del location[1]
         details.append(
             {
-                "field": ".".join(str(part) for part in location),
+                "field": ".".join(location),
                 "issue": str(error.get("msg", "invalid")),
             }
         )

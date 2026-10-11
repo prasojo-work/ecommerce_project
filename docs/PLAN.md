@@ -1,6 +1,6 @@
 # Master Plan — LYSHEIM (home-goods e-commerce)
 
-> **Status:** Living document · **Baseline version:** v0.1.0 (2026-10-09) · **Owner:** Founder (solo)
+> **Status:** Living document · **Baseline version:** v0.1.5 (2026-10-12) · **Owner:** Founder (solo)
 > This file always reflects the *current* agreed plan. The history of changes lives in
 > [`CHANGE-LOG.md`](CHANGE-LOG.md).
 

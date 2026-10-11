@@ -1,9 +1,9 @@
 # TODO — QA (`qa_tester`)
 
-**Scope:** the authentication surface as it stands after `M2.2` — `accounts.User`, `accounts.Address`,
-`accounts.RefreshToken`, and the five endpoints `POST /auth/register`, `POST /auth/login`,
-`POST /auth/refresh`, `POST /auth/logout`, `GET /auth/me` (`SCOPE.md` `US-2.1`–`US-2.3`, `ADR-0009`,
-`API.md` section 2).
+**Scope:** the account surface as it stands after `M2.6` — `accounts.User`, `accounts.Address`,
+`accounts.RefreshToken`, the five auth endpoints `POST /auth/register`, `POST /auth/login`,
+`POST /auth/refresh`, `POST /auth/logout`, `GET /auth/me`, plus `PATCH /auth/me` and the five
+`/addresses` routes (`SCOPE.md` `US-2.1`–`US-2.5`, `ADR-0009`, `API.md` sections 2 and 8).
 
 **Status legend:** `[x]` executed, with the observed result recorded · `[ ]` **Not run**, with the
 reason. Nothing below is marked passed without an observed result, and nothing is copied from the
@@ -22,22 +22,25 @@ grouped by them rather than by endpoint.
   appear anywhere they are not needed.
 - **Scoping** — a credential is good only for the operation it was minted for.
 
-**Levels.** 44 API contract tests (`backend/tests/test_accounts_api.py`, 14 of them added at `M2.3`),
-20 model tests (`test_accounts_models.py`), 5 cross-origin tests (`test_cors.py`, `M2.4`), 62
-frontend unit tests (`vitest`, 12 of them the session store), and a scripted end-to-end pass over
-real HTTP — because cookie attributes, headers and rate limits cannot all be verified through the
-test client alone. A throttle lives in the process's own cache and CORS headers on the response path,
-so neither can be exercised from outside the process. `pytest` is **145 tests**. The suite and the
-flow were run twice: once on SQLite, then again on PostgreSQL 17.11, because the two differ in
-exactly the place that matters (see `QA-C30`).
+**Levels.** 50 auth contract tests (`backend/tests/test_accounts_api.py`, 14 added at `M2.3` and 6 at
+`M2.6`), 24 address tests (`test_addresses_api.py`, `M2.6`), 20 model tests
+(`test_accounts_models.py`), 5 cross-origin tests (`test_cors.py`, `M2.4`), 79 frontend unit tests
+(`vitest`, 12 of them the session store), and a scripted end-to-end pass over real HTTP — because
+cookie attributes, headers and rate limits cannot all be verified through the test client alone. A
+throttle lives in the process's own cache and CORS headers on the response path, so neither can be
+exercised from outside the process. `pytest` is **181 tests**. `M2.1`–`M2.3` were run on SQLite and
+then on PostgreSQL 17.11; from `M2.4` on, the suite runs against PostgreSQL directly, because that is
+the engine that serves production and the two differ in exactly the place that matters (see
+`QA-C30`).
 
 **Deliberately not tested.** JWT signing internals and password hashing internals (libraries' jobs, not
 ours), TLS and transport hardening (`M7`).
 
-**Blocked, not skipped.** Three cases wait on work that does not exist yet: `QA-C32` (`PATCH
-/auth/me`, `M2.6`), `QA-C43` (the interceptor driven in a real browser, `M2.5`), and `QA-C28`
-(cross-site cookie delivery with `SameSite=None`, which needs a second real origin, so `M7`).
-Everything else has been run, on PostgreSQL as well as SQLite.
+**Blocked, not skipped.** Two groups wait on things that do not exist yet: `QA-C43`–`QA-C51`, the
+sign-in, registration and session behaviour driven in a *real browser* (the pages exist as of
+`M2.5`; what is missing is a browser, not a back end), and `QA-C28`, cross-site cookie delivery with
+`SameSite=None`, which needs a second real origin and therefore `M7`. The address and profile
+*screens* are likewise unbuilt — `M2.6`'s API is tested here, its UI is not.
 
 ## QA-CASE — cases and observed results
 
@@ -153,11 +156,27 @@ Everything else has been run, on PostgreSQL as well as SQLite.
       clause. Consequence, observed end to end: `refresh A: 401 | refresh B: 200`, leaving **0** live
       tokens. Exactly one request wins, the loser is read as reuse, and reuse revokes everything —
       including the winner's new token. See `QA-G4`.
-- [ ] `QA-C31` **Not run — `M2.6`.** Address ownership: user A must not be able to read, edit or delete
-      user B's address. No address endpoint exists yet, but the rule belongs in the test plan before it
-      does — this is the classic broken-object-level-authorization failure.
-- [ ] `QA-C32` **Not run — `M2.6`.** `PATCH /auth/me` for the display name is specified by `US-2.4` but
-      absent from `API.md`; the contract needs the endpoint before it can be tested.
+- [x] `QA-C31` Address ownership: user A must not read, edit or delete user B's address. **Observed:**
+      user B's book came back `[]`, and `PATCH` and `DELETE` against A's address id both answered `404`
+      `NOT_FOUND` ("No such address.") rather than `403` — a `403` would have confirmed the id exists,
+      which is the whole point of trying. A's two rows were then read back and were unchanged, so the
+      refusals did nothing as well as said nothing. The same property is asserted at every level in
+      `test_addresses_api.py`: unlisted, un-editable, un-deletable, and unchanged afterwards.
+- [x] `QA-C32` `PATCH /auth/me` for the display name (`US-2.4`). **Observed:** the endpoint is in
+      `API.md` §2 now and answers `200` with the updated profile; a body carrying only `display_name`
+      changes only that field, the value is trimmed, and an **empty body** leaves the name alone rather
+      than clearing it — the behaviour that matters, because a client sending `{}` by accident must not
+      erase the customer's name.
+- [x] `QA-C52` The default-address rule, end to end. **Observed:** the first address is stored
+      `is_default: true` without being asked for it, a second is `false`, promoting the second leaves
+      **exactly one** default and moves it to the front of the list, deleting the default promotes the
+      oldest survivor, and clearing the default outright is refused `409` `CONFLICT` — a conflict
+      rather than a `400`, so the frontend will not hang that sentence on a form field.
+- [x] `QA-C53` A field error reads the same however it was produced. **Observed:** a
+      pydantic-generated body error names `body.recipient` and one raised by hand names `body.email`,
+      from the same endpoints. Before the fix the first arrived as `body.payload.recipient`; a client
+      stripping the view prefix as `API.md` §3 instructs would have matched one shape and fallen back
+      to a form-level message for the other. See `QA-B5`.
 
 ## QA-BUG — defects found and their state
 
@@ -175,8 +194,22 @@ Everything else has been run, on PostgreSQL as well as SQLite.
 - [ ] `QA-B4` **Open, risk.** `JWT_SECRET_KEY` falls back to `DJANGO_SECRET_KEY`. Rotating the cookie
       signing key therefore requires rotating the application secret as well, and vice versa. Acceptable
       for this deployment, worth an explicit pair of secrets when `M7` sets production variables.
+- [x] `QA-B5` **Fixed, found by test.** `M2.6`. One contract carried two shapes of field error:
+      pydantic's own errors arrived with the view parameter in the path (`body.payload.country`) while
+      errors raised by hand produced `body.email`. Severity: medium — a client following `API.md` §3
+      would silently lose field-level placement for exactly the errors the *schema* generates, which are
+      the common case, while the hand-written ones kept working. It survived because every field-error
+      test until then asserted a hand-raised error, so no test had ever inspected a pydantic one. Fixed
+      in `core/errors.py` by dropping the view parameter's name from the reported location; a test now
+      pins both paths to the same shape.
 
 ## QA-GAP — questions for the product owner
+
+> **Deferred by founder decision (2026-10-12).** `QA-G3`, `QA-G4`, and `QA-G7` are accepted as they
+> stand for Phase 1: each has a safe default already shipped, none of them blocks an increment, and
+> the founder has asked that they not be advanced further now. They stay recorded so the reasoning
+> survives, but no work should be raised against them while the store is being built — do not
+> re-propose the cross-tab lock, the split sign-in copy, or the validator ordering.
 
 - [ ] `QA-G1` `ADR-0009`'s refresh-logout row is satisfied, but a token revoked by *logout* takes the
       reuse-detection path on replay, which is conservative and a no-op. Should logout-marked tokens be
