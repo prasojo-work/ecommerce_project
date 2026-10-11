@@ -66,6 +66,22 @@ instead, so a plain unique constraint is enough; see the `M2.1` note in `RUNBOOK
 `recipient`, `line1`, `city`, `postal_code` and `country` are required; `label`, `line2`, `region`
 and `phone` are optional, because real addresses do not always carry them.
 
+**`refresh_token`**
+
+| Column | Type | Notes |
+|---|---|---|
+| id | bigint PK | |
+| user_id | FK → user | on delete cascade |
+| jti | uuid | unique; the `jti` claim of the JWT that was issued |
+| expires_at | timestamptz | |
+| revoked_at | timestamptz | null while the token is live |
+| created_at / updated_at | timestamptz | |
+
+Added at `M2.2`. `ADR-0009` requires logout to invalidate the refresh token server-side, which a
+signature cannot do on its own, so this table is the record of what has been issued. Only the `jti`
+is stored, never the token: it is a claim *inside* a signed JWT, so a leaked table cannot be
+replayed against the API without the signing key.
+
 ### `catalog`
 
 **`category`** — `id`, `name`, `slug` (unique), `description`, `parent_id` (self-FK, nullable), `position`.

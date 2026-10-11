@@ -25,3 +25,9 @@ SECURE_CONTENT_TYPE_NOSNIFF = True
 SECURE_REFERRER_POLICY = "strict-origin-when-cross-origin"
 SESSION_COOKIE_SECURE = True
 CSRF_COOKIE_SECURE = True
+
+# The API and the web app are different sites in production (Render and Vercel), so the refresh
+# cookie has to be `SameSite=None` to survive the cross-site call — and browsers only accept
+# `SameSite=None` together with `Secure` (`ADR-0009`).
+REFRESH_COOKIE_SECURE = True
+REFRESH_COOKIE_SAMESITE = "None"

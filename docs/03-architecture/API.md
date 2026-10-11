@@ -31,6 +31,12 @@ returned in the response body and held **in memory** by the client (`ADR-0009`).
 
 Auth endpoints are **rate-limited**; a 429 returns `Retry-After`.
 
+`register` and `login` answer with `{access_token, token_type, expires_in, user}`. The refresh token
+is deliberately **not** in the body: it is set as an httpOnly cookie scoped to `/api/v1/auth`, so
+only `POST /auth/refresh` is ever sent it (`ADR-0009`). `refresh` rotates that cookie, and answers
+`401` when the token is missing, expired, unreadable or already revoked. `logout` answers `204` and
+ends the session server-side; `me` returns the current account.
+
 ## 3. Error envelope
 
 Every error response uses one shape (see `NFR-4`):

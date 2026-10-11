@@ -9,6 +9,7 @@ dependencies = [
     "django-environ>=0.12",
     "psycopg[binary]>=3.2",
     "uvicorn[standard]>=0.34",
+    "pyjwt>=2.15.1",
 ]
 
 [dependency-groups]

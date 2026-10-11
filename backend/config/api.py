@@ -7,6 +7,7 @@ contexts are built. The generated OpenAPI schema is the shared contract with the
 
 from ninja import NinjaAPI
 
+from accounts.api import router as accounts_router
 from catalog.api import router as catalog_router
 from core.errors import install_error_handlers
 
@@ -22,3 +23,6 @@ install_error_handlers(api)
 # The catalog routes sit at the API root (`/api/v1/products`, `/api/v1/categories`) as `API.md`
 # section 4 documents them, so this router adds no prefix of its own.
 api.add_router("", catalog_router)
+
+# `API.md` section 2 documents the auth routes under `/auth`.
+api.add_router("auth", accounts_router)

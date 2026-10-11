@@ -274,11 +274,16 @@ def test_the_error_envelope_matches_the_request_id_header() -> None:
     assert error["details"] == []
 
 
-def test_openapi_documents_every_catalog_path() -> None:
+def test_openapi_documents_every_api_path() -> None:
     """`M1.3` owns the contract the frontend types are generated from at `M1.4`."""
     schema = client.get("/api/v1/openapi.json").json()
 
     assert set(schema["paths"]) == {
+        "/api/v1/auth/login",
+        "/api/v1/auth/logout",
+        "/api/v1/auth/me",
+        "/api/v1/auth/refresh",
+        "/api/v1/auth/register",
         "/api/v1/categories",
         "/api/v1/categories/{slug}",
         "/api/v1/credits",

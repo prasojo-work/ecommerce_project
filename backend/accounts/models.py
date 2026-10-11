@@ -136,3 +136,31 @@ class Address(TimeStampedModel):
 
     def __str__(self) -> str:
         return f"{self.recipient}, {self.line1}"
+
+
+class RefreshToken(TimeStampedModel):
+    """One issued refresh token (`ADR-0009`).
+
+    `ADR-0009` requires logout to invalidate the refresh token *server-side*, which a signature
+    cannot do on its own, so there is a row per issued token and rotation updates it.
+
+    Only the `jti` claim is stored, never the token. That is enough to revoke and to detect reuse,
+    and a leaked database cannot be replayed against the API: the `jti` sits *inside* a signed JWT,
+    so on its own it cannot be turned back into a token without the signing key.
+    """
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="refresh_tokens",
+    )
+    jti = models.UUIDField(unique=True)
+    expires_at = models.DateTimeField()
+    revoked_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta(TimeStampedModel.Meta):
+        ordering = ("-created_at", "id")
+
+    def __str__(self) -> str:
+        state = "revoked" if self.revoked_at else "active"
+        return f"{self.user.email} refresh token ({state})"

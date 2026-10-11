@@ -42,6 +42,24 @@ AUTH_PASSWORD_VALIDATORS = [
     {"NAME": "django.contrib.auth.password_validation.NumericPasswordValidator"},
 ]
 
+# JWT authentication (`ADR-0009`). The signing key defaults to `SECRET_KEY` so a plain checkout
+# needs no extra setup; set `JWT_SECRET_KEY` to rotate the two independently in a real deployment.
+JWT_SECRET_KEY = env("JWT_SECRET_KEY", default="") or SECRET_KEY
+JWT_ALGORITHM = "HS256"
+
+# A short access token and a long refresh token is the whole point of the pair: the access token is
+# the one that leaks into a header or a log, so it is the one that expires quickly.
+ACCESS_TOKEN_TTL_SECONDS = env.int("ACCESS_TOKEN_TTL_SECONDS", default=15 * 60)
+REFRESH_TOKEN_TTL_SECONDS = env.int("REFRESH_TOKEN_TTL_SECONDS", default=14 * 24 * 60 * 60)
+
+# The refresh cookie is the only place the refresh token exists client-side, so its scope is as
+# narrow as the routes allow. `Secure` and `SameSite` are raised in production, where the API and
+# the web app are genuinely different sites.
+REFRESH_COOKIE_NAME = env("REFRESH_COOKIE_NAME", default="lysheim_refresh")
+REFRESH_COOKIE_PATH = env("REFRESH_COOKIE_PATH", default="/api/v1/auth")
+REFRESH_COOKIE_SECURE = env.bool("REFRESH_COOKIE_SECURE", default=False)
+REFRESH_COOKIE_SAMESITE = env("REFRESH_COOKIE_SAMESITE", default="Lax")
+
 MIDDLEWARE = [
     "core.middleware.RequestIDMiddleware",
     "django.middleware.security.SecurityMiddleware",

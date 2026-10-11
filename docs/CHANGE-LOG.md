@@ -6,6 +6,54 @@
 
 ## History
 
+### 2026-10-11 — v0.1.24 — M2.2 auth endpoints
+
+**Context.** `M2.2`. `US-2.1`-`US-2.3` are the acceptance criteria: register with email, password
+validation and a duplicate-email error; sign in with a rate-limited endpoint and a clear error on bad
+credentials; and stay signed in or log out, with silent refresh. `ADR-0009` fixes the shape — access
+token in the body and held in memory, refresh token as an httpOnly cookie — and requires logout to
+invalidate that refresh token *server-side*.
+
+**What changed.**
+
+- `accounts/tokens.py` — new: JWT issuing, verification, rotation and revocation, with reuse
+  detection.
+- `accounts/models.py` — new `RefreshToken`: one row per issued token, keyed by `jti`, so a signature
+  can be revoked.
+- `accounts/schemas.py`, `accounts/api.py` — new: the five endpoints and an `HttpBearer` guard.
+- `config/api.py` — the accounts router mounted at `/auth`.
+- `config/settings/base.py`, `prod.py` — JWT key, both TTLs and the refresh cookie's attributes;
+  production raises `Secure` and `SameSite=None` for the cross-site Vercel-to-Render call.
+- `tests/test_accounts_api.py` — 30 contract tests.
+- `docs/03-architecture/DATA-MODEL.md`, `API.md` — the new table and the token payload documented.
+
+**Decisions taken.**
+
+- **The refresh token is a JWT *and* is recorded server-side.** `US-2.2` asks for a "JWT access +
+  refresh pair" and `ADR-0009` asks for server-side invalidation; a `jti` claim plus a row satisfies
+  both without inventing an opaque token scheme.
+- **Rotation with reuse detection.** Presenting a revoked token revokes every live token for that
+  user, because a copy in circulation is the only way a revoked token reappears.
+- **A failed refresh returns its `401` rather than raising `HttpError`.** Raising hands the response to
+  Ninja's exception handler, which builds a fresh one, so a cleared cookie would never reach the
+  browser and a dead token would be re-presented on every page load forever. This was found by a test.
+- **One message for both sign-in failures**, so the endpoint cannot enumerate registered addresses.
+- **`/auth/refresh` does not accept an access token**, so a leaked access token cannot extend itself.
+- **Only the `jti` is stored, never the token.** A leaked table cannot be replayed without the signing
+  key.
+
+**Impact.** Gates green: `ruff format --check`, `ruff check`, `basedpyright` (**0 errors**) and
+`pytest` (**132 tests, up from 102**), plus no migration drift. The OpenAPI snapshot was regenerated,
+so the five routes are in the contract and the frontend's generated types now know them. Verified end
+to end over real HTTP: registration lower-cases the address and returns `201` with a JWT access token
+and an `HttpOnly; Path=/api/v1/auth` cookie; `/auth/me` answers `200` with the token and `401` without
+one; refresh rotates the cookie; replaying the old cookie answers `401` and leaves the user with zero
+live tokens; logout answers `204`, clears the cookie and kills the session server-side; duplicate
+registration is a `400` naming `body.email`; a weak password is refused with all three reasons; a wrong
+password and an unknown address are identical; the catalog is unregressed; and the server logged no
+tracebacks and no `500`s. The suite has so far only run on SQLite — Postgres is not running locally —
+so the concurrency guard in rotation is not yet verified on the backend that will serve production.
+
 ### 2026-10-11 — v0.1.23 — M2.1 accounts models
 
 **Context.** `M2.1`. `M2` opens with the custom user model, the one schema decision in this project

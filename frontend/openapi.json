@@ -214,6 +214,24 @@
         "title": "ImageSchema",
         "type": "object"
       },
+      "LoginSchema": {
+        "properties": {
+          "email": {
+            "title": "Email",
+            "type": "string"
+          },
+          "password": {
+            "title": "Password",
+            "type": "string"
+          }
+        },
+        "required": [
+          "email",
+          "password"
+        ],
+        "title": "LoginSchema",
+        "type": "object"
+      },
       "MoneySchema": {
         "properties": {
           "amount_cents": {
@@ -521,6 +539,29 @@
         "title": "ProductPageSchema",
         "type": "object"
       },
+      "RegisterSchema": {
+        "properties": {
+          "display_name": {
+            "default": "",
+            "title": "Display Name",
+            "type": "string"
+          },
+          "email": {
+            "title": "Email",
+            "type": "string"
+          },
+          "password": {
+            "title": "Password",
+            "type": "string"
+          }
+        },
+        "required": [
+          "email",
+          "password"
+        ],
+        "title": "RegisterSchema",
+        "type": "object"
+      },
       "SortOption": {
         "description": "`sort` values from `API.md` section 4. The `-` prefix means descending.\n\nMembers are upper case because `Enum` already defines `name` and `value`; a member named\n`name` would shadow one of them.",
         "enum": [
@@ -531,6 +572,63 @@
         ],
         "title": "SortOption",
         "type": "string"
+      },
+      "TokenSchema": {
+        "description": "The sign-in payload.\n\nThe refresh token is deliberately absent. `ADR-0009` delivers it only as an httpOnly cookie so\nthat no script \u2014 including a compromised one \u2014 can read it, and `API.md` section 2 documents the\naccess token as the only token in the body.",
+        "properties": {
+          "access_token": {
+            "title": "Access Token",
+            "type": "string"
+          },
+          "expires_in": {
+            "title": "Expires In",
+            "type": "integer"
+          },
+          "token_type": {
+            "default": "Bearer",
+            "title": "Token Type",
+            "type": "string"
+          },
+          "user": {
+            "$ref": "#/components/schemas/UserSchema"
+          }
+        },
+        "required": [
+          "access_token",
+          "expires_in",
+          "user"
+        ],
+        "title": "TokenSchema",
+        "type": "object"
+      },
+      "UserSchema": {
+        "description": "The account as a client sees it. Never the password, never a token.",
+        "properties": {
+          "display_name": {
+            "title": "Display Name",
+            "type": "string"
+          },
+          "email": {
+            "title": "Email",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "is_staff": {
+            "title": "Is Staff",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "id",
+          "email",
+          "display_name",
+          "is_staff"
+        ],
+        "title": "UserSchema",
+        "type": "object"
       },
       "VariantSchema": {
         "properties": {
@@ -569,6 +667,12 @@
         "title": "VariantSchema",
         "type": "object"
       }
+    },
+    "securitySchemes": {
+      "AccessTokenAuth": {
+        "scheme": "bearer",
+        "type": "http"
+      }
     }
   },
   "info": {
@@ -578,6 +682,144 @@
   },
   "openapi": "3.1.0",
   "paths": {
+    "/api/v1/auth/login": {
+      "post": {
+        "description": "`US-2.2`.\n\nOne message for every failure, so the endpoint cannot be used to find out which addresses have\naccounts. Django runs the password hasher even for an unknown address, so the timing does not\ngive it away either.",
+        "operationId": "accounts_api_login",
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LoginSchema"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TokenSchema"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "summary": "Sign in",
+        "tags": [
+          "accounts"
+        ]
+      }
+    },
+    "/api/v1/auth/logout": {
+      "post": {
+        "description": "`US-2.3`. Ends the session server-side; the access token is short-lived and expires anyway.",
+        "operationId": "accounts_api_logout",
+        "parameters": [],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          }
+        },
+        "security": [
+          {
+            "AccessTokenAuth": []
+          }
+        ],
+        "summary": "Sign out",
+        "tags": [
+          "accounts"
+        ]
+      }
+    },
+    "/api/v1/auth/me": {
+      "get": {
+        "description": "`US-2.4` reads the profile from here; updating it is `M2.6`.",
+        "operationId": "accounts_api_me",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserSchema"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "AccessTokenAuth": []
+          }
+        ],
+        "summary": "Current user",
+        "tags": [
+          "accounts"
+        ]
+      }
+    },
+    "/api/v1/auth/refresh": {
+      "post": {
+        "description": "`US-2.3`: silent refresh. The token is read from the cookie, never from the body.",
+        "operationId": "accounts_api_refresh",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TokenSchema"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "summary": "Refresh the access token",
+        "tags": [
+          "accounts"
+        ]
+      }
+    },
+    "/api/v1/auth/register": {
+      "post": {
+        "description": "`US-2.1`: email and password with validation, and a duplicate-email error.\n\nRegistering signs the account in, which is what `API.md` section 2 documents (\"Create account;\nreturns tokens\").",
+        "operationId": "accounts_api_register",
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RegisterSchema"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TokenSchema"
+                }
+              }
+            },
+            "description": "Created"
+          }
+        },
+        "summary": "Create an account",
+        "tags": [
+          "accounts"
+        ]
+      }
+    },
     "/api/v1/categories": {
       "get": {
         "description": "Every category, nested under its parent. Not paginated: a tree is small and shaped.",

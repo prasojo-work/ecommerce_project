@@ -685,6 +685,63 @@ Notes:
   a placeholder for the operator console `ADR-0007` settles on. It exists now because adding a column
   to a migrated table later is a migration for no reason.
 
+### M2 — auth endpoints (M2.2)
+
+`POST /auth/register`, `/auth/login`, `/auth/refresh`, `/auth/logout` and `GET /auth/me` are live
+(`API.md` section 2, `ADR-0009`). The access token is a short-lived JWT in the response body; the
+refresh token exists only as an httpOnly cookie scoped to `/api/v1/auth`.
+
+Verify it:
+
+```bash
+cd backend
+uv run python manage.py check
+uv run python manage.py makemigrations --check --dry-run
+uv run ruff format --check . && uv run ruff check . && uv run basedpyright && uv run pytest
+
+# The flow over HTTP, where cookie attributes actually mean something:
+PORT=8392
+uv run python manage.py runserver $PORT --noreload &
+BASE=http://localhost:$PORT/api/v1
+curl -sS -D - -c jar -X POST $BASE/auth/register -H 'Content-Type: application/json' \
+  -d '{"email":"a@example.com","password":"correct-horse-9!"}'
+curl -sS -b jar -c jar -X POST $BASE/auth/refresh    # rotates the cookie
+```
+
+Notes:
+
+- **The refresh token is never in a response body.** A test asserts the cookie's value appears
+  nowhere in the JSON, because "we only ever put it in the cookie" is the kind of claim that quietly
+  stops being true.
+- **Rotation and reuse detection.** Every refresh revokes the token it was given and mints a new one.
+  A *revoked* token presented again means a copy is in circulation, so every live token for that user
+  is revoked and the request is refused — a stolen token becomes a detectable event rather than a
+  silent permanent session. Measured end to end: replaying an old cookie answered `401` and left the
+  user with **0** live refresh tokens.
+- **A `401` from `/auth/refresh` still clears the cookie, and that is not free.** Ninja's exception
+  handler builds a *fresh* response, so a cookie cleared on the injected response and then abandoned
+  by a `raise` never reaches the browser — and the browser would present a dead token on every page
+  load forever. The endpoint therefore *returns* its `401` (`accounts/api.py::_fail`) instead of
+  raising it. Found by a test, not by reading the code.
+- **One message for every sign-in failure.** A wrong password and an unknown address return an
+  identical code and message, so the endpoint cannot be used to enumerate registered addresses, and
+  Django runs the password hasher even for an address with no account, so timing does not give it
+  away either.
+- **Token types are not interchangeable.** An access token presented to `/auth/refresh` is refused, so
+  a stolen access token cannot extend its own life. The `typ` claim is required, not merely read.
+- **`/auth/logout` needs a valid access token** (`API.md` section 2), so a client whose access token
+  has already expired must refresh first. That is deliberate: the alternative is an unauthenticated
+  endpoint that revokes sessions, which is a denial-of-service primitive.
+- **The signing key defaults to `SECRET_KEY`.** Convenient locally and worth knowing about, because
+  rotating one rotates both. `JWT_SECRET_KEY` overrides it.
+- **The suite has only been run on SQLite.** Postgres is the deployment backend, and
+  `select_for_update` in `rotate()` is a no-op on SQLite — Django skips it rather than failing — so the
+  concurrency guard is *unverified* until the suite runs against Postgres. `docker ps` is empty, so it
+  has not yet.
+- **Not protected yet.** Throttling on `/auth/login` and the origin check on `/auth/refresh` are
+  `M2.3`. Until they land the only cross-site control on refresh is `SameSite`, which is real but
+  weaker than the check `ADR-0009` describes.
+
 ## 7. Deployment (M7)
 
 > Filled in at M7 — Render, Vercel, Supabase steps, environment variables, and the production
