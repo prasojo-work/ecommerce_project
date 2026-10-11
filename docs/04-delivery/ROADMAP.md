@@ -4,6 +4,10 @@
 > Founder. Inputs: [`../PLAN.md`](../PLAN.md), [`../02-product/SCOPE.md`](../02-product/SCOPE.md),
 > [`../03-architecture/ARCHITECTURE.md`](../03-architecture/ARCHITECTURE.md).
 > Execution rules live in [`../WORKING-AGREEMENT.md`](../WORKING-AGREEMENT.md).
+> Cadence: continuous increments, a compact change-log entry per increment, and a milestone
+> retrospective at each gate
+> ([`../decisions/ADR-0015-continuous-increments.md`](../decisions/ADR-0015-continuous-increments.md),
+> [`../decisions/ADR-0016-lean-increment-ceremony.md`](../decisions/ADR-0016-lean-increment-ceremony.md)).
 
 ---
 
@@ -21,13 +25,13 @@ Status legend: `[ ]` planned · `[~]` in progress · `[x]` done.
 | ID | Milestone | Outcome | Exit criteria | Status |
 |---|---|---|---|---|
 | M0 | Foundations | Both apps boot, gates wired, CI green | `docker compose up` runs API + web; CI passes | `[x]` |
-| M1 | Catalog & browse | Products visible and navigable | Browse → PDP works with seeded data | `[ ]` |
-| M2 | Accounts & auth | Register/login works | JWT flow + refresh exercised by tests | `[ ]` |
+| M1 | Catalog & browse | Products visible and navigable | Browse → PDP works with seeded data | `[x]` |
+| M2 | Accounts & auth | Register/login works; the app is live | JWT flow + refresh exercised by tests; a public URL serves the catalog and auth | `[~]` |
 | M3 | Cart | Server-side cart for guests + users | Add/update/remove + merge on login | `[ ]` |
 | M4 | Checkout & orders | Mock purchase end to end | Order created, paid, history shown | `[ ]` |
 | M5 | Operator console | Catalog/stock/orders manageable | Admin manages products + order status | `[ ]` |
 | M6 | Hardening | Quality evidence produced | a11y/perf/security reports committed | `[ ]` |
-| M7 | Deploy | Public demo live | Live URL passes a smoke journey | `[ ]` |
+| M7 | Launch | Public demo hardened and finalised | Live URL passes a smoke journey; README published | `[ ]` |
 | M8 | Data track (Phase 2) | Analytics on real events | Funnel dashboard built on events | `[ ]` |
 
 ## 3. Milestone detail
@@ -65,46 +69,53 @@ Status legend: `[ ]` planned · `[~]` in progress · `[x]` done.
 - [x] `M2.4` Frontend session: the access token in memory only, with one shared in-flight refresh so two concurrent calls cannot trip `ADR-0009`'s reuse detection and sign the customer out of everything; a three-state session (`restoring`/`authenticated`/`anonymous`) so a reload never flashes "signed out"; and the CORS configuration the browser needs, which had been missing entirely.
 - [x] `M2.5` Login / register pages with validation.
 - [ ] `M2.6` Profile + addresses CRUD (API and UI).
+- [ ] `M2.7` **Deploy the walking skeleton.** A public URL that serves the catalog and auth: the
+  backend `Dockerfile`, Render (web), Supabase, and Vercel, migrations and seed on the demo
+  database, `CORS_ALLOWED_ORIGINS` set for the real origins, and a smoke journey over the public
+  URL. Pulls `M7`'s configuration work forward to the first point where there is something worth
+  showing, so a live URL exists halfway through Phase 1.
 
 ### M3 — Cart
 
-- [ ] `M3.1` `Cart` / `CartItem` models; signed guest cookie resolution (`ADR-0008`).
-- [ ] `M3.2` Cart API: get, add, update, remove; server-side stock validation.
-- [ ] `M3.3` Guest-cart merge on login.
-- [ ] `M3.4` Cart UI: line items, quantity stepper, totals, empty state.
+- [ ] `M3.1` `Cart` / `CartItem` models and API — get, add, update, remove, with server-side stock
+  validation and the signed guest cookie resolution (`ADR-0008`). *(merges the old `M3.1` + `M3.2`)*
+- [ ] `M3.2` Guest-cart merge on login.
+- [ ] `M3.3` Cart UI: line items, quantity stepper, totals, empty state.
 
 ### M4 — Checkout & orders
 
 - [ ] `M4.1` `Order` / `OrderItem` / `OrderEvent` models; guarded status transitions.
 - [ ] `M4.2` `/checkout/quote` (shipping options + totals).
-- [ ] `M4.3` Idempotent order creation (`Idempotency-Key`) + stock decrement.
-- [ ] `M4.4` `PaymentGateway` port + mock adapter; confirm/fail endpoints (`ADR-0010`).
-- [ ] `M4.5` Order-confirmation email via the Tasks framework (mocked transport).
-- [ ] `M4.6` Checkout UI: address → shipping → payment → confirmation.
-- [ ] `M4.7` Order history and order-detail pages.
+- [ ] `M4.3` Idempotent order creation (`Idempotency-Key`) with stock decrement, plus the
+  `PaymentGateway` port and its mock adapter with confirm/fail endpoints (`ADR-0010`).
+  *(merges the old `M4.3` + `M4.4`)*
+- [ ] `M4.4` Order-confirmation email via the Tasks framework (mocked transport).
+- [ ] `M4.5` Checkout UI: address → shipping → payment → confirmation.
+- [ ] `M4.6` Order history and order-detail pages.
 
 ### M5 — Operator console
 
-- [ ] `M5.1` Django admin customisation for catalog (list filters, search, inline images).
-- [ ] `M5.2` Admin for orders with valid status transitions + audit visible.
-- [ ] `M5.3` Operator runbook entry (create `is_staff` operator; day-to-day actions).
+- [ ] `M5.1` Django admin for the catalog and orders — list filters, search, inline images, guarded
+  status transitions, and the audit visible. *(merges the old `M5.1` + `M5.2`)*
+- [ ] `M5.2` Operator runbook entry (create an `is_staff` operator; day-to-day actions).
 
 ### M6 — Hardening
 
-- [ ] `M6.1` Coverage push on domain/services (≥ 80%) + tests for edge cases.
-- [ ] `M6.2` Accessibility pass (axe on key routes) + fixes → `ACCESSIBILITY-REPORT.md`.
-- [ ] `M6.3` Performance pass (LCP budget, caching, image optimisation) → `PERFORMANCE-REPORT.md`.
-- [ ] `M6.4` Security hardening (CSP, headers, throttles, secret guard, dependency audit) → `SECURITY-REVIEW.md`.
-- [ ] `M6.5` End-to-end verification of the error envelope + request ids.
+- [ ] `M6.1` Coverage push on the domain/service layer (≥ 80%) plus tests for edge cases.
+- [ ] `M6.2` Accessibility (axe on key routes) **and** performance (LCP budget, caching, image
+  optimisation) pass → one combined report. *(merges the old `M6.2` + `M6.3`)*
+- [ ] `M6.3` Security hardening (CSP, headers, throttles, secret guard, dependency audit) and the
+  end-to-end error-envelope + request-id verification → `SECURITY-REVIEW.md`.
+  *(merges the old `M6.4` + `M6.5`)*
 
-### M7 — Deploy
+### M7 — Launch
 
-- [ ] `M7.1` `backend/Dockerfile`; Render service + worker configuration.
-- [ ] `M7.2` Supabase project, pooler settings, run migrations.
-- [ ] `M7.3` Vercel project + environment variables.
-- [ ] `M7.4` Seed the demo database and run a smoke journey in production.
-- [ ] `M7.5` Keep-alive ping + finalise the runbook.
-- [ ] `M7.6` README with screenshots, architecture diagram, and the live URL.
+`M7` is thin by design: `M2.7` already stood up the deploy, so this is the hardened, final one.
+
+- [ ] `M7.1` Production deploy — Render web **and** worker, Supabase, Vercel; run migrations and
+  seed the demo database.
+- [ ] `M7.2` Production smoke journey + keep-alive ping; finalise the runbook.
+- [ ] `M7.3` README with screenshots, architecture diagram, and the live URL.
 
 ### M8 — Data track (Phase 2, deferred)
 
@@ -134,7 +145,7 @@ artifacts and code; the recruiter/client is **Informed** (reads the repo).
 ## 6. Definition of Done
 
 - **Per increment:** see [`../WORKING-AGREEMENT.md`](../WORKING-AGREEMENT.md) §5.
-- **Per milestone:** the milestone's exit criteria in §2 hold, and its increments are all committed and green.
+- **Per milestone:** the milestone's exit criteria in §2 hold, its increments are all committed and green, and a short retrospective is appended to `CHANGE-LOG.md`.
 - **v1:** the five evidence gates in [`../PLAN.md`](../PLAN.md) §2.
 
 ## 7. Change control

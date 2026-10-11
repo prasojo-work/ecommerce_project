@@ -111,12 +111,12 @@ deeper async support out of the box. Our policy:
 |---|---|---|
 | M0 | Foundations | Repo, CI, Docker Compose, both apps boot |
 | M1 | Catalog & browse | Products visible and navigable |
-| M2 | Accounts & auth | Register / login, JWT flow working |
+| M2 | Accounts & auth | Register / login, JWT flow working; walking skeleton deployed (`M2.7`) |
 | M3 | Cart | Server-side cart for signed-in users |
 | M4 | Checkout & orders | Mock payment → order created → history |
 | M5 | Operator console | Manage catalog and orders |
 | M6 | Hardening | Tests, a11y, performance, security pass |
-| M7 | Deploy | Live demo on free tier |
+| M7 | Launch | Live demo hardened and finalised on free tiers |
 | M8 | Data-engineering track | Phase 2 (event pipeline + dashboard) |
 
 Detail, dependencies, and sequencing land in `04-delivery/ROADMAP.md` (Stage 4).
@@ -132,8 +132,9 @@ Detail, dependencies, and sequencing land in `04-delivery/ROADMAP.md` (Stage 4).
   decides whether to continue. See [`WORKING-AGREEMENT.md`](WORKING-AGREEMENT.md) and
   `ADR-0004`.
 
-> **Planning status:** Stages 0–5 are complete. The next step is **M0** (foundations), the
-> first code increment.
+> **Status:** Stages 0–5 are complete. `M0` and `M1` are done and `M2` is in progress. Increments
+> run continuously (`ADR-0015`) with a compact change-log entry each and a milestone retrospective
+> at every gate (`ADR-0016`).
 
 ## 8. Governance — how the plan changes
 
@@ -184,3 +185,4 @@ Full register in [`04-delivery/RISK-REGISTER.md`](04-delivery/RISK-REGISTER.md).
 | v0.1.2 | 2026-10-09 | Architecture, data model, and API contract baselined (Stage 3); ADR-0005..0012. |
 | v0.1.3 | 2026-10-09 | Delivery roadmap, risk register, and runbook baselined (Stage 4). |
 | v0.1.4 | 2026-10-09 | Security baseline, code-review standard, and agent topology baselined (Stage 5). Planning phase complete. |
+| v0.1.5 | 2026-10-12 | Lean increment ceremony (`ADR-0016`); roadmap recut `M2.6`–`M7` with an early walking-skeleton deploy (`M2.7`). |

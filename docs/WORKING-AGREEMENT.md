@@ -5,7 +5,10 @@
 > This file is binding for the assistant/builder; amend it only via a new ADR. Amended on
 > 2026-10-11 by [`ADR-0015`](decisions/ADR-0015-continuous-increments.md), which keeps every rule
 > here and changes only the cadence: the assistant runs increments continuously and stops solely for
-> a founder decision.
+> a founder decision. Amended again on 2026-10-12 by
+> [`ADR-0016`](decisions/ADR-0016-lean-increment-ceremony.md), which makes the per-increment
+> ceremony lean (rule 9) and moves the long-form rationale to a milestone retrospective, without
+> weakening the gates in §2.
 
 ## 1. The rules
 
@@ -13,7 +16,9 @@
    changes. The assistant does **not** pause between increments — it stops only when the founder has
    to decide something: a product or UX choice, a scope change, a credential or external service, or
    a deployment ([`ADR-0015`](decisions/ADR-0015-continuous-increments.md)). Reporting progress is
-   not a reason to stop.
+   not a reason to stop. Progress is recorded in the commit, and the change log records each
+   increment in one compact entry — the long-form rationale is written once per milestone
+   ([`ADR-0016`](decisions/ADR-0016-lean-increment-ceremony.md)).
 2. **Gates pass before commit.** Each increment must pass formatting and type checking. If a
    gate breaks, fix it *before* committing. The exact tooling is in §2.
 3. **Tests ship with the code.** Every increment gets unit tests using mock/fixture data,
@@ -29,6 +34,12 @@
    (`python manage.py seed`, with `--reset`).
 8. **Configuration over code.** Every external connection value comes from the environment,
    so deploying means changing configuration only, never code.
+9. **Change-log economics.** Per increment, `CHANGE-LOG.md` gets one compact entry — the
+   increment ID, what changed, and the gates that passed. The long-form "decisions and
+   impact" narrative is written **once per milestone**, as a retrospective. An ADR is written
+   only for a decision that is expensive or awkward to reverse
+   ([`ADR-0016`](decisions/ADR-0016-lean-increment-ceremony.md)). The gates in §2 are
+   unaffected.
 
 ## 2. Quality gates and strictness
 
@@ -71,4 +82,5 @@ An increment is done when:
 - [ ] Unit tests pass (and new behaviour is covered).
 - [ ] If UI changed, a QA scenario exists.
 - [ ] How to run it has been stated.
+- [ ] Its compact entry is appended to `CHANGE-LOG.md`.
 - [ ] It is committed locally (not pushed).

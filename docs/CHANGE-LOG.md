@@ -6,6 +6,30 @@
 
 ## History
 
+### 2026-10-12 — v0.1.28 — Lean increment ceremony; roadmap recut (M2.6–M7)
+
+**Context.** Two costs were slowing the build without buying anti-slop: a ~500-word change-log essay
+per increment, and an ADR for every micro-decision. The defects this project actually caught came
+from the gates and from running the code, not from the narrative. Separately, the deploy was parked
+at `M7`, so nothing was publicly visible for half the roadmap.
+
+**What changed.**
+
+- `decisions/ADR-0016-lean-increment-ceremony.md` — new. Terse per-increment log entries; long-form
+  rationale once per milestone; an ADR only for hard-to-reverse decisions; gates unchanged.
+- `WORKING-AGREEMENT.md` — rule 1 and a new rule 9 encode the leaner cadence; the DoD gains a
+  change-log line.
+- `04-delivery/ROADMAP.md` — `M2.6`–`M7` recut into fewer, coarser increments (`M3` 4→3, `M4` 7→6,
+  `M5` 3→2, `M6` 5→3, `M7` 6→3), a new `M2.7` that deploys the walking skeleton early, and a
+  milestone retrospective at each gate. Overview statuses corrected (`M1` was already done).
+- `PLAN.md` — re-baselined to v0.1.5.
+
+**Decisions taken.** Per `ADR-0016`; the substantive one is that the deploy moves from the end
+(`M7`) to a checkpoint at `M2.7`, so a public URL exists roughly halfway through Phase 1.
+
+**Impact.** No code changed. Phase 1 increments fall from 50 to 43, and the prose burden per
+increment drops to a compact entry. Gates and QA provenance are unchanged.
+
 ### 2026-10-11 — v0.1.27 — M2.5 sign-in and registration pages
 
 **Context.** `M2.5`. `US-2.1` and `US-2.2` ask for registration and sign-in with validation, and
