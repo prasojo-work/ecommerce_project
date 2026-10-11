@@ -51,8 +51,15 @@ one; refresh rotates the cookie; replaying the old cookie answers `401` and leav
 live tokens; logout answers `204`, clears the cookie and kills the session server-side; duplicate
 registration is a `400` naming `body.email`; a weak password is refused with all three reasons; a wrong
 password and an unknown address are identical; the catalog is unregressed; and the server logged no
-tracebacks and no `500`s. The suite has so far only run on SQLite — Postgres is not running locally —
-so the concurrency guard in rotation is not yet verified on the backend that will serve production.
+tracebacks and no `500`s. It now also runs on the engine that will serve production: `docker compose up
+-d db` plus a `backend/.env` carrying `DATABASE_URL`, then `migrate`, `seed` and the suite. PostgreSQL
+17.11 passes all **132 tests**, the seeded counts match SQLite exactly (7 categories, 46 products, 95
+variants, 46 images, 46 credits), and the guard SQLite cannot exercise is verified on it — with one
+process holding `SELECT ... FOR UPDATE` on the token row for 5s, `rotate()` blocked **3.52s** and
+returned only after the holder committed. One behaviour surfaced there and is recorded rather than
+changed: two concurrent refreshes with the same cookie serialise, so the first answers `200` and the
+second takes the reuse path and answers `401` — and reuse revokes every live token, including the
+winner's, so a two-tab refresh signs the user out. `QA-G4` in `TODO_qa-tester.md` asks for a decision.
 
 ### 2026-10-11 — v0.1.23 — M2.1 accounts models
 

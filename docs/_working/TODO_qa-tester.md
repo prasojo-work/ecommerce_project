@@ -24,14 +24,16 @@ grouped by them rather than by endpoint.
 
 **Levels.** 30 API contract tests (`backend/tests/test_accounts_api.py`), 20 model tests
 (`test_accounts_models.py`), and a scripted end-to-end pass over real HTTP, because cookie attributes
-and headers cannot be verified through the test client alone.
+and headers cannot be verified through the test client alone. The suite and the flow were run twice:
+once on SQLite, then again on PostgreSQL 17.11, because the two differ in exactly the place that
+matters here (see `QA-C30`).
 
 **Deliberately not tested.** JWT signing internals and password hashing internals (libraries' jobs, not
 ours), TLS and transport hardening (`M7`).
 
 **Blocked, not skipped.** Rate limiting and the `/auth/refresh` origin guard are `M2.3`; browser-level
-CORS and cross-site cookie behaviour are `M2.4`; Postgres is unavailable locally, so no case has run on
-the backend that will serve production.
+CORS and cross-site cookie behaviour are `M2.4`. Nothing else is blocked — the suite and the whole flow
+have now been run on PostgreSQL as well as SQLite.
 
 ## QA-CASE — cases and observed results
 
@@ -99,12 +101,22 @@ the backend that will serve production.
 - [ ] `QA-C27` **Not run — blocked to `M2.3`.** `/auth/refresh` from a foreign `Origin` is refused.
 - [ ] `QA-C28` **Not run — blocked to `M2.4`.** Cross-site cookie delivery with `SameSite=None; Secure`
       from a browser origin; requires the frontend session work and a second origin.
-- [ ] `QA-C29` **Not run — environment.** The suite on PostgreSQL. `docker ps` reports no containers, so
-      Django's SQLite backend silently ignores `select_for_update`, leaving the concurrency guard in
-      `rotate()` unverified on the database that will serve production. This is the highest-value
-      outstanding case.
-- [ ] `QA-C30` **Not run — out of scope at `M2.2`.** Concurrent refresh with one credential from two
-      clients; the lock exists but only SQLite has been exercised (see `QA-C29`).
+- [x] `QA-C29` The suite and the full flow on PostgreSQL, the engine that serves production.
+      **Observed:** `uv run pytest -q` → **132 passed** against `test_lysheim` on PostgreSQL 17.11;
+      `migrate` and `seed` both ran clean, and the seeded counts match SQLite exactly (7 categories,
+      46 products, 95 variants, 46 images, 46 credits). The auth flow re-run over HTTP behaved
+      identically to SQLite at every step, with 0 tracebacks and 0 `500`s. Schema facts checked
+      directly in `psql`: `accounts_refreshtoken.jti` carries a real UNIQUE constraint, `revoked_at`
+      is nullable, no column holds the token itself, and the default-address rule is a genuine partial
+      index — `CREATE UNIQUE INDEX unique_default_address_per_user ON accounts_address USING btree
+      (user_id) WHERE is_default`.
+- [x] `QA-C30` Concurrent refresh with one credential. **Observed:** the row lock serialises the two
+      requests, and it was measured rather than assumed — with one process holding `SELECT ... FOR
+      UPDATE` on the token row for 5s, `rotate()` blocked **3.52s** and returned only after the holder
+      committed. On SQLite the same call cannot be blocked at all, because Django does not apply the
+      clause. Consequence, observed end to end: `refresh A: 401 | refresh B: 200`, leaving **0** live
+      tokens. Exactly one request wins, the loser is read as reuse, and reuse revokes everything —
+      including the winner's new token. See `QA-G4`.
 - [ ] `QA-C31` **Not run — `M2.6`.** Address ownership: user A must not be able to read, edit or delete
       user B's address. No address endpoint exists yet, but the rule belongs in the test plan before it
       does — this is the classic broken-object-level-authorization failure.
@@ -139,3 +151,13 @@ the backend that will serve production.
 - [ ] `QA-G3` Is one message for all sign-in failures the intended UX, or does `UX.md` want the specific
       "no account with that address" copy? Security favours the single message; the microcopy listed in
       the spec may say otherwise.
+- [ ] `QA-G4` Two tabs refreshing at the same moment log the user out. The lock makes the outcome
+      deterministic rather than random, and the loser is read as a reused token — which revokes every
+      live token for that user, including the one the winner just received. `ADR-0009` does not say
+      whether that is intended. A short grace window on the just-rotated token would fix it without
+      weakening rotation, but it is a behaviour change, so it needs a decision before the frontend
+      starts holding sessions at `M2.4`.
+- [ ] `QA-G5` The first `FOR UPDATE` probe reported `ModuleNotFoundError: No module named 'config'`
+      because `uv run python /tmp/probe.py` puts the script's directory on `sys.path`, not the working
+      directory. That was a fault in the harness, not the product, and it is recorded because a check
+      that fails to run must never be reported as a pass.

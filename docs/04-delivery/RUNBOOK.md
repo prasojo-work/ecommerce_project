@@ -14,12 +14,31 @@
 
 ## 2. Local development
 
-> Filled in at M0.
+> Filled in at M0; extended at M2.2 with the host-only database recipe.
+
+The whole stack:
 
 ```
 # (M0) compose up — API + web + Postgres
 docker compose up
 ```
+
+Just the database, with the API and the test suite run from the host. This is the setup the `M2.2`
+verification used, and on it the backend runs on the same engine as production rather than falling
+back to SQLite:
+
+```bash
+docker compose up -d db                 # PostgreSQL 17 on localhost:5432
+cp backend/.env.example backend/.env    # DATABASE_URL is already the right value for the container
+cd backend
+uv run python manage.py migrate
+uv run python manage.py seed --reset    # 7 categories, 46 products
+uv run uvicorn config.asgi:application --reload
+```
+
+To go back to SQLite, comment out `DATABASE_URL` in `backend/.env`. Nothing else changes: every
+command in this runbook works either way, which is what `ADR-0011`'s configuration-over-code rule is
+for.
 
 ## 3. Backend
 
@@ -734,10 +753,26 @@ Notes:
   endpoint that revokes sessions, which is a denial-of-service primitive.
 - **The signing key defaults to `SECRET_KEY`.** Convenient locally and worth knowing about, because
   rotating one rotates both. `JWT_SECRET_KEY` overrides it.
-- **The suite has only been run on SQLite.** Postgres is the deployment backend, and
-  `select_for_update` in `rotate()` is a no-op on SQLite — Django skips it rather than failing — so the
-  concurrency guard is *unverified* until the suite runs against Postgres. `docker ps` is empty, so it
-  has not yet.
+- **Verified against PostgreSQL, not only SQLite.** The suite passes unchanged on both — 132 tests —
+  and the difference between them is exactly the one that mattered: Django does not apply
+  `SELECT ... FOR UPDATE` on SQLite, so the guard in `rotate()` cannot be exercised there at all.
+  Measured on Postgres, with one process holding the row lock for 5s: `rotate()` **blocked 3.52s** and
+  returned only once the holder committed. The guard is real, so the outstanding risk recorded at
+  `M2.2` is closed.
+- **Two concurrent refreshes with one cookie sign the user out, deterministically.** The lock
+  serialises them, so this is not a race with a random outcome: the first rotates and answers `200`,
+  and the second arrives to find the token revoked, takes the reuse path and answers `401`. Because
+  reuse revokes *every* live token for the user, the winner's fresh token dies with it — observed end
+  to end as `refresh A: 401 | refresh B: 200`, leaving **0** live tokens. A user with two tabs
+  refreshing at once is logged out. This is the conservative reading of `ADR-0009`; the alternative is
+  a grace window on a just-rotated token. Recorded as `QA-G4` rather than changed here, because it
+  needs a decision before the frontend holds sessions at `M2.4`.
+- **Running against Postgres locally.** `docker compose up -d db`, then copy `.env.example` to
+  `backend/.env`, which sets `DATABASE_URL`; leaving it empty falls back to `backend/db.sqlite3`.
+  `manage.py migrate` and `manage.py seed` have both been run against the container, and the seeded
+  counts match SQLite exactly: 7 categories, 46 products, 95 variants, 46 images, 46 credits.
+  `Docker Postgres` means the psql client can be used directly:
+  `docker exec lysheim-db-1 psql -U lysheim -d lysheim`.
 - **Not protected yet.** Throttling on `/auth/login` and the origin check on `/auth/refresh` are
   `M2.3`. Until they land the only cross-site control on refresh is `SameSite`, which is real but
   weaker than the check `ADR-0009` describes.
