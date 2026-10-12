@@ -13,6 +13,7 @@ from cart.api import router as cart_router
 from catalog.api import router as catalog_router
 from core.errors import install_error_handlers
 from orders.api import router as orders_router
+from payments.api import router as payments_router
 
 api = NinjaAPI(
     title="LYSHEIM API",
@@ -40,3 +41,8 @@ api.add_router("addresses", addresses_router)
 # `API.md` section 6 documents checkout at `/checkout/quote` and orders at `/orders`; both are the
 # orders context, mounted at the root like the cart.
 api.add_router("", orders_router)
+
+# `API.md` section 7 documents the mock provider under `/payments/mock`. These routes answer `404`
+# unless `PAYMENT_PROVIDER=mock` (`ADR-0010`), which is enforced in the router, not here: mounting
+# them unconditionally keeps the contract honest — a real provider replaces the adapter, not the API.
+api.add_router("", payments_router)

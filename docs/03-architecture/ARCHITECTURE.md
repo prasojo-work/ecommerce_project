@@ -116,7 +116,7 @@ sequenceDiagram
   participant D as Postgres
   S->>W: Add to cart / checkout
   W->>A: POST /api/v1/orders (address, shipping)
-  A->>D: validate stock, create Order(pending)
+  A->>D: decrement stock, create Order(pending)
   A->>P: create payment intent
   P-->>A: provider_ref
   A->>D: Payment(initiated)
@@ -124,7 +124,7 @@ sequenceDiagram
   W->>A: POST /api/v1/payments/mock/confirm
   A->>P: capture
   P-->>A: succeeded
-  A->>D: Order(pending -> paid), decrement stock
+  A->>D: Order(pending -> paid)
   A-)A: enqueue confirmation email (Tasks)
   A-->>W: order number + summary
 ```

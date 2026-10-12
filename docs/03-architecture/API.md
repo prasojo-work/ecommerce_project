@@ -134,8 +134,12 @@ from the original guest-checkout design; `ADR-0017` removed that — a quote pri
 a cart needs an account, so there is nothing for an anonymous caller to quote — and the contract
 now says `access`. `POST /orders` inherits the requirement, which `M4.3` exercises.
 
-Order creation is **idempotent** on the `Idempotency-Key` header (`NFR-4`), so a double submit
-cannot produce two orders.
+`POST /orders` takes the same address as the quote plus the chosen `shipping_method` — and an
+optional `email`, defaulting to the account's — and answers `201` with the order: its number, its
+totals, the shipping-address snapshot and its lines. Order creation is **idempotent** on the
+`Idempotency-Key` header (`NFR-4`), so a double submit cannot produce two orders; a key already seen
+answers `200` with the order it produced. Its `409`s are the cart states checkout cannot sell —
+empty, holding something no longer for sale, or holding more of a variant than is left.
 
 ## 7. Payments (mock)
 
@@ -143,6 +147,13 @@ cannot produce two orders.
 |---|---|---|---|
 | POST | `/payments/mock/confirm` | access | Simulate capture for an order's payment |
 | POST | `/payments/mock/fail` | access | Simulate a declined payment (for QA of the failure path) |
+
+Both take `{"order_number": "LSH-…"}` and act on that order's payment that is still `initiated`.
+`confirm` captures it and moves the order to `paid`; `fail` records a decline and cancels the order,
+returning the stock that order creation reserved. Either answers `409` when there is nothing left to
+settle — already paid, already declined, or cancelled — and `404` for an order that is not the
+caller's or does not exist. The answer names both the attempt and the order's status, because that
+status is what the client acts on.
 
 These endpoints exist **only** while `PAYMENT_PROVIDER=mock` (`ADR-0010`). They are removed
 when a real provider is integrated.

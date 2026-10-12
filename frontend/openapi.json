@@ -625,6 +625,43 @@
         "title": "LoginSchema",
         "type": "object"
       },
+      "MockPaymentRequestSchema": {
+        "description": "Both mock endpoints act on an order's open payment.\n\nThe order is named by its human-facing `number`, the same value the confirmation shows, rather\nthan by a payment id: the caller is holding an order, and asking it to keep a payment id as well\nwould be asking it to remember something the API can look up.",
+        "properties": {
+          "order_number": {
+            "title": "Order Number",
+            "type": "string"
+          }
+        },
+        "required": [
+          "order_number"
+        ],
+        "title": "MockPaymentRequestSchema",
+        "type": "object"
+      },
+      "MockPaymentResultSchema": {
+        "description": "What the mock answers: the attempt, and where the order ended up.\n\nThe order's status is repeated because it is the outcome the client acts on \u2014 `paid` moves the\nshopper to the confirmation, `cancelled` back to the cart \u2014 and reading it from the payment alone\nwould make the client infer the order's state from a payment's.",
+        "properties": {
+          "order_number": {
+            "title": "Order Number",
+            "type": "string"
+          },
+          "order_status": {
+            "title": "Order Status",
+            "type": "string"
+          },
+          "payment": {
+            "$ref": "#/components/schemas/PaymentSchema"
+          }
+        },
+        "required": [
+          "order_number",
+          "order_status",
+          "payment"
+        ],
+        "title": "MockPaymentResultSchema",
+        "type": "object"
+      },
       "MoneySchema": {
         "properties": {
           "amount_cents": {
@@ -641,6 +678,182 @@
           "currency"
         ],
         "title": "MoneySchema",
+        "type": "object"
+      },
+      "OrderCreateSchema": {
+        "description": "`POST /orders`.\n\nThe same two ways to give an address as the quote (`US-4.1`), plus the shipping method chosen\nfrom the options the quote returned. `email` is optional because the account already has one: a\nsigned-in shopper is contacted at their address unless they say otherwise.",
+        "properties": {
+          "address": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/QuoteAddressSchema"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "address_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Address Id"
+          },
+          "email": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Email"
+          },
+          "shipping_method": {
+            "title": "Shipping Method",
+            "type": "string"
+          }
+        },
+        "required": [
+          "shipping_method"
+        ],
+        "title": "OrderCreateSchema",
+        "type": "object"
+      },
+      "OrderItemSchema": {
+        "description": "A line as the receipt shows it \u2014 the snapshot, never a live `ProductVariant`.",
+        "properties": {
+          "line_total": {
+            "$ref": "#/components/schemas/MoneySchema"
+          },
+          "product_name": {
+            "title": "Product Name",
+            "type": "string"
+          },
+          "quantity": {
+            "title": "Quantity",
+            "type": "integer"
+          },
+          "unit_price": {
+            "$ref": "#/components/schemas/MoneySchema"
+          },
+          "variant_name": {
+            "title": "Variant Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "product_name",
+          "variant_name",
+          "unit_price",
+          "quantity",
+          "line_total"
+        ],
+        "title": "OrderItemSchema",
+        "type": "object"
+      },
+      "OrderSchema": {
+        "description": "A placed order. Shared by creation now, and the history and detail pages at `M4.6`.",
+        "properties": {
+          "email": {
+            "title": "Email",
+            "type": "string"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/OrderItemSchema"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "number": {
+            "title": "Number",
+            "type": "string"
+          },
+          "placed_at": {
+            "format": "date-time",
+            "title": "Placed At",
+            "type": "string"
+          },
+          "shipping": {
+            "$ref": "#/components/schemas/MoneySchema"
+          },
+          "shipping_address": {
+            "$ref": "#/components/schemas/OrderShippingAddressSchema"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "subtotal": {
+            "$ref": "#/components/schemas/MoneySchema"
+          },
+          "total": {
+            "$ref": "#/components/schemas/MoneySchema"
+          }
+        },
+        "required": [
+          "number",
+          "status",
+          "email",
+          "placed_at",
+          "subtotal",
+          "shipping",
+          "total",
+          "shipping_address",
+          "items"
+        ],
+        "title": "OrderSchema",
+        "type": "object"
+      },
+      "OrderShippingAddressSchema": {
+        "description": "Where the order went, as it was at the time. Contrast `AddressSchema`, which is the book.",
+        "properties": {
+          "city": {
+            "title": "City",
+            "type": "string"
+          },
+          "country": {
+            "title": "Country",
+            "type": "string"
+          },
+          "line1": {
+            "title": "Line1",
+            "type": "string"
+          },
+          "line2": {
+            "title": "Line2",
+            "type": "string"
+          },
+          "postal_code": {
+            "title": "Postal Code",
+            "type": "string"
+          },
+          "recipient": {
+            "title": "Recipient",
+            "type": "string"
+          },
+          "region": {
+            "title": "Region",
+            "type": "string"
+          }
+        },
+        "required": [
+          "recipient",
+          "line1",
+          "line2",
+          "city",
+          "region",
+          "postal_code",
+          "country"
+        ],
+        "title": "OrderShippingAddressSchema",
         "type": "object"
       },
       "PageFilters": {
@@ -661,6 +874,39 @@
           }
         },
         "title": "PageFilters",
+        "type": "object"
+      },
+      "PaymentSchema": {
+        "description": "One attempt, as a client sees it. Never anything card-shaped, because none is stored.",
+        "properties": {
+          "amount": {
+            "$ref": "#/components/schemas/MoneySchema"
+          },
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "provider": {
+            "title": "Provider",
+            "type": "string"
+          },
+          "provider_ref": {
+            "title": "Provider Ref",
+            "type": "string"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "provider",
+          "status",
+          "amount",
+          "provider_ref"
+        ],
+        "title": "PaymentSchema",
         "type": "object"
       },
       "ProductCardSchema": {
@@ -1863,6 +2109,147 @@
         "summary": "Image credits",
         "tags": [
           "catalog"
+        ]
+      }
+    },
+    "/api/v1/orders": {
+      "post": {
+        "description": "`US-4.4`: turn the cart into an order, reserving its stock and starting a payment.\n\n`201` when this request made the order, `200` when an `Idempotency-Key` it had already seen\nanswered from the row that key produced \u2014 the same body either way, so a client retrying a submit\nwhose answer it never saw can take the first response as final.\n\n`409` for the states of the *cart* that checkout cannot sell: empty, holding something no longer\nfor sale, or holding more of a variant than is left. Each reads as the cart's problem rather than\nthe request's, which is why none is a `400`.",
+        "operationId": "orders_api_place_order",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Idempotency-Key"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OrderCreateSchema"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OrderSchema"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OrderSchema"
+                }
+              }
+            },
+            "description": "Created"
+          }
+        },
+        "security": [
+          {
+            "AccessTokenAuth": []
+          }
+        ],
+        "summary": "Place an order",
+        "tags": [
+          "orders"
+        ]
+      }
+    },
+    "/api/v1/payments/mock/confirm": {
+      "post": {
+        "description": "`US-4.3`: capture the order's payment and move the order to match.\n\nThe capture decides the order's fate, not the caller: `capture` answers with the attempt's status\nand that status picks the transition. A real adapter that *declined* \u2014 answering `False` rather\nthan raising \u2014 would therefore cancel the order exactly as the mock's fail endpoint does, with no\nbranch here to remember to update.",
+        "operationId": "payments_api_confirm_mock_payment",
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MockPaymentRequestSchema"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MockPaymentResultSchema"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "AccessTokenAuth": []
+          }
+        ],
+        "summary": "Confirm a mock payment",
+        "tags": [
+          "payments"
+        ]
+      }
+    },
+    "/api/v1/payments/mock/fail": {
+      "post": {
+        "description": "The failure path, on request (`ADR-0010`) \u2014 QA drives a decline instead of hoping for one.\n\nThe order is cancelled, which returns its reserved stock (`orders/services.py`): a reservation\nmade at order creation is released when the order is, or the shop would sell stock it had already\nset aside for a purchase that never happened.",
+        "operationId": "payments_api_fail_mock_payment",
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MockPaymentRequestSchema"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MockPaymentResultSchema"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "AccessTokenAuth": []
+          }
+        ],
+        "summary": "Decline a mock payment",
+        "tags": [
+          "payments"
         ]
       }
     },

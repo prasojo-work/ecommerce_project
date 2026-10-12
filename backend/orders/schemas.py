@@ -8,6 +8,8 @@ subtotal could be computed a different way.
 
 from __future__ import annotations
 
+from datetime import datetime
+
 from ninja import Schema
 from pydantic import Field
 
@@ -65,3 +67,53 @@ class QuoteSchema(Schema):
     subtotal: MoneySchema
     item_count: int
     shipping_options: list[ShippingOptionSchema]
+
+
+class OrderCreateSchema(Schema):
+    """`POST /orders`.
+
+    The same two ways to give an address as the quote (`US-4.1`), plus the shipping method chosen
+    from the options the quote returned. `email` is optional because the account already has one: a
+    signed-in shopper is contacted at their address unless they say otherwise.
+    """
+
+    address_id: int | None = None
+    address: QuoteAddressSchema | None = None
+    shipping_method: str
+    email: str | None = None
+
+
+class OrderItemSchema(Schema):
+    """A line as the receipt shows it — the snapshot, never a live `ProductVariant`."""
+
+    product_name: str
+    variant_name: str
+    unit_price: MoneySchema
+    quantity: int
+    line_total: MoneySchema
+
+
+class OrderShippingAddressSchema(Schema):
+    """Where the order went, as it was at the time. Contrast `AddressSchema`, which is the book."""
+
+    recipient: str
+    line1: str
+    line2: str
+    city: str
+    region: str
+    postal_code: str
+    country: str
+
+
+class OrderSchema(Schema):
+    """A placed order. Shared by creation now, and the history and detail pages at `M4.6`."""
+
+    number: str
+    status: str
+    email: str
+    placed_at: datetime
+    subtotal: MoneySchema
+    shipping: MoneySchema
+    total: MoneySchema
+    shipping_address: OrderShippingAddressSchema
+    items: list[OrderItemSchema]

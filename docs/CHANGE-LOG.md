@@ -6,6 +6,42 @@
 
 ## History
 
+### 2026-10-13 — v0.1.40 — `M4.3`: the order, and the money it waits on
+
+**What landed.** `POST /orders` and the `payments` context. Placing an order turns the caller's cart
+into an order — reserving its stock, snapshotting its lines and its address, and starting a payment —
+and the mock provider's two routes settle that payment either way (`US-4.4`, `NFR-4`, `ADR-0010`).
+
+**Order creation is one transaction, and the stock decrement is inside it.** `ADR-0017` puts the
+binding, race-safe decrement at order creation rather than at the cart or at capture, so the cart is
+locked, the named variants are locked *in a deterministic order*, checked, and only then written —
+either every line is taken and the order exists, or nothing moved. The cart's cap is an affordance;
+this is the guarantee. `ARCHITECTURE.md` §6's diagram had the decrement at capture; it now says what
+the code does, which is what `ADR-0017` asked for.
+
+**Cancelling returns the stock, or a decline shrinks the shop forever.** Because creation reserved it,
+`cancel_order` releases it — so the mock's fail route does not leak a reservation for a purchase that
+never happened. `M5.5`'s operator cancel goes through the same function, which is why the rule lives in
+`orders/services.py` rather than in the payments endpoint.
+
+**`Idempotency-Key` (`NFR-4`).** A key already seen answers `200` with the order it produced and
+touches nothing; a fresh one answers `201`. The check is a read, so a simultaneous double submit can
+race it: the unique index is the arbiter and the endpoint catches the `IntegrityError` and re-reads. No
+key is simply not idempotent.
+
+**The mock is a port, not a special case.** `PaymentGateway` has the mock adapter behind it and
+`PAYMENT_PROVIDER` selects it — configuration, not code. The two mock routes are the exception they were
+always meant to be: they let a caller *state* a capture's outcome, which no real provider's contract
+contains, so off the mock they answer `404` as if unmounted. `base.py` had never read
+`PAYMENT_PROVIDER` at all — `payments/providers.py` expected a setting nothing set — so the wiring is
+part of this increment.
+
+**Verified.** 29 new tests, 289 in total, against PostgreSQL — including one that commits
+(`transaction=True`) and races two real connections for the last unit, where exactly one order
+survives; `ruff check`, `ruff format --check`, `basedpyright` (0 errors) and `makemigrations --check`
+clean; the OpenAPI snapshot gained three paths and the contract test names them. **How to run:** the
+four gates in `RUNBOOK.md` §3, with `PAYMENT_PROVIDER=mock` in `backend/.env` for the mock routes.
+
 ### 2026-10-13 — v0.1.39 — `M4.2`: the quote, and the contract it corrected
 
 **What landed.** `POST /checkout/quote`: the caller's cart priced as a subtotal, plus every shipping

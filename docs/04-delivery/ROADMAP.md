@@ -109,8 +109,12 @@ Status legend: `[ ]` planned · `[~]` in progress · `[x]` done.
   `API.md` §6's pre-reversal "optional"). It validates the address (a saved one through the caller's
   scope, an inline one against the address book's constraints) and leaves stock to `M4.3`'s
   transaction. Shipping is a fixed, flat, address-independent set (`ADR-0010`).
-- [ ] `M4.3` Idempotent order creation (`Idempotency-Key`) with stock decrement, plus the
-  `PaymentGateway` port and its mock adapter with confirm/fail endpoints (`ADR-0010`).
+- [x] `M4.3` Idempotent order creation (`Idempotency-Key`) with stock decrement, plus the
+  `PaymentGateway` port and its mock adapter with confirm/fail endpoints (`ADR-0010`) — the decrement
+  is locked and conditional, inside the transaction that writes the order (`ADR-0017`), and
+  `cancel_order` returns it so a decline cannot leak a reservation. `POST /orders` answers `201` on
+  creation and `200` to a key it has already seen; the mock's two routes answer `404` unless
+  `PAYMENT_PROVIDER=mock`.
   *(merges the old `M4.3` + `M4.4`)*
 - [ ] `M4.4` Order-confirmation email via the Tasks framework (mocked transport).
 - [ ] `M4.5` Checkout UI: address → shipping → payment → confirmation.

@@ -28,6 +28,7 @@ INSTALLED_APPS = [
     "catalog",
     "cart",
     "orders",
+    "payments",
 ]
 
 # Email is the identifier and there is no `username` column (`DATA-MODEL.md` section 2). Declared
@@ -166,6 +167,12 @@ CORS_ALLOWED_ORIGINS = env.list("CORS_ALLOWED_ORIGINS", default=[])
 # package refuses to combine credentials with a wildcard, and a wildcard would defeat the origin
 # guard on `/auth/refresh` at the same time.
 CORS_ALLOW_CREDENTIALS = True
+
+# Which payment adapter is in force (`ADR-0010`). Configuration, not code: a real provider is a
+# second adapter in `payments/providers.py` plus a new value here, with no change in `orders`. The
+# default is the mock so a bare checkout runs, and `prod.py` reads the same variable from the
+# environment rather than hard-coding a provider.
+PAYMENT_PROVIDER = env("PAYMENT_PROVIDER", default="mock")
 
 LOGGING = {
     "version": 1,
