@@ -30,7 +30,7 @@ CSRF_COOKIE_SECURE = True
 # `X-Forwarded-Proto`. Without this line `SECURE_SSL_REDIRECT` above sees an insecure connection on
 # every single request — including one that arrived over HTTPS — and redirects to the HTTPS URL it is
 # already serving: a loop, for every visitor and for the health check. Trusting the header is safe
-# for the same reason `NINJA_NUM_PROXIES = 1` below is safe: the app is not reachable except through
+# for the same reason `NINJA_NUM_PROXIES = 2` below is safe: the app is not reachable except through
 # the balancer.
 SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
 

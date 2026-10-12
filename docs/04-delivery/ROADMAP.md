@@ -74,12 +74,14 @@ Status legend: `[ ]` planned · `[~]` in progress · `[x]` done.
   the catalogue from it. Verified from outside the stack — `/healthz`, the 46 products over the
   public URL, `http` redirecting to `https`, the hardening headers, a `401` without a token, the
   refresh origin guard's `403`, CORS granted for the real origin and withheld from a foreign one (the check table is section 7.8). `RUNBOOK.md` section 7 is the
-  procedure. Left: a sign-in through the live stack, which needs a browser — and the rate limit's
-  behaviour, which after the redeploy could not be re-measured from the assistant's environment
-  (fifteen rapid attempts at six seconds each, and every probe was terminated before it finished;
-  that the deploy happened is confirmed separately, by the API now advertising the cart routes —
-  `RUNBOOK.md` section 7.8). The correction itself is landed and pinned: `NINJA_NUM_PROXIES = 2` in
-  `render.yaml`, the reasoning in `base.py`, and both wrong directions held by a test.
+  procedure. Left: a sign-in through the live stack, which needs a browser — and the rate limit,
+  which after the redeploy was measured again and still does not count the visitor: fifteen rapid
+  attempts produced fifteen `401`s. The cause is narrowed from here — one `uvicorn` process, so the
+  throttle's in-process cache is shared, and `prod.py` defaults the proxy count to 2 — which leaves
+  the dashboard's own `NINJA_NUM_PROXIES` as the value to correct; `RUNBOOK.md` section 7.8 carries
+  the action and the expected result. The correction is landed and pinned in the repository:
+  `NINJA_NUM_PROXIES = 2` in `render.yaml`, the reasoning in `base.py`, and both wrong directions
+  held by a test.
 
 ### M3 — Cart
 

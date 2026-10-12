@@ -1312,25 +1312,41 @@ trade, with the keep-alive ping that the ADR names as the mitigation still unbui
 Two items remained after that first verification, both outside this repository: a redeploy with the
 corrected `NINJA_NUM_PROXIES`, and a sign-in through the live stack, which needs a browser.
 
-**After the redeploy, 2026-10-12 (same day).** `NINJA_NUM_PROXIES = 2` is in `render.yaml`, so the
-blueprint carries it; the deploy itself was run from the dashboard by the Founder. Re-checked from
-outside:
+**After the redeploy, 2026-10-12 (same day).** Re-checked from outside, and then re-checked again
+when the first look turned out to have been early:
 
 | Check | Result | The assertion |
 | --- | --- | --- |
 | `GET /healthz` | `200` | the service is up after the redeploy |
-| `GET /api/v1/openapi.json` | advertises `/api/v1/cart`, `/api/v1/cart/items`, `/api/v1/cart/items/{line_id}` | the deploy carried `M3.1`'s code and not only `M2`'s — and since the boot path runs `migrate`, the cart tables exist with it |
-| The Vercel app | `200` | the frontend is serving |
+| `GET /api/v1/openapi.json` | advertises `/api/v1/cart` and its two siblings | the deploy carried `M3.1`'s code and not only `M2`'s — and, since the boot path runs `migrate`, the cart tables exist with it |
+| `GET /cart` on Vercel | `404` at 22:20, `200` at 22:56 | **the check was early, not the deploy wrong** — see below |
+| A cart driven through the live API | 16 of 17 assertions | `M3` works against Supabase: add, increment (one line, not two), update, `409` above stock, remove, and the removal persists |
+| The `409` body | `Only 1 of Heia Ash Shelving Unit (Clay) in stock; 3 requested.` | `US-3.2`'s "clear message" names the product, the variant, the stock and the request |
+| `POST /cart/items` with no token | `401` | the cart is behind the token in production, not only in tests |
+| The product page | three `radio` inputs, prices 851.00 / 917.00 / 896.00 | the colour choice is live, and each option carries its own variant's price |
+| `GET /cart` shape | `200`, title "Your cart — LYSHEIM", the `restoring` state | the route and its metadata are live; the signed-in states need a browser |
 
-What could **not** be re-measured from here is the rate limit's behaviour, which is the one thing the
-redeploy was for. A decisive run needs about fifteen sequential `POST /auth/login` attempts, the
-endpoint answers in roughly six seconds each, and every long-lived probe was terminated by the
-environment before it finished (concurrent bursts mostly failed to connect outright). So this stays
-open, and it is the item to run by hand: fifteen rapid attempts should now end in `429`s rather than
-`401`s throughout, and a forged `X-Forwarded-For` prefix should not open a bucket of its own. The
-setting's *effect* is pinned by
+**The lesson from the `404`.** The frontend looked stale — `/cart` 404, the old product page — and it
+was not: the Vercel build was still running when it was checked. Green in one system says nothing
+about another system's queue, and a deployment is only verified once the deployment carrying it has
+finished. Wait for the build to land, then look.
+
+**The rate limit still does not count the visitor**, and the cause is now narrowed to a place to look
+rather than a guess. Fifteen sequential `POST /auth/login` attempts from one client produced fifteen
+`401`s and no `429` — the same symptom as before the redeploy, when 40 attempts produced one `429`.
+That rules out both explanations visible from this repository: the container runs `uvicorn` with no
+`--workers`, so the throttle's in-process cache is a single process and its counter is shared; and
+`prod.py` defaults `NINJA_NUM_PROXIES` to 2. So the running instance is reading a different value
+from its environment — the dashboard's own `NINJA_NUM_PROXIES`, which overrides `render.yaml` and the
+code default alike.
+
+> **Action on Render's dashboard:** set `NINJA_NUM_PROXIES` to `2`, or delete it so `prod.py`'s
+> default applies, then redeploy. Expected afterwards: fifteen rapid attempts end in `429`s from the
+> eleventh, and a forged `X-Forwarded-For` prefix does not open a bucket of its own.
+
+The correction itself is pinned by
 `tests/test_accounts_api.py::test_the_counted_address_is_the_client_and_not_a_hop_in_front_of_it`;
-what is unverified is only whether the dashboard deploy applied it.
+what was never verified is the dashboard's value.
 
 ## 8. Troubleshooting
 
