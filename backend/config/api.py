@@ -12,6 +12,7 @@ from accounts.api import router as accounts_router
 from cart.api import router as cart_router
 from catalog.api import router as catalog_router
 from core.errors import install_error_handlers
+from orders.api import router as orders_router
 
 api = NinjaAPI(
     title="LYSHEIM API",
@@ -35,3 +36,7 @@ api.add_router("auth", accounts_router)
 
 # `API.md` section 8 documents the address book under `/addresses`.
 api.add_router("addresses", addresses_router)
+
+# `API.md` section 6 documents checkout at `/checkout/quote` and orders at `/orders`; both are the
+# orders context, mounted at the root like the cart.
+api.add_router("", orders_router)

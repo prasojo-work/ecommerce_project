@@ -104,7 +104,11 @@ Status legend: `[ ]` planned · `[~]` in progress · `[x]` done.
   `PROTECT`), the order's total and each line's arithmetic held by constraints, and the guard writing
   its audit event inside the same transaction that moves the status. *(no routes yet: `M4.2` and
   `M4.3` spend it)*
-- [ ] `M4.2` `/checkout/quote` (shipping options + totals).
+- [x] `M4.2` `/checkout/quote` (shipping options + totals) — the subtotal from the caller's cart plus
+  every shipping option with the total it produces, behind the bearer token (`ADR-0017` corrects
+  `API.md` §6's pre-reversal "optional"). It validates the address (a saved one through the caller's
+  scope, an inline one against the address book's constraints) and leaves stock to `M4.3`'s
+  transaction. Shipping is a fixed, flat, address-independent set (`ADR-0010`).
 - [ ] `M4.3` Idempotent order creation (`Idempotency-Key`) with stock decrement, plus the
   `PaymentGateway` port and its mock adapter with confirm/fail endpoints (`ADR-0010`).
   *(merges the old `M4.3` + `M4.4`)*

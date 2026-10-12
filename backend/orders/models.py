@@ -190,7 +190,7 @@ class OrderItem(TimeStampedModel):
         )
 
     def __str__(self) -> str:
-        return f"{self.quantity} x {self.product_name} on {self.order_id}"
+        return f"{self.quantity} x {self.product_name} on order {self.order.pk}"
 
 
 class ImmutableOrderEvent(RuntimeError):
@@ -238,7 +238,7 @@ class OrderEvent(models.Model):
         ordering = ("created_at", "id")
 
     def __str__(self) -> str:
-        return f"Order {self.order_id}: {self.from_status or 'new'} -> {self.to_status}"
+        return f"Order {self.order.pk}: {self.from_status or 'new'} -> {self.to_status}"
 
     def save(self, *args: Any, **kwargs: Any) -> None:
         if self.pk is not None:

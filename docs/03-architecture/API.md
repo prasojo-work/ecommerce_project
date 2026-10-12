@@ -118,10 +118,21 @@ the caller's cart, and `400` when `quantity` is below one.
 
 | Method | Path | Auth | Purpose |
 |---|---|---|---|
-| POST | `/checkout/quote` | optional | Totals + shipping options for a cart + address |
-| POST | `/orders` | optional | Create order; requires `Idempotency-Key` header |
+| POST | `/checkout/quote` | access | Totals + shipping options for a cart + address |
+| POST | `/orders` | access | Create order; requires `Idempotency-Key` header |
 | GET | `/orders` | access | List the user's orders |
 | GET | `/orders/{number}` | access | Order detail + status timeline |
+
+`POST /checkout/quote` takes exactly one of `address_id` (a saved address) or `address` (a new one —
+`US-4.1`'s two ways to give an address), validates it, and answers the cart's `subtotal` and every
+shipping option with the `total` that option produces (`US-4.2`). An empty cart is a `409`: there is
+nothing to price. Shipping is simulated (`ADR-0010`) — a fixed set of flat rates, not a carrier's
+answer — so the rates are address-independent even though the address is required.
+
+The quote and order creation both require a bearer token. `API.md` first listed them as *optional*,
+from the original guest-checkout design; `ADR-0017` removed that — a quote prices the caller's cart,
+a cart needs an account, so there is nothing for an anonymous caller to quote — and the contract
+now says `access`. `POST /orders` inherits the requirement, which `M4.3` exercises.
 
 Order creation is **idempotent** on the `Idempotency-Key` header (`NFR-4`), so a double submit
 cannot produce two orders.

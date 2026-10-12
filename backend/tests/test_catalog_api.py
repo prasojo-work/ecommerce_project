@@ -289,6 +289,7 @@ def test_openapi_documents_every_api_path() -> None:
         "/api/v1/cart",
         "/api/v1/cart/items",
         "/api/v1/cart/items/{line_id}",
+        "/api/v1/checkout/quote",
         "/api/v1/categories",
         "/api/v1/categories/{slug}",
         "/api/v1/credits",

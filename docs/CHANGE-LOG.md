@@ -6,6 +6,47 @@
 
 ## History
 
+### 2026-10-13 — v0.1.39 — `M4.2`: the quote, and the contract it corrected
+
+**What landed.** `POST /checkout/quote`: the caller's cart priced as a subtotal, plus every shipping
+option with the total that choosing it produces (`US-4.1`, `US-4.2`). The address is required and
+validated; `orders/shipping.py` holds the simulated methods, so a rate is a value to change rather
+than a number buried in a view.
+
+**Exactly one address, and it is a precondition rather than a result.** A saved `address_id` is read
+through the caller's own scope, so somebody else's is a `404` and not a `403` that would confirm the
+id exists; an inline `address` is checked against the schema, the same constraints the address book
+uses. Sending neither, or both, is a `400`. An empty cart — no cart, or a cart with no lines — is a
+`409`: there is nothing to price. The address is validated and then dropped, because the answer is
+money and echoing an address back would invite a client to read it from here instead of from where the
+shopper set it.
+
+**The quote prices; `M4.3` sells.** Stock is deliberately not checked. `ADR-0017` puts the binding,
+race-safe decrement in the order-creation transaction, so a check here would be a weaker second one in
+a different place — answering `409` for a cart that order creation might well accept. What the quote
+*does* hold is the arithmetic the order's own constraint will later enforce:
+`total_cents = subtotal_cents + shipping_cents`, per option, never a number a client has to add.
+
+**`API.md` §6 said "optional", and `ADR-0017` had already made that wrong.** A quote reads the
+caller's cart; a cart needs an account; so the route carries a bearer token and the contract now says
+`access`. `POST /orders` inherits the correction, which `M4.3` will exercise. Shipping is a fixed set
+of flat rates (`ADR-0010`) and address-independent on purpose: this module is the seam a real carrier
+would slot into, and a rate that ignored the address it was handed would only be pretending otherwise.
+
+**Two gate gaps closed on the way past.** `basedpyright`'s `include` named `config`, `core`,
+`accounts`, `catalog` and `tests` but not `cart` or `orders`, so neither context had ever actually
+been type-checked — the `M3.1` entry's "basedpyright 0 errors" was true of code the gate never opened.
+Both are in scope now, which surfaced exactly what `ADR-0014` predicts: `OrderItem.__str__` and
+`OrderEvent.__str__` read the implicit `order_id` attname, invisible to the checker, and read
+`self.order.pk` instead.
+
+**Verified.** 11 new tests in `tests/test_checkout_api.py`, and the contract test in
+`tests/test_catalog_api.py` grown by the one new path; 260 tests pass against PostgreSQL; `ruff
+check`, `ruff format --check`, `basedpyright` (0 errors, over `cart` and `orders` for the first time)
+and `makemigrations --check` clean; the OpenAPI snapshot regenerated with exactly one added path.
+**How to run:** `uv run python manage.py export_openapi_schema` after any route change, then the four
+gates in `RUNBOOK.md` §3.
+
 ### 2026-10-12 — v0.1.38 — `M4.1`: the order, and the state it is in
 
 **What landed.** The `orders` app: `Order`, `OrderItem` and `OrderEvent`, their constraints, and the

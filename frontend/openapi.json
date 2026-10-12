@@ -951,6 +951,122 @@
         "title": "ProfileUpdateSchema",
         "type": "object"
       },
+      "QuoteAddressSchema": {
+        "description": "A delivery address supplied inline \u2014 `US-4.1`'s \"enter a new one\".\n\nThe constraints mirror `accounts.schemas.AddressCreateSchema`, the address book this could be\nsaved into, with the address-book-only fields (`label`, `is_default`) left out: a checkout does\nnot name an address or make one the default.",
+        "properties": {
+          "city": {
+            "maxLength": 120,
+            "minLength": 1,
+            "title": "City",
+            "type": "string"
+          },
+          "country": {
+            "maxLength": 2,
+            "minLength": 2,
+            "title": "Country",
+            "type": "string"
+          },
+          "line1": {
+            "maxLength": 120,
+            "minLength": 1,
+            "title": "Line1",
+            "type": "string"
+          },
+          "line2": {
+            "default": "",
+            "maxLength": 120,
+            "title": "Line2",
+            "type": "string"
+          },
+          "phone": {
+            "default": "",
+            "maxLength": 32,
+            "title": "Phone",
+            "type": "string"
+          },
+          "postal_code": {
+            "maxLength": 32,
+            "minLength": 1,
+            "title": "Postal Code",
+            "type": "string"
+          },
+          "recipient": {
+            "maxLength": 120,
+            "minLength": 1,
+            "title": "Recipient",
+            "type": "string"
+          },
+          "region": {
+            "default": "",
+            "maxLength": 120,
+            "title": "Region",
+            "type": "string"
+          }
+        },
+        "required": [
+          "recipient",
+          "line1",
+          "city",
+          "postal_code",
+          "country"
+        ],
+        "title": "QuoteAddressSchema",
+        "type": "object"
+      },
+      "QuoteRequestSchema": {
+        "description": "`POST /checkout/quote`.\n\nExactly one of `address_id` (a saved address) or `address` (a new one) \u2014 `US-4.1`'s two ways to\ngive an address. The \"exactly one\" rule is checked in the endpoint rather than here so the\nrefusal is a plain `400` with a readable message, not a model-level pydantic error whose field\nlocation is the whole body.",
+        "properties": {
+          "address": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/QuoteAddressSchema"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "address_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Address Id"
+          }
+        },
+        "title": "QuoteRequestSchema",
+        "type": "object"
+      },
+      "QuoteSchema": {
+        "description": "The quote: the cart's subtotal, and every shipping option with the total it produces.\n\nThe address is not echoed back. It is a precondition the request had to satisfy, not a result,\nand what a checkout needs to render from this is money.",
+        "properties": {
+          "item_count": {
+            "title": "Item Count",
+            "type": "integer"
+          },
+          "shipping_options": {
+            "items": {
+              "$ref": "#/components/schemas/ShippingOptionSchema"
+            },
+            "title": "Shipping Options",
+            "type": "array"
+          },
+          "subtotal": {
+            "$ref": "#/components/schemas/MoneySchema"
+          }
+        },
+        "required": [
+          "subtotal",
+          "item_count",
+          "shipping_options"
+        ],
+        "title": "QuoteSchema",
+        "type": "object"
+      },
       "RegisterSchema": {
         "properties": {
           "display_name": {
@@ -987,6 +1103,38 @@
           "quantity"
         ],
         "title": "SetQuantitySchema",
+        "type": "object"
+      },
+      "ShippingOptionSchema": {
+        "description": "One shipping method and what choosing it does to the total.",
+        "properties": {
+          "code": {
+            "title": "Code",
+            "type": "string"
+          },
+          "description": {
+            "title": "Description",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "price": {
+            "$ref": "#/components/schemas/MoneySchema"
+          },
+          "total": {
+            "$ref": "#/components/schemas/MoneySchema"
+          }
+        },
+        "required": [
+          "code",
+          "name",
+          "description",
+          "price",
+          "total"
+        ],
+        "title": "ShippingOptionSchema",
         "type": "object"
       },
       "SortOption": {
@@ -1654,6 +1802,44 @@
         "summary": "One category",
         "tags": [
           "catalog"
+        ]
+      }
+    },
+    "/api/v1/checkout/quote": {
+      "post": {
+        "description": "`US-4.1` and `US-4.2`: the subtotal, and every shipping option with its total.\n\n`total_cents = subtotal_cents + shipping_cents` is the same arithmetic the order's own check\nconstraint holds, so a total shown here is a total `M4.3` can carry onto the receipt.",
+        "operationId": "orders_api_quote_checkout",
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/QuoteRequestSchema"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/QuoteSchema"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "AccessTokenAuth": []
+          }
+        ],
+        "summary": "Quote a checkout",
+        "tags": [
+          "orders"
         ]
       }
     },
