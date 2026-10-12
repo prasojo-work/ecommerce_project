@@ -6,6 +6,30 @@
 
 ## History
 
+### 2026-10-12 — v0.1.34 — the deployment recorded, with the numbers that matter to a reviewer
+
+**What changed.** The root `README.md` no longer claims "Status: planning" — it carries the two live
+URLs, what a visitor can do today, and the cold-start expectation that `ADR-0011` asks to be
+documented for a reviewer. `RUNBOOK.md` gained section 7.8, the deployment as it stands: each check
+with the thing it actually asserts, because several of them assert a header or a redirect rather than
+the status code that appears first.
+
+**Why the check table is written that way.** Two of these were nearly recorded backwards. A preflight
+from a foreign origin answers `200` — the *absence* of `access-control-allow-origin` is the assertion,
+and the browser is what refuses it. And `/healthz` answering `200` over plain `http` is the
+`SECURE_REDIRECT_EXEMPT` working, not the redirect failing. A table that lists the status alone would
+have taught the next reader the wrong lesson.
+
+**Measured.** CORS verified in both directions from the real origin, which is what the earlier pass
+could not do: the preflight carries
+`access-control-allow-origin: https://ecommerce-project-five-psi.vercel.app` with credentials and the
+five methods, where the same request from a foreign origin carries no `access-control-allow-*` header
+at all. First-visit latency, which is a reviewer's first impression: 48s for the first page load, 2s
+warm, 28s for a route's own first hit, 1s from the API when awake. The rate limits are still
+uncounted on the deployed instance — the corrected `NINJA_NUM_PROXIES` needs its redeploy.
+
+**Impact.** Documentation only; no code. `M2.7` remains `[~]` for the redeploy and a browser sign-in.
+
 ### 2026-10-12 — v0.1.33 — M2.7 is live, and the limits were counting Cloudflare
 
 **What happened.** The deployment went green. Render built the image, the start-up script migrated

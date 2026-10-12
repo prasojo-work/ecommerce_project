@@ -1281,6 +1281,37 @@ Anticipated rather than observed, so this is the order to check them in:
   behind a pooler, since a persistent connection would sit in a pooled slot it does not need. The
   setting is correct by omission; the ADR's wording implies a knob that does not exist.
 
+### 7.8 The deployment as it stands
+
+| | |
+| --- | --- |
+| Web | <https://ecommerce-project-five-psi.vercel.app> |
+| API | <https://lysheim-api.onrender.com> |
+| Data | Supabase, shared pooler in session mode |
+
+Deployed 2026-10-12, and verified **from outside the stack** — which is the only vantage point for
+some of it, because every test and every `docker compose up` in this repository passes while the
+wiring is wrong. The checks, and what each one actually asserts:
+
+| Check | Result | The assertion |
+| --- | --- | --- |
+| `GET /healthz` | `200`, request id | the container is up and bound `$PORT` |
+| `GET /api/v1/products` | `200`, 46 products | the pooler string, migrations and seed all work |
+| `GET http://…/healthz` | `301` → `https` | TLS is enforced before Django sees it |
+| Response headers | HSTS `includeSubDomains; preload`, `nosniff`, `strict-origin-when-cross-origin` | `prod.py`'s hardening is applied, not merely written |
+| Preflight, real origin | `access-control-allow-origin: https://ecommerce-project-five-psi.vercel.app` | CORS is configured for the deployed frontend |
+| Preflight, foreign origin | **no** `access-control-allow-*` header | it answers `200` and the browser refuses it; the header is the assertion, not the status |
+| `GET /api/v1/addresses`, no token | `401` | auth is enforced in production, not only in tests |
+| `POST /api/v1/auth/refresh`, foreign origin | `403` | the `M2.4` origin guard is live |
+| 15 rapid `POST /auth/login` | all `401`, no `429` | **the rate limits do not count** — section 8, and the fix needs a redeploy |
+
+And the first-visit cost, which is a reviewer's first impression: 48s for the first page load, 2s once
+warm, 28s for a route's own first hit, and 1s from the API when awake. That is `ADR-0011`'s accepted
+trade, with the keep-alive ping that the ADR names as the mitigation still unbuilt.
+
+Two items remain, both outside this repository: one redeploy for the corrected `NINJA_NUM_PROXIES`,
+and a sign-in through the live stack, which needs a browser.
+
 ## 8. Troubleshooting
 
 > Accumulates as real problems occur (e.g. Postgres connection, port conflicts, cold-start

@@ -73,7 +73,7 @@ Status legend: `[ ]` planned · `[~]` in progress · `[x]` done.
   with migrations and the seed on the boot path, Supabase holds the data, and the Vercel app serves
   the catalogue from it. Verified from outside the stack — `/healthz`, the 46 products over the
   public URL, `http` redirecting to `https`, the hardening headers, a `401` without a token, the
-  refresh origin guard's `403`, and no CORS grant for a foreign origin. `RUNBOOK.md` section 7 is the
+  refresh origin guard's `403`, CORS granted for the real origin and withheld from a foreign one (the check table is section 7.8). `RUNBOOK.md` section 7 is the
   procedure. Left: one redeploy with `NINJA_NUM_PROXIES` corrected to `2` — the limits were found
   counting Cloudflare's edge instead of the visitor, forty attempts producing one `429` — and a
   sign-in through the live stack, which needs a browser.
