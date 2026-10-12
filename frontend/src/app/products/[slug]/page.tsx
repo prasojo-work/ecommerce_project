@@ -102,7 +102,7 @@ async function ProductDetail({ params }: Pick<PageProps<"/products/[slug]">, "pa
           ) : null}
         </dl>
 
-        <AddToCartButton />
+        <AddToCartButton variants={product.variants ?? []} />
       </div>
     </div>
   );

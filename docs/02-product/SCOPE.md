@@ -80,7 +80,10 @@ Could / Won't-for-v1).
   above stock with a clear message.
 - [ ] **US-3.3 Remove an item.** `Must` — AC: removes the line and recalculates totals.
 - [ ] **US-3.4 View the cart.** `Must` — AC: line items, subtotal, estimated shipping, and a
-  proceed-to-checkout action.
+  proceed-to-checkout action. The shipping line reads "Calculated at checkout" rather than a number:
+  `API.md` section 5 carries a subtotal and nothing else, and the options and their prices belong to
+  `US-4.2` (`M4.2`). The action is the disabled control with its reason stated, the shape `M1.6`
+  used for add-to-cart, until `M4` gives it somewhere to go.
 - [ ] **US-3.5 Persist the cart.** `Must` — AC: a cart persists across sessions for its signed-in
   owner (`ADR-0017`; the guest cart and its login merge are dropped).
 

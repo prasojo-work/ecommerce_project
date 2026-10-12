@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 
+import { CartProvider } from "@/components/cart-provider";
 import { SessionProvider } from "@/components/session-provider";
 import { SiteHeader } from "@/components/site-header";
 
@@ -22,8 +23,10 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
     <html lang="en" className={inter.variable}>
       <body>
         <SessionProvider>
-          <SiteHeader />
-          {children}
+          <CartProvider>
+            <SiteHeader />
+            {children}
+          </CartProvider>
         </SessionProvider>
       </body>
     </html>

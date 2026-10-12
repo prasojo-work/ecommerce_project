@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 
+import { CartLink } from "./cart-link";
 import { useSession } from "@/components/session-provider";
 
 /**
@@ -15,6 +16,9 @@ import { useSession } from "@/components/session-provider";
  * and a new one is on its way, so during that moment the header shows neither "Sign in" nor the
  * account — it holds the row's height and stays quiet. Showing "Sign in" would flash at a signed-in
  * customer, and showing the account would be a lie for the same instant.
+ *
+ * The cart entry sits beside the account one and reads the same three states, which is why the nav
+ * is labelled for both rather than for the account alone.
  */
 export function SiteHeader() {
   const { status, user, signOut } = useSession();
@@ -26,7 +30,8 @@ export function SiteHeader() {
           LYSHEIM
         </Link>
 
-        <nav aria-label="Account" className="flex items-center gap-4 text-sm">
+        <nav aria-label="Account and cart" className="flex items-center gap-4 text-sm">
+          <CartLink />
           {status === "restoring" ? (
             <span className="inline-block h-5 min-w-40" aria-hidden="true" />
           ) : status === "authenticated" && user !== null ? (

@@ -6,6 +6,71 @@
 
 ## History
 
+### 2026-10-12 — v0.1.37 — `M3.2`: the cart a customer uses, and the close of `M3`
+
+**What landed.** The browser half of the cart: `lib/cart.ts` (the store the header's count and the
+page both read, plus the rules the stepper obeys), `api/cart.ts` over `M3.1`'s four endpoints,
+`/cart` with line items, a quantity stepper and totals, and a real add-to-cart on the product page
+in place of the disabled placeholder `M1.6` left behind. `M3` closes with it.
+
+**One cart, two readers.** The store is a module variable read through `useSyncExternalStore`, the
+shape `lib/session.ts` uses, because the header shows a count on every page and the cart page shows
+the same cart. A payload copied into each component would let the two disagree the moment an add
+landed on one of them. Every mutation answers with the whole cart, so `api/cart.ts` writes that
+response into the store: nothing increments a count by hand, and no total is computed in the browser.
+
+**The colour choice is not decoration.** Every product carries three colour variants with stock and
+price of their own — 95 variants over 91 distinct prices in the seeded data. `catalog/models.py`
+already draws the line: `base_price_cents` is the display price, the variant's `price_cents` is what
+a purchase is made at. So each option carries its own price, and an option with no stock is disabled
+with "Out of stock" in words (`NFR-2`). The initial selection is the first *purchasable* variant
+rather than the first row, and when no colour has stock the button says so beside itself instead of
+pretending.
+
+**The stepper refuses rather than reports.** `+` is disabled at `available_stock`, with "Only N
+available" beside it, and `−` stops at one — zero on this cart is removal (`US-3.3`), not a quantity.
+If the API refuses anyway, because stock moved or another tab got there first, the `409` message is
+shown as written: it names both the stock and the number asked for.
+
+**Session-shaped.** The store follows the session: read on `authenticated`, cleared on `anonymous`,
+untouched during `restoring` — clearing there would throw away a cart that is about to be read again,
+on every navigation. A read's failure is held in the same store as the cart and cleared by the same
+events, which is why a retry panel cannot outlive what it was about, and why the provider holds no
+React state: the one `setState` in an effect body came out rather than being deferred past a lint
+rule.
+
+**Two deviations, both recorded rather than silent.** `US-3.4` asks for "estimated shipping", and
+`API.md` section 5 carries a subtotal and nothing else, so the summary says "Calculated at
+checkout" — the options and their prices are `US-4.2`'s — and `SCOPE.md`'s `US-3.4` now carries that
+note. "Proceed to checkout" is a disabled control with its reason stated in text, the same call
+`M1.6` made for add-to-cart, until `M4` gives it somewhere to go.
+
+**Verified.** 20 tests on the store's rules (the stock cap, the floor at one, first-purchasable,
+units against lines, and a failure cleared both by the cart that answers it and by a session
+ending); the frontend suite at 119; and the five gates CI runs, run here the same way — `prettier
+--check`, `eslint`, `pnpm typecheck` (which regenerates the OpenAPI types first, so a cart call that
+no longer matches the snapshot fails the build rather than the browser), `vitest`, and `next build`,
+which now lists `/cart` among its routes.
+
+**Corrected while passing through:** `lib/session.ts` justified `credentials: "include"` with
+`ADR-0008`'s guest cart cookie, which `ADR-0017` deleted. The refresh cookie is the reason it stays,
+and the comment and its test title now say so.
+
+**M3 retrospective.** The milestone changed shape before a line of it was written — `ADR-0017`
+dropped the guest cart and its login merge, deleting an increment and leaving `ADR-0008`'s signed
+cookie with no reader. Three things it taught, in the order they bit:
+
+1. **The contract test earned its keep.** `test_openapi_documents_every_api_path` failed the moment
+   the cart's three paths existed. That is the first time `M1.3`'s drift guard has caught anything,
+   and it caught it while the increment was still open rather than a milestone later.
+2. **A green suite is only as good as the run behind it.** The cart's first "all green" was false:
+   a second `pytest` process was still holding `test_lysheim`, so the run that reported success had
+   actually errored at database setup, and its exit code had been piped into `tail`. The code was
+   fine; the verification was not. One database-touching run at a time, and read the exit code.
+3. **A guard that cannot fail is not evidence.** The row lock was mutated back to no lock and
+   observed to fail before it was trusted, which is the same standard `M2.7`'s throttle test was
+   held to.
+
 ### 2026-10-12 — v0.1.36 — `M3.1`: the cart, behind the bearer token
 
 **What landed.** A `cart` app with `Cart` and `CartItem` built to `DATA-MODEL.md` §2, the four

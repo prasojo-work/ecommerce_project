@@ -53,8 +53,10 @@ export type SessionClient = {
   /**
    * Make an authenticated request, renewing the access token once if the API rejects it.
    *
-   * `credentials: "include"` is deliberate even though this uses a bearer token: the API also
-   * identifies a guest by a signed cookie (`ADR-0008`), and at `M3` the same calls will carry it.
+   * `credentials: "include"` is deliberate even though this uses a bearer token: the refresh token
+   * is an httpOnly cookie scoped to the auth routes, so it only travels if the request asks for it
+   * — and a renewal without it would renew nothing. (`ADR-0008`'s guest cart cookie was once the
+   * other reason to send it; `ADR-0017` dropped the guest cart, and the refresh cookie remains.)
    */
   authorizedFetch(input: string, init?: RequestInit): Promise<Response>;
 

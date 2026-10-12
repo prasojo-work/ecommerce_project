@@ -79,7 +79,7 @@ describe("authorizedFetch", () => {
     expect(authorizationOf(calls[0])).toBeNull();
   });
 
-  it("allows credentials, so the guest cart cookie travels with the call", async () => {
+  it("allows credentials, so the refresh cookie travels with the call", async () => {
     const { fetch, calls } = recordingFetch(() => response(200));
     const client = createSessionClient({ fetch, refresh: vi.fn() });
 
