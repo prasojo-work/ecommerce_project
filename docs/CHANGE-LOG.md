@@ -6,6 +6,52 @@
 
 ## History
 
+### 2026-10-12 — v0.1.38 — `M4.1`: the order, and the state it is in
+
+**What landed.** The `orders` app: `Order`, `OrderItem` and `OrderEvent`, their constraints, and the
+guarded transition (`US-5.5`) in `orders/services.py`. No endpoints yet — `M4.2` spends the models on
+a quote and `M4.3` spends them on creation — so this increment is the shape a receipt has to have
+before anything is allowed to write one.
+
+**A receipt is not a cart.** Everything mutable is snapshotted onto the order rather than referenced:
+the product name, the variant name, the unit price, and the address it went to. The line's `variant`
+is a nullable `SET_NULL` where the cart's is a `PROTECT`, and that difference is the design decision
+this increment turns on — a cart is live intent, so withdrawing a SKU may not silently rearrange one,
+while an order is a receipt and `PROTECT` would make catalogue maintenance impossible for any product
+that had ever sold, with `CASCADE` deleting the evidence instead. The order's `user` is `SET_NULL` for
+the same reason: closing an account must not delete what was bought.
+
+**Arithmetic the database holds.** `total_cents = subtotal_cents + shipping_cents`, and
+`line_total_cents = unit_price_cents × quantity`, as `CheckConstraint`s rather than as code that
+happens to agree. `DATA-MODEL.md` section 4 asks for non-negative money; `PositiveIntegerField` gives
+that on Postgres but not on SQLite, so it is stated again where both have to obey.
+
+**The transition is an event.** `transition_order()` reads the *locked* row, refuses a move the table
+does not allow, writes the status and appends the `OrderEvent` in one transaction. A guard that
+returned a flag would leave every caller to decide what "refused" means; an exception is what carries
+that decision outward to the `409` it should become. `OrderEvent` refuses edits and deletes, which the
+docstring is honest about: a `QuerySet.update()` or a cascade is one level below the guard — but every
+ordinary use of the object goes through it, and the trail cannot be rewritten by accident.
+
+`any → cancelled` is implemented literally, including from `delivered`, because `DATA-MODEL.md`
+section 3 says *any* and a return is exactly what that records. `cancelled` therefore has to be
+terminal, which is what keeps the table acyclic. The reading is pinned by a test so it can be reversed
+deliberately rather than by accident at `M5.5`.
+
+**Two lint rules decided something rather than being silenced.** `DJ001` forbids `null=True` on a
+string field, so an event's `from_status` is `""` on the creation event — the one event with no
+previous state — rather than `NULL`. And `ADR-0014` held: the tests reach `OrderEvent` through
+`OrderEvent.objects.filter(order=...)`, never through `order.events`.
+
+**Verified.** 34 new tests (the constraints by breaking each one, the two `SET_NULL` survivals, the
+four status-machine directions, the refusals asserting *no record* as well as no change, and the guard
+reading the locked row rather than a stale handle); `ruff format --check`, `ruff check`,
+`basedpyright` and the full suite; `makemigrations --check` reporting no drift, which CI does not
+check and which is how a model lands without its migration; and the OpenAPI snapshot unmoved, because
+a model is not a route. The row lock's behaviour under real concurrency is **not** tested here: with
+no endpoint yet, a threaded test would be testing Django, so it belongs with `M5.5`, where two
+operators can actually race.
+
 ### 2026-10-12 — v0.1.37 — `M3.2`: the cart a customer uses, and the close of `M3`
 
 **What landed.** The browser half of the cart: `lib/cart.ts` (the store the header's count and the

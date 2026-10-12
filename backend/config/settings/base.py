@@ -27,6 +27,7 @@ INSTALLED_APPS = [
     "accounts",
     "catalog",
     "cart",
+    "orders",
 ]
 
 # Email is the identifier and there is no `username` column (`DATA-MODEL.md` section 2). Declared

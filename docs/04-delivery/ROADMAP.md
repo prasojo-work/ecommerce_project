@@ -99,7 +99,11 @@ Status legend: `[ ]` planned · `[~]` in progress · `[x]` done.
 
 ### M4 — Checkout & orders
 
-- [ ] `M4.1` `Order` / `OrderItem` / `OrderEvent` models; guarded status transitions.
+- [x] `M4.1` `Order` / `OrderItem` / `OrderEvent` models; guarded status transitions — with the
+  product, variant and address **snapshotted** rather than referenced (`SET_NULL` where the cart uses
+  `PROTECT`), the order's total and each line's arithmetic held by constraints, and the guard writing
+  its audit event inside the same transaction that moves the status. *(no routes yet: `M4.2` and
+  `M4.3` spend it)*
 - [ ] `M4.2` `/checkout/quote` (shipping options + totals).
 - [ ] `M4.3` Idempotent order creation (`Idempotency-Key`) with stock decrement, plus the
   `PaymentGateway` port and its mock adapter with confirm/fail endpoints (`ADR-0010`).
