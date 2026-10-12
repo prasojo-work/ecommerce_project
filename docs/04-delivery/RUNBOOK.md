@@ -1303,14 +1303,34 @@ wiring is wrong. The checks, and what each one actually asserts:
 | Preflight, foreign origin | **no** `access-control-allow-*` header | it answers `200` and the browser refuses it; the header is the assertion, not the status |
 | `GET /api/v1/addresses`, no token | `401` | auth is enforced in production, not only in tests |
 | `POST /api/v1/auth/refresh`, foreign origin | `403` | the `M2.4` origin guard is live |
-| 15 rapid `POST /auth/login` | all `401`, no `429` | **the rate limits do not count** — section 8, and the fix needs a redeploy |
+| 15 rapid `POST /auth/login` | all `401`, no `429` | **the rate limits do not count** — section 8, and the fix needed a redeploy (made later the same day; the re-check is below) |
 
 And the first-visit cost, which is a reviewer's first impression: 48s for the first page load, 2s once
 warm, 28s for a route's own first hit, and 1s from the API when awake. That is `ADR-0011`'s accepted
 trade, with the keep-alive ping that the ADR names as the mitigation still unbuilt.
 
-Two items remain, both outside this repository: one redeploy for the corrected `NINJA_NUM_PROXIES`,
-and a sign-in through the live stack, which needs a browser.
+Two items remained after that first verification, both outside this repository: a redeploy with the
+corrected `NINJA_NUM_PROXIES`, and a sign-in through the live stack, which needs a browser.
+
+**After the redeploy, 2026-10-12 (same day).** `NINJA_NUM_PROXIES = 2` is in `render.yaml`, so the
+blueprint carries it; the deploy itself was run from the dashboard by the Founder. Re-checked from
+outside:
+
+| Check | Result | The assertion |
+| --- | --- | --- |
+| `GET /healthz` | `200` | the service is up after the redeploy |
+| `GET /api/v1/openapi.json` | advertises `/api/v1/cart`, `/api/v1/cart/items`, `/api/v1/cart/items/{line_id}` | the deploy carried `M3.1`'s code and not only `M2`'s — and since the boot path runs `migrate`, the cart tables exist with it |
+| The Vercel app | `200` | the frontend is serving |
+
+What could **not** be re-measured from here is the rate limit's behaviour, which is the one thing the
+redeploy was for. A decisive run needs about fifteen sequential `POST /auth/login` attempts, the
+endpoint answers in roughly six seconds each, and every long-lived probe was terminated by the
+environment before it finished (concurrent bursts mostly failed to connect outright). So this stays
+open, and it is the item to run by hand: fifteen rapid attempts should now end in `429`s rather than
+`401`s throughout, and a forged `X-Forwarded-For` prefix should not open a bucket of its own. The
+setting's *effect* is pinned by
+`tests/test_accounts_api.py::test_the_counted_address_is_the_client_and_not_a_hop_in_front_of_it`;
+what is unverified is only whether the dashboard deploy applied it.
 
 ## 8. Troubleshooting
 

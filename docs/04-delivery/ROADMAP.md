@@ -74,9 +74,12 @@ Status legend: `[ ]` planned · `[~]` in progress · `[x]` done.
   the catalogue from it. Verified from outside the stack — `/healthz`, the 46 products over the
   public URL, `http` redirecting to `https`, the hardening headers, a `401` without a token, the
   refresh origin guard's `403`, CORS granted for the real origin and withheld from a foreign one (the check table is section 7.8). `RUNBOOK.md` section 7 is the
-  procedure. Left: one redeploy with `NINJA_NUM_PROXIES` corrected to `2` — the limits were found
-  counting Cloudflare's edge instead of the visitor, forty attempts producing one `429` — and a
-  sign-in through the live stack, which needs a browser.
+  procedure. Left: a sign-in through the live stack, which needs a browser — and the rate limit's
+  behaviour, which after the redeploy could not be re-measured from the assistant's environment
+  (fifteen rapid attempts at six seconds each, and every probe was terminated before it finished;
+  that the deploy happened is confirmed separately, by the API now advertising the cart routes —
+  `RUNBOOK.md` section 7.8). The correction itself is landed and pinned: `NINJA_NUM_PROXIES = 2` in
+  `render.yaml`, the reasoning in `base.py`, and both wrong directions held by a test.
 
 ### M3 — Cart
 
