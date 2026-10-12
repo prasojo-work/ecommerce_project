@@ -6,6 +6,44 @@
 
 ## History
 
+### 2026-10-12 — v0.1.33 — M2.7 is live, and the limits were counting Cloudflare
+
+**What happened.** The deployment went green. Render built the image, the start-up script migrated
+and seeded the Supabase database, and the catalogue is served through the Vercel app. Verified from
+outside the stack rather than from the deployment log: `/healthz` answered `200` with a request id,
+the public URL served all 46 products, `http` redirected to `https` with `301`, and every response
+carried HSTS (`includeSubDomains; preload`), `nosniff` and `strict-origin-when-cross-origin` — the
+hardening in `prod.py` applied rather than merely written. Also checked, because they are the parts
+that fail quietly: an authenticated route answered `401` without a token, the refresh origin guard
+answered `403` to a foreign origin, and a preflight from a foreign origin came back with no
+`access-control-allow-origin` at all.
+
+**The defect that only testing from outside could find.** Forty rapid `POST /auth/login` attempts
+from one client produced **one** `429`, at attempt 23 — a limit of ten per minute behaving like a
+lottery. `NINJA_NUM_PROXIES` was `1`, and at `1` Ninja's `get_ident` takes the *last*
+`X-Forwarded-For` entry: the address the nearest proxy appended. Render serves `.onrender.com`
+through Cloudflare (the API's own `server` header says so), so that entry belongs to Cloudflare's
+edge and rotates between requests, and the attempts spread across buckets that never filled. The
+key was neither the client nor a bucket anyone shares. At `3` it would be whatever an attacker wrote
+in their own header, which is a bypass, so the value has to match the chain rather than err upward:
+it is `2`. Note what the tests could not see — they establish *whose* requests are counted using
+`REMOTE_ADDR` alone and never `X-Forwarded-For`, so the only dimension that differed between the
+suite and the deployment was the untested one.
+
+**A test worth more than the fix.**
+`test_the_counted_address_is_the_client_and_not_a_hop_in_front_of_it` asserts that a swapped hop
+address does not open a new window and that a forged leading entry cannot move the key. Checked by
+mutation rather than assumed: at `1` it fails with `401 == 429`, and at `3` it fails on the forged
+entry, so it guards both directions. Writing it turned up a smaller thing: this file's older throttle
+tests replace `NINJA_DEFAULT_THROTTLE_RATES` wholesale, and Ninja resolves *every* scope's rate while
+building its operation list lazily on a process's first request — so they fail when run in isolation.
+The new test extends the mapping instead, and says why in a comment.
+
+**Impact.** `M2.7` is deployed and verified from outside, with one item left: a sign-in through the
+live stack, which needs a browser. The proxy count is corrected in `prod.py`, `render.yaml`,
+`.env.example` and the reasoning in `base.py`; the deployed service needs one redeploy for it to
+take effect, and the forty-attempt check is what confirms it.
+
 ### 2026-10-12 — v0.1.32 — M2.7 first deploy: the start command was unparsable, and a redirect loop behind it
 
 **What changed.** The compound start command moved out of `render.yaml` and into

@@ -1286,6 +1286,17 @@ Anticipated rather than observed, so this is the order to check them in:
 > Accumulates as real problems occur (e.g. Postgres connection, port conflicts, cold-start
 > latency, migration drift).
 
+- **The rate limits stop counting in production, while passing every test.** `NINJA_NUM_PROXIES` was
+  `1`, and at `1` Ninja's `get_ident` takes the *last* `X-Forwarded-For` entry — the address the
+  nearest proxy appended. Render serves `.onrender.com` through Cloudflare, so that entry belongs to
+  Cloudflare's edge rather than to the visitor, and it rotates between requests: forty rapid
+  `POST /auth/login` attempts from one client produced **one** `429`, at attempt 23. The limit was
+  counting neither the client nor a bucket anyone shares. It is `2` now (skip the balancer's entry,
+  land on the client's); at `3` a forged header would become the key, so this has to match the chain
+  rather than err upward. `base.py` carries the reasoning and
+  `tests/test_accounts_api.py::test_the_counted_address_is_the_client_and_not_a_hop_in_front_of_it`
+  pins both wrong directions. The symptom to recognise: a limit that is correct in every test and in
+  `docker compose`, and never fires on the internet.
 - **A Render deploy fails at start-up with `python manage.py migrate … : not found`.** A compound
   command in `render.yaml`'s `dockerCommand`. Render strips a leading `/bin/sh -c` from that field and
   runs the remainder through its own shell, so the quotes that a `&&` chain needs turn the entire

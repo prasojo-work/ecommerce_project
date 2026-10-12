@@ -69,10 +69,13 @@ services:
       # also the refresh-cookie origin guard, and empty means every cross-origin call is refused.
       - key: CORS_ALLOWED_ORIGINS
         sync: false
-      # One proxy: Render's load balancer. `base.py` explains why both directions of this are wrong
-      # — too high and any client can forge its own IP, too low and every visitor shares one bucket.
+      # Two proxies: Cloudflare's edge in front (which is what serves `.onrender.com` — the `server`
+      # header says so) and Render's balancer behind it. At 1 the throttle keyed on Cloudflare's edge
+      # address instead of the visitor's, and because that address rotates between requests the login
+      # limit stopped counting: 40 attempts from one client produced one 429. At 3 a forged header
+      # would become the key. `base.py` carries the reasoning and `test_accounts_api.py` pins it.
       - key: NINJA_NUM_PROXIES
-        value: 1
+        value: 2
       # Deliberately absent, and each for a reason:
       #   JWT_SECRET_KEY — falls back to DJANGO_SECRET_KEY, which Render generates.
       #   CACHE_BACKEND  — the in-process default is correct while there is one instance.

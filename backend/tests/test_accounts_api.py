@@ -61,11 +61,18 @@ def register(
     )
 
 
-def login(client: Client, email: str = "ada@example.com", password: str = PASSWORD) -> Any:
+def login(
+    client: Client,
+    email: str = "ada@example.com",
+    password: str = PASSWORD,
+    forwarded_for: str | None = None,
+) -> Any:
     return client.post(
         "/api/v1/auth/login",
         data=json.dumps({"email": email, "password": password}),
         content_type="application/json",
+        # `None` here is an absent header, which is what `get_ident` falls back to `REMOTE_ADDR` for.
+        HTTP_X_FORWARDED_FOR=forwarded_for,
     )
 
 
@@ -488,6 +495,51 @@ def test_the_limit_follows_the_client_and_not_the_address(client: Client, user: 
 
     # And another client has its own window, so one visitor cannot lock out the next.
     assert login(Client(REMOTE_ADDR="203.0.113.7"), password="wrong").status_code == 401
+
+
+@override_settings(NINJA_NUM_PROXIES=2)
+def test_the_counted_address_is_the_client_and_not_a_hop_in_front_of_it(
+    client: Client, settings: Any
+) -> None:
+    """The header the app reads ends `..., client, cloudflare`, and `NINJA_NUM_PROXIES` alone decides
+    which of those entries becomes the key. That choice is invisible locally — there is no proxy to
+    get wrong — and expensive remotely, which is how it shipped at `1` (`M2.7`).
+
+    At `1` the key is the address the *nearest* proxy appended rather than the visitor's, and on the
+    deployed API that address rotates between requests, so one client's forty attempts produced a
+    single `429`: the limit was counting neither the client nor a bucket anyone shares, it was
+    counting noise. At `3` the key is whatever an attacker wrote in their own header, which is a
+    bypass. Both are asserted against below, so this fails if the setting moves to either.
+    """
+    # Added to the mapping rather than replacing it. Ninja builds its operation list lazily, on the
+    # first request a process serves, and resolves *every* scope's rate while doing so — so a partial
+    # mapping raises `ImproperlyConfigured`, and makes this file's throttle tests pass or fail
+    # depending on whether an earlier test already built that list.
+    settings.NINJA_DEFAULT_THROTTLE_RATES = {
+        **settings.NINJA_DEFAULT_THROTTLE_RATES,
+        "login": "2/min",
+    }
+
+    chain = "198.51.100.11, 203.0.113.9, 10.0.0.1"
+
+    for _ in range(requests_allowed_per("login")):
+        assert login(client, password="wrong", forwarded_for=chain).status_code == 401
+
+    # A different hop address must not open a new window: the hop is not the client.
+    assert (
+        login(
+            client, password="wrong", forwarded_for="198.51.100.11, 203.0.113.9, 10.0.0.2"
+        ).status_code
+        == 429
+    )
+
+    # Nor may a forged leading entry move the key somewhere the attacker picked.
+    assert (
+        login(
+            client, password="wrong", forwarded_for="198.51.100.99, 203.0.113.9, 10.0.0.1"
+        ).status_code
+        == 429
+    )
 
 
 @override_settings(NINJA_DEFAULT_THROTTLE_RATES={"register": "2/hour"})

@@ -84,11 +84,15 @@ NINJA_DEFAULT_THROTTLE_RATES = {
 # that header *verbatim* when this is unset, which any client can forge, so leaving the default
 # would make every limit below bypassable by sending a different fake header each time.
 #
-# Zero is right locally and 1 on Render: its load balancer terminates TLS and forwards to a port
-# that is "not directly reachable via the public internet" (render.com/docs/web-services), so the
-# address in the header it appends is the client's. Both directions are bad if this is wrong — too
-# high and the header is forgeable again, too low and every visitor shares one bucket, so a single
-# abuser locks out everyone. `prod.py` raises it to 1; keep it in step with the real topology.
+# Zero is right locally. On Render it is **2, not 1**: Render's load balancer appends the address it
+# saw, and that address is Cloudflare's edge — Render serves `.onrender.com` through Cloudflare, as
+# the deployed API states in its own `server` header. The header the app reads therefore ends
+# `..., client, cloudflare`, and this count is the only thing deciding which entry becomes the key.
+# At 1 the key is Cloudflare's edge, which rotates between requests, so a limit that should count a
+# visitor's eleventh attempt counts roughly one in forty — measured on the deployed API, written up
+# in the runbook, and pinned by a test. At 3 an attacker's own forged entry becomes the key, which is
+# a bypass. Both directions are failures; this has to match the real topology rather than err.
+# `prod.py` sets it to 2, and `render.yaml` sets it explicitly for the one host.
 NINJA_NUM_PROXIES = env.int("NINJA_NUM_PROXIES", default=0)
 
 # The throttle store. Ninja's throttles keep a rolling window of request timestamps in Django's

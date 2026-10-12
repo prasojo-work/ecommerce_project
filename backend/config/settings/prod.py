@@ -45,6 +45,8 @@ SECURE_REDIRECT_EXEMPT = [r"^healthz$"]
 REFRESH_COOKIE_SECURE = True
 REFRESH_COOKIE_SAMESITE = "None"
 
-# One proxy: Render's load balancer, which terminates TLS and forwards to a port that is not
-# reachable directly. See the note in `base.py` for why both directions of this are a failure.
-NINJA_NUM_PROXIES = env.int("NINJA_NUM_PROXIES", default=1)
+# Two proxies, not one: Cloudflare's edge *and* Render's load balancer behind it, so the header the
+# app reads ends `..., client, cloudflare` and the count has to skip both to land on the visitor.
+# Getting this wrong is silent — it changes whose requests a limit counts, not whether it works —
+# which is why the deployed API was measured rather than reasoned about. `base.py` has the numbers.
+NINJA_NUM_PROXIES = env.int("NINJA_NUM_PROXIES", default=2)
