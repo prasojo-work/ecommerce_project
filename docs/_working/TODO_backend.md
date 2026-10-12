@@ -19,7 +19,8 @@
   request-id middleware.
 - [ ] **BE-1.4 [Auth]** — JWT access (memory) + refresh (httpOnly cookie); rate limiting;
   refresh CSRF/origin guard (`ADR-0009`).
-- [ ] **BE-1.5 [Cart]** — cookie-keyed guest carts, merge on login (`ADR-0008`).
+- [ ] **BE-1.5 [Cart]** — cart models and API for a signed-in shopper (`ADR-0017`, which reversed
+  `ADR-0008`; there is no guest cart and no merge).
 - [ ] **BE-1.6 [Checkout & orders]** — idempotent order creation; stock decrement; snapshots.
 - [ ] **BE-1.7 [Payments]** — `PaymentGateway` port + mock adapter (`ADR-0010`).
 - [ ] **BE-1.8 [Async & tasks]** — ASGI; `async def` where I/O-bound; Tasks for the

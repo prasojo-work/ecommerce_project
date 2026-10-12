@@ -1,6 +1,6 @@
 # ADR-0008 — Cart model and guest merge (D2)
 
-- **Status:** Accepted
+- **Status:** Superseded by ADR-0017 (cart requires sign-in)
 - **Date:** 2026-10-09
 - **Deciders:** Founder
 - **Consulted hats:** senior_backend, senior_ui_ux, senior_system_architect

@@ -98,19 +98,21 @@ Listing responses are paginated: `{ "items": [...], "page": 1, "page_size": 24, 
 `/credits` is the exception: `US-6.1` wants every shipped image and there are 46, so the response is
 the whole list.
 
-## 5. Cart (guest or authenticated)
+## 5. Cart (authenticated)
 
-The cart is resolved by the authenticated user, or by a signed `cart` cookie for guests.
-On login, a guest cart is **merged** into the user cart (`ADR-0008`).
+The cart belongs to the authenticated user: every endpoint below requires an access token. An
+anonymous visitor can browse the catalog but cannot hold a cart — `ADR-0017` reversed the guest
+cookie and the login merge that `ADR-0008` first chose.
 
 | Method | Path | Purpose |
 |---|---|---|
-| GET | `/cart` | Current cart with line items and totals |
+| GET | `/cart` | Current cart with line items and totals, or an empty one; never creates a cart |
 | POST | `/cart/items` | Add `{variant_id, quantity}` |
-| PATCH | `/cart/items/{id}` | Set `{quantity}` (stock-capped) |
+| PATCH | `/cart/items/{id}` | Set `{quantity}`; refused above stock |
 | DELETE | `/cart/items/{id}` | Remove a line |
 
-`409` is returned when a requested quantity exceeds available stock.
+`409` is returned when a requested quantity exceeds available stock, `404` when the line is not in
+the caller's cart, and `400` when `quantity` is below one.
 
 ## 6. Checkout & orders
 

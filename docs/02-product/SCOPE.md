@@ -73,15 +73,16 @@ Could / Won't-for-v1).
 
 ### EPIC-3 — Cart (M3)
 
-- [ ] **US-3.1 Add to cart.** `Must` — AC: works for guests and signed-in users; immediate
-  feedback; header cart count updates.
+- [ ] **US-3.1 Add to cart.** `Must` — AC: requires a signed-in shopper (`ADR-0017`, which amends
+  the original "works for guests and signed-in users"); immediate feedback; header cart count
+  updates.
 - [ ] **US-3.2 Update quantity.** `Must` — AC: respects available stock; rejects quantities
   above stock with a clear message.
 - [ ] **US-3.3 Remove an item.** `Must` — AC: removes the line and recalculates totals.
 - [ ] **US-3.4 View the cart.** `Must` — AC: line items, subtotal, estimated shipping, and a
   proceed-to-checkout action.
-- [ ] **US-3.5 Persist the cart.** `Must` — AC: a signed-in cart persists across sessions; a
-  guest cart merges on login.
+- [ ] **US-3.5 Persist the cart.** `Must` — AC: a cart persists across sessions for its signed-in
+  owner (`ADR-0017`; the guest cart and its login merge are dropped).
 
 ### EPIC-4 — Checkout & orders (M4)
 
@@ -162,7 +163,7 @@ URL).
 - **D1 — Operator console form.** Use **Django admin** for v1 (pragmatic, secure, fast,
   "boring tech") with a custom Next operator UI deferred to Phase 1.5, *or* build a bespoke
   Next console now. **Recommendation: Django admin for v1.**
-- **D2 — Guest cart.** Cookie/session cart with server-side merge on login (recommended) vs
-  sign-in-required cart.
+- **D2 — Guest cart (decided).** **Sign-in-required cart** (`ADR-0017`, 2026-10-12), reversing the
+  cookie/session cart with server-side merge on login that `ADR-0008` originally chose.
 - **D3 — Token storage.** httpOnly refresh cookie + in-memory access token (recommended) vs
   localStorage.

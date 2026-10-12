@@ -96,7 +96,7 @@ replayed against the API without the signing key.
 
 ### `cart`
 
-**`cart`** — `id`, `user_id` (nullable FK), `session_key` (nullable, for guests), `status` (`active|converted|abandoned`), timestamps. Exactly one of `user_id` / `session_key` is set.
+**`cart`** — `id`, `user_id` (FK, NOT NULL), `status` (`active|converted|abandoned`), timestamps. One `active` cart per user (partial unique). A cart requires authentication, so there is no `session_key` and no guest owner (`ADR-0017`).
 
 **`cart_item`** — `id`, `cart_id` FK, `variant_id` FK, `quantity` (int ≥ 1). Unique on (`cart_id`, `variant_id`). Price is resolved live from the variant until checkout.
 
@@ -119,7 +119,7 @@ replayed against the API without the signing key.
 ## 4. Indexes & constraints
 
 - Unique: `user.email`, `category.slug`, `product.slug`, `product_variant.sku`, `order.number`, `order.idempotency_key`.
-- Partial unique: one default `address` per user.
+- Partial unique: one default `address` per user; one `active` cart per user.
 - Foreign keys: `product.category_id`, `product_variant.product_id`, `cart_item.cart_id`,
   `order.user_id`, `order_item.order_id`.
 - Query indexes: `product.is_active`, `product.category_id`, `order.user_id`, `order.status`.

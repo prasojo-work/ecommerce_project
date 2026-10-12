@@ -32,8 +32,9 @@
 
 - **PCI-DSS:** not applicable — payments are mocked (`ADR-0010`).
 - **GDPR-relevant:** yes, in principle — email and address are personal data of EU users.
-  We apply **data minimisation**, a **retention** rule (guest carts expire), and an
-  **erasure** path (deleting an account removes its PII). A formal DPIA is out of scope.
+  We apply **data minimisation**, a **retention** rule (logs are kept short and PII-free, and carts
+  belong to an account rather than to a cookie — `ADR-0017`), and an **erasure** path (deleting an
+  account removes its PII). A formal DPIA is out of scope.
 
 ## 2. Assets & trust boundaries
 
@@ -99,9 +100,10 @@ graph LR
 - [ ] **SEC-FIND-1.11 [CSRF on cookie auth]** The refresh cookie reintroduces CSRF risk.
   **Risk:** Medium × Medium. **Component:** auth. **Control:** origin check on the refresh
   endpoint plus `SameSite`; refresh scoped to its path (`ADR-0009`).
-- [ ] **SEC-FIND-1.12 [Cart cookie tampering]** Forged guest cart identifiers. **Risk:** Low ×
-  Low. **Component:** cart. **Control:** **signed** cookie; server rebuilds totals from the
-  database, never from the cookie.
+- [x] **SEC-FIND-1.12 [Cart cookie tampering]** Forged guest cart identifiers. **Risk:** Low ×
+  Low. **Component:** cart. **Closed by `ADR-0017`:** the cart requires authentication, so no guest
+  cart identifier exists to forge. Were a guest cart reintroduced, the original control stands: a
+  **signed** cookie, with totals rebuilt from the database rather than read from the cookie.
 
 ## 5. Remediation plan
 
@@ -118,7 +120,7 @@ graph LR
 | `SEC-REMEDIATE-1.9` | `SEC-FIND-1.9` | Medium | backend | log review contains no PII/secrets |
 | `SEC-REMEDIATE-1.10` | `SEC-FIND-1.10` | Medium | ops | header check on the deployed URL |
 | `SEC-REMEDIATE-1.11` | `SEC-FIND-1.11` | Medium | backend | cross-origin refresh rejected without origin |
-| `SEC-REMEDIATE-1.12` | `SEC-FIND-1.12` | Low | backend | tampered cookie rejected (signature check) |
+| `SEC-REMEDIATE-1.12` | `SEC-FIND-1.12` | Closed | — | `ADR-0017` removed the surface: the cart requires authentication, so no cart cookie exists to tamper with |
 
 ## 6. Secure configuration baseline
 
@@ -144,7 +146,7 @@ refresh:  HttpOnly; Secure; SameSite=None; Path=/api/v1/auth
 ## 8. Privacy & data protection
 
 - Collect the minimum (email, name, address). **Do not** store payment data (mock).
-- **Retention:** guest carts expire (default 30 days); logs retained short and PII-free.
+- **Retention:** carts belong to an account and are removed with it (`ADR-0017` — there is no guest cart to expire); logs retained short and PII-free.
 - **Erasure:** deleting an account removes its PII; orders are anonymised rather than deleted
   (for integrity) where feasible.
 

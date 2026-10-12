@@ -6,6 +6,34 @@
 
 ## History
 
+### 2026-10-12 — v0.1.35 — the cart requires sign-in: `D2` reversed before it was built
+
+**The decision.** `ADR-0008` chose a cookie-keyed guest cart merged on login, on the grounds that
+~8 in 10 carts are abandoned and the primary persona shops on mobile. The Founder reversed it while
+`M3.1` was being built: the catalog stays public, and every cart operation — read, add, update,
+remove — requires an access token. `ADR-0017` records the reversal; `ADR-0008` keeps its text and
+changes only its status line, which is all `ADR-0000`'s template allows after acceptance.
+
+**What it removed.** The guest cart, its signed cookie, its 30-day expiry, the login merge and the
+`cart.session_key` column — so the roadmap's guest-merge increment is deleted rather than deferred
+and the cart UI is renumbered to `M3.2`. `SEC-FIND-1.12` (forged guest cart identifiers) closes by
+design rather than by mitigation: there is no cart cookie to forge.
+
+**What it costs, recorded rather than glossed.** A visitor's first add meets a sign-in screen, and
+Phase 2's abandonment analysis can only ever see shoppers who had already signed in. That is exactly
+the friction the earlier decision was protecting against, and this one accepts it knowingly.
+
+**Amended:** `SCOPE.md` (`US-3.1`, `US-3.5`, `D2`), `API.md` §5, `DATA-MODEL.md` §2 and §4
+(`cart.user_id` NOT NULL, no `session_key`, one active cart per user), `ROADMAP.md` `M3`,
+`SECURITY-BASELINE.md`, `_working/TODO_backend.md`. The `PATCH` row in `API.md` said "stock-capped"
+while its own `409` note and `US-3.2` said refused above stock; the two now agree on refusal.
+
+**Settled for `M4` while deciding this.** The cart's stock check is an affordance, not a guarantee —
+stock moves between the cart and checkout — so `ADR-0017` records that the authoritative decrement is
+a conditional `UPDATE … WHERE stock_qty >= n`, or `SELECT … FOR UPDATE` over the variants in a
+deterministic order, inside one transaction. `M4` inherits the requirement instead of rediscovering
+it, and cannot oversell.
+
 ### 2026-10-12 — v0.1.34 — the deployment recorded, with the numbers that matter to a reviewer
 
 **What changed.** The root `README.md` no longer claims "Status: planning" — it carries the two live

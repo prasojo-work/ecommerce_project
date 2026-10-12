@@ -81,9 +81,10 @@ Status legend: `[ ]` planned · `[~]` in progress · `[x]` done.
 ### M3 — Cart
 
 - [ ] `M3.1` `Cart` / `CartItem` models and API — get, add, update, remove, with server-side stock
-  validation and the signed guest cookie resolution (`ADR-0008`). *(merges the old `M3.1` + `M3.2`)*
-- [ ] `M3.2` Guest-cart merge on login.
-- [ ] `M3.3` Cart UI: line items, quantity stepper, totals, empty state.
+  validation, behind the bearer token (`ADR-0017`; no guest cookie and no login merge, so the old
+  guest-merge increment is deleted rather than deferred). *(merges the old `M3.1` + `M3.2`)*
+- [ ] `M3.2` Cart UI: line items, quantity stepper, totals, empty state, and the sign-in gate
+  `ADR-0017` puts in front of the first add. *(renumbered from `M3.3`)*
 
 ### M4 — Checkout & orders
 
