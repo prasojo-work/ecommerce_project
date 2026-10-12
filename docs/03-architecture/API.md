@@ -108,8 +108,8 @@ cookie and the login merge that `ADR-0008` first chose.
 |---|---|---|
 | GET | `/cart` | Current cart with line items and totals, or an empty one; never creates a cart |
 | POST | `/cart/items` | Add `{variant_id, quantity}` |
-| PATCH | `/cart/items/{id}` | Set `{quantity}`; refused above stock |
-| DELETE | `/cart/items/{id}` | Remove a line |
+| PATCH | `/cart/items/{line_id}` | Set `{quantity}`; refused above stock |
+| DELETE | `/cart/items/{line_id}` | Remove a line |
 
 `409` is returned when a requested quantity exceeds available stock, `404` when the line is not in
 the caller's cart, and `400` when `quantity` is below one.

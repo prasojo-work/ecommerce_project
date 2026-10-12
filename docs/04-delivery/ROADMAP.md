@@ -27,7 +27,7 @@ Status legend: `[ ]` planned · `[~]` in progress · `[x]` done.
 | M0 | Foundations | Both apps boot, gates wired, CI green | `docker compose up` runs API + web; CI passes | `[x]` |
 | M1 | Catalog & browse | Products visible and navigable | Browse → PDP works with seeded data | `[x]` |
 | M2 | Accounts & auth | Register/login works; the app is live | JWT flow + refresh exercised by tests; a public URL serves the catalog and auth | `[~]` |
-| M3 | Cart | Server-side cart for guests + users | Add/update/remove + merge on login | `[ ]` |
+| M3 | Cart | A cart a signed-in shopper can fill | Add/update/remove, stock-capped, behind the bearer token | `[~]` |
 | M4 | Checkout & orders | Mock purchase end to end | Order created, paid, history shown | `[ ]` |
 | M5 | Operator console | Catalog/stock/orders manageable | Admin manages products + order status | `[ ]` |
 | M6 | Hardening | Quality evidence produced | a11y/perf/security reports committed | `[ ]` |
@@ -80,9 +80,11 @@ Status legend: `[ ]` planned · `[~]` in progress · `[x]` done.
 
 ### M3 — Cart
 
-- [ ] `M3.1` `Cart` / `CartItem` models and API — get, add, update, remove, with server-side stock
+- [x] `M3.1` `Cart` / `CartItem` models and API — get, add, update, remove, with server-side stock
   validation, behind the bearer token (`ADR-0017`; no guest cookie and no login merge, so the old
-  guest-merge increment is deleted rather than deferred). *(merges the old `M3.1` + `M3.2`)*
+  guest-merge increment is deleted rather than deferred). One active cart per user by partial unique
+  index, `PROTECT` on the variant so a withdrawal cannot empty a cart, `409` above stock, and a row
+  lock so two concurrent adds cannot lose an increment. *(merges the old `M3.1` + `M3.2`)*
 - [ ] `M3.2` Cart UI: line items, quantity stepper, totals, empty state, and the sign-in gate
   `ADR-0017` puts in front of the first add. *(renumbered from `M3.3`)*
 

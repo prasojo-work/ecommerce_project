@@ -74,6 +74,14 @@ class ProductVariant(TimeStampedModel):
 
     class Meta(TimeStampedModel.Meta):
         ordering = ("product_id", "id")
+        constraints = (
+            # `DATA-MODEL.md` section 4 lists this. `PositiveIntegerField` already implies it, and a
+            # schema that states what the document states is worth the redundancy — it is the
+            # invariant `M4`'s conditional decrement relies on to refuse an oversell.
+            models.CheckConstraint(
+                condition=models.Q(stock_qty__gte=0), name="product_variant_stock_not_negative"
+            ),
+        )
 
     def __str__(self) -> str:
         return f"{self.product.name} ({self.name})"

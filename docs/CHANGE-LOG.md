@@ -6,6 +6,48 @@
 
 ## History
 
+### 2026-10-12 — v0.1.36 — `M3.1`: the cart, behind the bearer token
+
+**What landed.** A `cart` app with `Cart` and `CartItem` built to `DATA-MODEL.md` §2, the four
+endpoints from `API.md` §5, and the authentication `ADR-0017` decided earlier the same day. A cart
+belongs to an account, holds one line per variant, and stores no price at all: prices resolve from
+the variant live, which is what the data model asks for and what leaves `M4` free to snapshot them
+onto the order, where a price that must not move belongs.
+
+**The rules the schema holds rather than the code.** A partial unique index allows one *active* cart
+per user — and does not block the next one after checkout converts it. `(cart, variant)` is unique,
+so adding a variant already on the cart adds to its quantity rather than starting a second line.
+`quantity >= 1` is a check constraint, because removal is an endpoint and a zero line is a row every
+total would have to remember to skip. The variant is `PROTECT`ed, so withdrawing one from the catalog
+is refused while carts hold it instead of silently emptying them. `catalog` gained the
+`stock_qty >= 0` check that `DATA-MODEL.md` §4 lists and `PositiveIntegerField` already implied, so
+the schema now states what the document states — it is the invariant `M4`'s decrement relies on.
+
+**Stock.** A cart line is capped by available stock, and a request above it is refused with `409`
+naming both numbers, which is what `US-3.2` asks for. The check is an affordance and not a guarantee:
+stock moves between the cart and checkout, and `ADR-0017` records that `M4`'s conditional decrement
+inside a transaction is the binding one.
+
+**Concurrency, tested rather than asserted.** Adding takes a row lock on the cart, because two
+concurrent adds of the same variant would otherwise both read the same quantity and write the same
+increment over each other. `test_two_concurrent_adds_do_not_lose_an_increment` runs two real
+connections; it is marked for PostgreSQL, since SQLite ignores `SELECT … FOR UPDATE` and would
+pretend the lock was there — and it closes each thread's connection, which is exactly what its first
+version failed to do, leaving pytest unable to drop the test database afterwards.
+
+**Verified.** 25 API tests and 8 model tests on PostgreSQL; `ruff format`, `ruff check`,
+`basedpyright` 0 errors, `makemigrations --check` clean, and the whole suite green.
+`frontend/openapi.json` was regenerated with the three new paths — Backend CI diffs that snapshot, so
+an endpoint missing from it is a red build rather than a missing type — and
+`test_openapi_documents_every_api_path`, which pins the exact set of documented paths, was updated to
+name them: shipping an endpoint is a decision the contract test should register, not a change it
+should absorb.
+
+**Not here:** the cart UI, which is `M3.2`, and the guest cart, which no longer exists. One path
+departs from `API.md`: `PATCH`/`DELETE` use `/cart/items/{line_id}` rather than `{id}`, so the
+parameter cannot be confused with the `variant_id` in the request body, and `API.md` §5 was updated
+to say so.
+
 ### 2026-10-12 — v0.1.35 — the cart requires sign-in: `D2` reversed before it was built
 
 **The decision.** `ADR-0008` chose a cookie-keyed guest cart merged on login, on the grounds that

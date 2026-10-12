@@ -1,6 +1,26 @@
 {
   "components": {
     "schemas": {
+      "AddItemSchema": {
+        "description": "`POST /cart/items`. One is the default because that is what a product page sends.",
+        "properties": {
+          "quantity": {
+            "default": 1,
+            "minimum": 1,
+            "title": "Quantity",
+            "type": "integer"
+          },
+          "variant_id": {
+            "title": "Variant Id",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "variant_id"
+        ],
+        "title": "AddItemSchema",
+        "type": "object"
+      },
       "AddressCreateSchema": {
         "description": "A new address. `label`, `line2`, `region` and `phone` are optional, as the model has them.\n\nThe lengths are the model's, repeated here so an over-long field is a `400` naming the field\nrather than a database error on PostgreSQL and a silent pass on SQLite \u2014 the difference `M1.2`\nfound the hard way. The required fields also carry a floor of one character: the model declares\nthem non-blank, and nothing in the database refuses `recipient = \"\"`, so without this an address\ncheckout could not use would be stored happily.",
         "properties": {
@@ -285,6 +305,111 @@
           "in_stock_variants"
         ],
         "title": "AvailabilitySchema",
+        "type": "object"
+      },
+      "CartLineSchema": {
+        "description": "One line, priced from the variant as it stands now (`DATA-MODEL.md` section 2).\n\n`available_stock` is here so the quantity stepper can cap itself at the same number the API\nenforces, instead of discovering the limit by being refused.",
+        "properties": {
+          "available_stock": {
+            "title": "Available Stock",
+            "type": "integer"
+          },
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "image_path": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Image Path"
+          },
+          "line_total": {
+            "$ref": "#/components/schemas/MoneySchema"
+          },
+          "product_name": {
+            "title": "Product Name",
+            "type": "string"
+          },
+          "product_slug": {
+            "title": "Product Slug",
+            "type": "string"
+          },
+          "quantity": {
+            "title": "Quantity",
+            "type": "integer"
+          },
+          "sku": {
+            "title": "Sku",
+            "type": "string"
+          },
+          "unit_price": {
+            "$ref": "#/components/schemas/MoneySchema"
+          },
+          "variant_id": {
+            "title": "Variant Id",
+            "type": "integer"
+          },
+          "variant_name": {
+            "title": "Variant Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "variant_id",
+          "product_name",
+          "product_slug",
+          "variant_name",
+          "sku",
+          "unit_price",
+          "line_total",
+          "quantity",
+          "available_stock"
+        ],
+        "title": "CartLineSchema",
+        "type": "object"
+      },
+      "CartSchema": {
+        "description": "The whole cart.\n\n`id` is null when the account has no cart yet, which is a normal state rather than an error:\nreading a cart never creates one, so an empty payload is what a shopper who has added nothing\ngets.",
+        "properties": {
+          "id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Id"
+          },
+          "item_count": {
+            "title": "Item Count",
+            "type": "integer"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/CartLineSchema"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "subtotal": {
+            "$ref": "#/components/schemas/MoneySchema"
+          }
+        },
+        "required": [
+          "id",
+          "item_count",
+          "subtotal"
+        ],
+        "title": "CartSchema",
         "type": "object"
       },
       "CategoryDetailSchema": {
@@ -849,6 +974,21 @@
         "title": "RegisterSchema",
         "type": "object"
       },
+      "SetQuantitySchema": {
+        "description": "`PATCH /cart/items/{line_id}`.\n\nZero is deliberately not a value: removing a line is `US-3.3`'s endpoint, and a stored zero\nwould be a line every total has to remember to skip.",
+        "properties": {
+          "quantity": {
+            "minimum": 1,
+            "title": "Quantity",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "quantity"
+        ],
+        "title": "SetQuantitySchema",
+        "type": "object"
+      },
       "SortOption": {
         "description": "`sort` values from `API.md` section 4. The `-` prefix means descending.\n\nMembers are upper case because `Enum` already defines `name` and `value`; a member named\n`name` would shadow one of them.",
         "enum": [
@@ -1285,6 +1425,156 @@
         "summary": "Create an account",
         "tags": [
           "accounts"
+        ]
+      }
+    },
+    "/api/v1/cart": {
+      "get": {
+        "description": "`US-3.4`. An account with no cart gets an empty payload, and asking creates nothing.",
+        "operationId": "cart_api_get_cart",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CartSchema"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "AccessTokenAuth": []
+          }
+        ],
+        "summary": "Current cart",
+        "tags": [
+          "cart"
+        ]
+      }
+    },
+    "/api/v1/cart/items": {
+      "post": {
+        "description": "`US-3.1`.\n\nAdding a variant that is already on the cart adds to its quantity rather than starting a second\nline, which is what the uniqueness in `DATA-MODEL.md` section 2 means and what the cap below\nthen applies to the total.",
+        "operationId": "cart_api_add_item",
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AddItemSchema"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CartSchema"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "AccessTokenAuth": []
+          }
+        ],
+        "summary": "Add an item",
+        "tags": [
+          "cart"
+        ]
+      }
+    },
+    "/api/v1/cart/items/{line_id}": {
+      "delete": {
+        "description": "`US-3.3`. The cart survives with its remaining lines, and the response is the cart so the\nclient can re-render the totals it just changed.",
+        "operationId": "cart_api_remove_item",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "line_id",
+            "required": true,
+            "schema": {
+              "title": "Line Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CartSchema"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "AccessTokenAuth": []
+          }
+        ],
+        "summary": "Remove a line",
+        "tags": [
+          "cart"
+        ]
+      },
+      "patch": {
+        "description": "`US-3.2`. Above stock is refused rather than quietly capped: the client asked for a number and\nis told it cannot have it, which is the `409` in `API.md` section 5.",
+        "operationId": "cart_api_set_quantity",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "line_id",
+            "required": true,
+            "schema": {
+              "title": "Line Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetQuantitySchema"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CartSchema"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "AccessTokenAuth": []
+          }
+        ],
+        "summary": "Set a line's quantity",
+        "tags": [
+          "cart"
         ]
       }
     },
