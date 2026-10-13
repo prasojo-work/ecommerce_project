@@ -6,6 +6,40 @@
 
 ## History
 
+### 2026-10-13 — v0.1.46 — M4.6: the orders a customer can read back
+
+**What landed.** `GET /orders` and `GET /orders/{number}` (`US-4.5`, `US-4.6`): the history as rows,
+the detail as the receipt the confirmation carried plus its status timeline. In `orders/api.py` the two
+routes, in `orders/schemas.py` the four schemas they answer with; in the browser `src/api/orders.ts` is
+the wire, `src/lib/orders.ts` the status words and the dates (6 tests), and `/orders` and
+`/orders/[number]` the two routes over `order-history-screen.tsx` and `order-detail-screen.tsx`.
+
+**One receipt, two readers.** `POST /orders` and `GET /orders/{number}` answer from the same field
+mapping, so the detail page cannot show an order that differs from the one the confirmation showed;
+only the detail adds the timeline. The history is deliberately not that mapping — a row is a number, a
+date, a status, a count and a total, because naming every line and address for a page of orders is the
+whole receipt repeated to render five fields.
+
+**The scope is the authorisation.** Both routes read the caller's orders by filtering on the caller,
+and there is no "every order" route for the filter to be the wrong half of. The detail answers a `404`
+for a number that is not the caller's — the same body as a number that never existed — rather than a
+`403` that would confirm the number is real, the reasoning the address book already gives.
+
+**Reachable, or it is not delivered.** The header grows an Orders entry beside Cart, and the checkout
+confirmation's order number becomes a link to its detail page — a number the customer can already read
+off the receipt, now also somewhere to go.
+
+**Two corrections the first cut needed.** The aggregate that counts a row's items is invisible to the
+type checker, so `order.item_count` needed the same `pyright: ignore` the account model already
+carries. And a grouped query drops `Order.Meta.ordering`, so the history spells `-created_at, -id` out
+— the first version had no `ORDER BY` at all and answered in whatever order the database returned,
+which is not the same order twice.
+
+**How to run.** Backend: `uv run ruff format --check .`, `uv run ruff check .`, `uv run basedpyright`,
+`uv run pytest`, and the `export_openapi_schema` drift check. Frontend: `pnpm typecheck`, `pnpm lint`,
+`pnpm format:check`, `pnpm test`, `pnpm build`. All green; `openapi.json` carries the two routes and
+the four schemas.
+
 ### 2026-10-13 — v0.1.45 — M4.5: the checkout, and the four places it could have gone wrong
 
 **What landed.** `/checkout` (`US-4.1`-`US-4.4`): one route holding the four steps — address, shipping,

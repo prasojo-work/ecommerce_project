@@ -294,6 +294,7 @@ def test_openapi_documents_every_api_path() -> None:
         "/api/v1/categories/{slug}",
         "/api/v1/credits",
         "/api/v1/orders",
+        "/api/v1/orders/{order_number}",
         "/api/v1/payments/mock/confirm",
         "/api/v1/payments/mock/fail",
         "/api/v1/products",

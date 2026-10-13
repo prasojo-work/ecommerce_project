@@ -117,3 +117,53 @@ class OrderSchema(Schema):
     total: MoneySchema
     shipping_address: OrderShippingAddressSchema
     items: list[OrderItemSchema]
+
+
+class OrderEventSchema(Schema):
+    """One step of an order's status timeline (`API.md` section 6, `US-4.6`).
+
+    No `actor`. The customer-facing timeline answers *what* happened and *when*; who did it is the
+    operator console's question (`US-5.5`, `M5`), and sending an operator's identity to a customer
+    would be a disclosure this page has no use for.
+    """
+
+    from_status: str
+    to_status: str
+    note: str
+    at: datetime
+
+
+class OrderSummarySchema(Schema):
+    """One row of the order history (`US-4.5`).
+
+    Deliberately not `OrderSchema`: a row is a number, a date, a status and a total. Naming the lines
+    and the address for every order on the page would be the whole receipt, twenty-four times over, to
+    render four fields — the same reason `catalog.schemas` keeps its listing and its detail payloads
+    apart.
+    """
+
+    number: str
+    status: str
+    placed_at: datetime
+    item_count: int
+    total: MoneySchema
+
+
+class OrderPageSchema(Schema):
+    """A page of the history, in the envelope every listing here answers with (`API.md` section 4)."""
+
+    items: list[OrderSummarySchema]
+    page: int
+    page_size: int
+    total: int
+
+
+class OrderDetailSchema(OrderSchema):
+    """`GET /orders/{number}`: the order, plus the timeline of how it reached its status.
+
+    Extends `OrderSchema` rather than restating it, so the detail page cannot render an order that
+    differs from the one the confirmation showed: creation and this route answer with the same fields,
+    and only this one adds to them.
+    """
+
+    events: list[OrderEventSchema]

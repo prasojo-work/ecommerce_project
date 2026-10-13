@@ -17,21 +17,28 @@ might well accept.
 
 from __future__ import annotations
 
+from typing import Any
+
 from django.db import IntegrityError
-from ninja import HeaderEx, P, Router, Status
+from django.db.models import Sum
+from ninja import HeaderEx, P, Query, Router, Status
 from ninja.errors import HttpError
 
 from accounts.auth import AuthenticatedRequest, auth
 from accounts.models import Address, User
 from accounts.throttling import AuthenticatedRateThrottle
 from cart.models import Cart, CartItem, CartStatus
-from catalog.schemas import MoneySchema
-from orders.models import Order, OrderItem
+from catalog.schemas import MoneySchema, PageFilters
+from orders.models import Order, OrderEvent, OrderItem
 from orders.schemas import (
     OrderCreateSchema,
+    OrderDetailSchema,
+    OrderEventSchema,
     OrderItemSchema,
+    OrderPageSchema,
     OrderSchema,
     OrderShippingAddressSchema,
+    OrderSummarySchema,
     QuoteRequestSchema,
     QuoteSchema,
     ShippingOptionSchema,
@@ -56,6 +63,7 @@ ONE_ADDRESS = "Provide either `address_id` or `address`, not both."
 NO_SUCH_ADDRESS = "No such address."
 EMPTY_CART = "Your cart is empty, so there is nothing to quote."
 NOTHING_TO_ORDER = "Your cart is empty."
+NO_SUCH_ORDER = "No such order."
 
 
 def money(amount_cents: int, currency: str) -> MoneySchema:
@@ -159,17 +167,22 @@ def quote_checkout(request: AuthenticatedRequest, payload: QuoteRequestSchema) -
     )
 
 
-def _order_schema(order: Order) -> OrderSchema:
-    """The order as the confirmation shows it: totals, where it went, and the lines it holds."""
-    return OrderSchema(
-        number=order.number,
-        status=order.status,
-        email=order.email,
-        placed_at=order.created_at,
-        subtotal=money(order.subtotal_cents, order.currency),
-        shipping=money(order.shipping_cents, order.currency),
-        total=money(order.total_cents, order.currency),
-        shipping_address=OrderShippingAddressSchema(
+def _order_fields(order: Order) -> dict[str, Any]:
+    """An order's own fields, as the receipt and the detail payload both spell them.
+
+    Returned as a mapping rather than as an `OrderSchema` because two schemas are built from it — the
+    receipt `POST /orders` answers with, and `GET /orders/{number}` with a timeline added — and a
+    second copy of these lines is how the two would come to disagree about what a receipt says.
+    """
+    return {
+        "number": order.number,
+        "status": order.status,
+        "email": order.email,
+        "placed_at": order.created_at,
+        "subtotal": money(order.subtotal_cents, order.currency),
+        "shipping": money(order.shipping_cents, order.currency),
+        "total": money(order.total_cents, order.currency),
+        "shipping_address": OrderShippingAddressSchema(
             recipient=order.shipping_recipient,
             line1=order.shipping_line1,
             line2=order.shipping_line2,
@@ -178,7 +191,7 @@ def _order_schema(order: Order) -> OrderSchema:
             postal_code=order.shipping_postal_code,
             country=order.shipping_country,
         ),
-        items=[
+        "items": [
             OrderItemSchema(
                 product_name=item.product_name,
                 variant_name=item.variant_name,
@@ -188,7 +201,12 @@ def _order_schema(order: Order) -> OrderSchema:
             )
             for item in OrderItem.objects.filter(order=order).order_by("id")
         ],
-    )
+    }
+
+
+def _order_schema(order: Order) -> OrderSchema:
+    """The order as the confirmation shows it: totals, where it went, and the lines it holds."""
+    return OrderSchema(**_order_fields(order))
 
 
 @router.post(
@@ -243,3 +261,89 @@ def place_order(
         created = False
 
     return Status(201 if created else 200, _order_schema(order))
+
+
+@router.get(
+    "/orders",
+    response=OrderPageSchema,
+    auth=auth,
+    throttle=[AuthenticatedRateThrottle()],
+    summary="List your orders",
+)
+def list_orders(request: AuthenticatedRequest, filters: Query[PageFilters]) -> OrderPageSchema:
+    """`US-4.5`: the caller's own orders, newest first.
+
+    Scoped by `user`, and that scope *is* the authorisation — there is no "every order" route, so an
+    order belonging to somebody else is not filtered out here, it was never in the set.
+
+    `item_count` is annotated rather than summed in Python: one query for the page instead of one per
+    row, and it is the number the row's "2 items" shows.
+    """
+    queryset = Order.objects.filter(user=request.auth)
+    total = queryset.count()
+    offset = (filters.page - 1) * filters.page_size
+    rows = (
+        queryset.annotate(item_count=Sum("items__quantity"))
+        # Spelled out rather than left to `Order.Meta.ordering`. An aggregate annotation makes this a
+        # grouped query, and Django drops the model's default ordering for one: the first version of
+        # this route had no `ORDER BY` in its SQL at all and answered in whatever order the database
+        # happened to return, which is not the same order twice. The `-id` tiebreaker is here for the
+        # reason `M4.1` gives it — two orders placed in the same instant still need one reading order.
+        .order_by("-created_at", "-id")[offset : offset + filters.page_size]
+    )
+
+    return OrderPageSchema(
+        items=[
+            OrderSummarySchema(
+                number=order.number,
+                status=order.status,
+                placed_at=order.created_at,
+                # `Sum` answers `None` for an order with no lines. `M4.3` always writes at least one,
+                # so this branch is unreachable — but a count is not null, and the schema says so.
+                # `item_count` is an annotation on the queryset, which the type checker cannot see on
+                # the row type; `accounts/models.py` owns this ignore for the same reason.
+                item_count=order.item_count or 0,  # pyright: ignore[reportAttributeAccessIssue]
+                total=money(order.total_cents, order.currency),
+            )
+            for order in rows
+        ],
+        page=filters.page,
+        page_size=filters.page_size,
+        total=total,
+    )
+
+
+@router.get(
+    "/orders/{order_number}",
+    response=OrderDetailSchema,
+    auth=auth,
+    throttle=[AuthenticatedRateThrottle()],
+    summary="Read one of your orders",
+)
+def read_order(request: AuthenticatedRequest, order_number: str) -> OrderDetailSchema:
+    """`US-4.6`: one order — its lines, where it went, its totals, and how it reached its status.
+
+    A `404` for an order that is not the caller's rather than a `403`. The number is unguessable
+    (`generate_order_number`), and a refusal that distinguished "yours but missing" from "somebody
+    else's" would confirm that the second one exists — the reasoning `accounts/addresses_api.py` gives
+    for an address.
+
+    The timeline is read in the order `M4.1` wrote it (`OrderEvent.Meta.ordering`, chronological), so
+    the page shows the events in the sequence they happened rather than the reverse.
+    """
+    order = Order.objects.filter(user=request.auth, number=order_number).first()
+    if order is None:
+        raise HttpError(404, NO_SUCH_ORDER)
+
+    return OrderDetailSchema(
+        **_order_fields(order),
+        events=[
+            OrderEventSchema(
+                from_status=event.from_status,
+                to_status=event.to_status,
+                note=event.note,
+                at=event.created_at,
+            )
+            for event in OrderEvent.objects.filter(order=order)
+        ],
+    )

@@ -543,7 +543,12 @@ export function CheckoutScreen() {
           <h3 className="mt-8 text-lg">Delivering to</h3>
           <p className="mt-3 text-sm text-muted">{postalLine(order.shipping_address)}</p>
 
-          <p className="mt-8">
+          <p className="mt-8 flex flex-wrap gap-x-6 gap-y-2">
+            {/* Now that `/orders/[number]` exists (`M4.6`), the number the confirmation just named
+                is somewhere to go rather than dead text. */}
+            <Link href={`/orders/${order.number}`} className="min-h-11 text-primary underline">
+              View your order
+            </Link>
             <Link href="/products" className="min-h-11 text-primary underline">
               Back to the catalog
             </Link>

@@ -17,8 +17,8 @@ import { useSession } from "@/components/session-provider";
  * account — it holds the row's height and stays quiet. Showing "Sign in" would flash at a signed-in
  * customer, and showing the account would be a lie for the same instant.
  *
- * The cart entry sits beside the account one and reads the same three states, which is why the nav
- * is labelled for both rather than for the account alone.
+ * The cart and orders entries sit beside the account one and read the same three states, which is
+ * why the nav is labelled for all three rather than for the account alone.
  */
 export function SiteHeader() {
   const { status, user, signOut } = useSession();
@@ -30,12 +30,17 @@ export function SiteHeader() {
           LYSHEIM
         </Link>
 
-        <nav aria-label="Account and cart" className="flex items-center gap-4 text-sm">
+        <nav aria-label="Account, cart, and orders" className="flex items-center gap-4 text-sm">
           <CartLink />
           {status === "restoring" ? (
             <span className="inline-block h-5 min-w-40" aria-hidden="true" />
           ) : status === "authenticated" && user !== null ? (
             <>
+              {/* The orders entry (`UX.md` flow E), the way to reach the history without typing the
+                  URL, shown in the same authenticated state the cart is. */}
+              <Link href="/orders" className="inline-flex min-h-11 items-center">
+                Orders
+              </Link>
               {/* The account entry `UX.md` section 3 asks for, and the only way to reach `/account`
                   without typing the URL. */}
               <Link href="/account" className="inline-flex min-h-11 items-center">

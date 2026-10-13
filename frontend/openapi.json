@@ -726,6 +726,98 @@
         "title": "OrderCreateSchema",
         "type": "object"
       },
+      "OrderDetailSchema": {
+        "description": "`GET /orders/{number}`: the order, plus the timeline of how it reached its status.\n\nExtends `OrderSchema` rather than restating it, so the detail page cannot render an order that\ndiffers from the one the confirmation showed: creation and this route answer with the same fields,\nand only this one adds to them.",
+        "properties": {
+          "email": {
+            "title": "Email",
+            "type": "string"
+          },
+          "events": {
+            "items": {
+              "$ref": "#/components/schemas/OrderEventSchema"
+            },
+            "title": "Events",
+            "type": "array"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/OrderItemSchema"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "number": {
+            "title": "Number",
+            "type": "string"
+          },
+          "placed_at": {
+            "format": "date-time",
+            "title": "Placed At",
+            "type": "string"
+          },
+          "shipping": {
+            "$ref": "#/components/schemas/MoneySchema"
+          },
+          "shipping_address": {
+            "$ref": "#/components/schemas/OrderShippingAddressSchema"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "subtotal": {
+            "$ref": "#/components/schemas/MoneySchema"
+          },
+          "total": {
+            "$ref": "#/components/schemas/MoneySchema"
+          }
+        },
+        "required": [
+          "number",
+          "status",
+          "email",
+          "placed_at",
+          "subtotal",
+          "shipping",
+          "total",
+          "shipping_address",
+          "items",
+          "events"
+        ],
+        "title": "OrderDetailSchema",
+        "type": "object"
+      },
+      "OrderEventSchema": {
+        "description": "One step of an order's status timeline (`API.md` section 6, `US-4.6`).\n\nNo `actor`. The customer-facing timeline answers *what* happened and *when*; who did it is the\noperator console's question (`US-5.5`, `M5`), and sending an operator's identity to a customer\nwould be a disclosure this page has no use for.",
+        "properties": {
+          "at": {
+            "format": "date-time",
+            "title": "At",
+            "type": "string"
+          },
+          "from_status": {
+            "title": "From Status",
+            "type": "string"
+          },
+          "note": {
+            "title": "Note",
+            "type": "string"
+          },
+          "to_status": {
+            "title": "To Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "from_status",
+          "to_status",
+          "note",
+          "at"
+        ],
+        "title": "OrderEventSchema",
+        "type": "object"
+      },
       "OrderItemSchema": {
         "description": "A line as the receipt shows it \u2014 the snapshot, never a live `ProductVariant`.",
         "properties": {
@@ -756,6 +848,38 @@
           "line_total"
         ],
         "title": "OrderItemSchema",
+        "type": "object"
+      },
+      "OrderPageSchema": {
+        "description": "A page of the history, in the envelope every listing here answers with (`API.md` section 4).",
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/OrderSummarySchema"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "page": {
+            "title": "Page",
+            "type": "integer"
+          },
+          "page_size": {
+            "title": "Page Size",
+            "type": "integer"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "items",
+          "page",
+          "page_size",
+          "total"
+        ],
+        "title": "OrderPageSchema",
         "type": "object"
       },
       "OrderSchema": {
@@ -854,6 +978,40 @@
           "country"
         ],
         "title": "OrderShippingAddressSchema",
+        "type": "object"
+      },
+      "OrderSummarySchema": {
+        "description": "One row of the order history (`US-4.5`).\n\nDeliberately not `OrderSchema`: a row is a number, a date, a status and a total. Naming the lines\nand the address for every order on the page would be the whole receipt, twenty-four times over, to\nrender four fields \u2014 the same reason `catalog.schemas` keeps its listing and its detail payloads\napart.",
+        "properties": {
+          "item_count": {
+            "title": "Item Count",
+            "type": "integer"
+          },
+          "number": {
+            "title": "Number",
+            "type": "string"
+          },
+          "placed_at": {
+            "format": "date-time",
+            "title": "Placed At",
+            "type": "string"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "total": {
+            "$ref": "#/components/schemas/MoneySchema"
+          }
+        },
+        "required": [
+          "number",
+          "status",
+          "placed_at",
+          "item_count",
+          "total"
+        ],
+        "title": "OrderSummarySchema",
         "type": "object"
       },
       "PageFilters": {
@@ -2113,6 +2271,56 @@
       }
     },
     "/api/v1/orders": {
+      "get": {
+        "description": "`US-4.5`: the caller's own orders, newest first.\n\nScoped by `user`, and that scope *is* the authorisation \u2014 there is no \"every order\" route, so an\norder belonging to somebody else is not filtered out here, it was never in the set.\n\n`item_count` is annotated rather than summed in Python: one query for the page instead of one per\nrow, and it is the number the row's \"2 items\" shows.",
+        "operationId": "orders_api_list_orders",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "page",
+            "required": false,
+            "schema": {
+              "default": 1,
+              "minimum": 1,
+              "title": "Page",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "page_size",
+            "required": false,
+            "schema": {
+              "default": 24,
+              "maximum": 100,
+              "minimum": 1,
+              "title": "Page Size",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OrderPageSchema"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "AccessTokenAuth": []
+          }
+        ],
+        "summary": "List your orders",
+        "tags": [
+          "orders"
+        ]
+      },
       "post": {
         "description": "`US-4.4`: turn the cart into an order, reserving its stock and starting a payment.\n\n`201` when this request made the order, `200` when an `Idempotency-Key` it had already seen\nanswered from the row that key produced \u2014 the same body either way, so a client retrying a submit\nwhose answer it never saw can take the first response as final.\n\n`409` for the states of the *cart* that checkout cannot sell: empty, holding something no longer\nfor sale, or holding more of a variant than is left. Each reads as the cart's problem rather than\nthe request's, which is why none is a `400`.",
         "operationId": "orders_api_place_order",
@@ -2172,6 +2380,44 @@
           }
         ],
         "summary": "Place an order",
+        "tags": [
+          "orders"
+        ]
+      }
+    },
+    "/api/v1/orders/{order_number}": {
+      "get": {
+        "description": "`US-4.6`: one order \u2014 its lines, where it went, its totals, and how it reached its status.\n\nA `404` for an order that is not the caller's rather than a `403`. The number is unguessable\n(`generate_order_number`), and a refusal that distinguished \"yours but missing\" from \"somebody\nelse's\" would confirm that the second one exists \u2014 the reasoning `accounts/addresses_api.py` gives\nfor an address.\n\nThe timeline is read in the order `M4.1` wrote it (`OrderEvent.Meta.ordering`, chronological), so\nthe page shows the events in the sequence they happened rather than the reverse.",
+        "operationId": "orders_api_read_order",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "order_number",
+            "required": true,
+            "schema": {
+              "title": "Order Number",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OrderDetailSchema"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "AccessTokenAuth": []
+          }
+        ],
+        "summary": "Read one of your orders",
         "tags": [
           "orders"
         ]

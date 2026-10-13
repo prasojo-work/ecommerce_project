@@ -141,6 +141,13 @@ totals, the shipping-address snapshot and its lines. Order creation is **idempot
 answers `200` with the order it produced. Its `409`s are the cart states checkout cannot sell —
 empty, holding something no longer for sale, or holding more of a variant than is left.
 
+`GET /orders` answers the caller's orders newest first, one page at a time, in the envelope every
+listing here uses. `GET /orders/{number}` answers one order — the body the confirmation carried, plus
+its status timeline. Both are scoped to the caller by the query itself, and that scope *is* the
+authorisation: there is no "every order" route, so an order belonging to somebody else is never in the
+set to be filtered out. `GET /orders/{number}` answers the same `404` for a number that is not the
+caller's as for one that never existed, because a `403` would confirm the number is real.
+
 ## 7. Payments (mock)
 
 | Method | Path | Auth | Purpose |

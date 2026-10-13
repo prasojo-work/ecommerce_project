@@ -128,7 +128,14 @@ Status legend: `[ ]` planned · `[~]` in progress · `[x]` done.
   failure to be reachable rather than hoped for); and the confirmation reports the order's own status,
   which the capture decided. The cart's disabled "Proceed to checkout" is now a link to it — which was
   that control's stated reason for being disabled.
-- [ ] `M4.6` Order history and order-detail pages.
+- [x] `M4.6` Order history and order-detail pages — `/orders` and `/orders/[number]`. Both read the
+  caller's *own* orders, and that scope is the authorisation rather than a filter applied afterwards,
+  so an order belonging to somebody else is not hidden here, it was never in the set — and the detail
+  answers the same `404` for it as for a number that never existed, the refusal the address book
+  already gives. The history answers with rows (a number, a date, a status, a count and a total) and
+  the detail with the receipt the confirmation showed plus its `OrderEvent` timeline read forwards,
+  because a status on its own says where an order is and not how it got there. The header's Orders
+  entry and the checkout confirmation's "View your order" are the two ways in.
 
 ### M5 — Operator console
 
