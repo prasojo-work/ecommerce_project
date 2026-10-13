@@ -6,6 +6,35 @@
 
 ## History
 
+### 2026-10-13 — v0.1.45 — M4.5: the checkout, and the four places it could have gone wrong
+
+**What landed.** `/checkout` (`US-4.1`-`US-4.4`): one route holding the four steps — address, shipping,
+payment, confirmation. `src/api/checkout.ts` is the wire, `src/lib/checkout.ts` is the sequence and the
+address rule (13 tests), and `checkout-screen.tsx` is the screen. The cart's disabled "Proceed to
+checkout" — the placeholder that said it was waiting for somewhere to go — is now a link to it.
+
+**One route, not four.** A half-finished order is not a page anyone can be linked to, reload into or
+share, so there is nothing for a URL to mean. Keeping the steps in one component also keeps the chosen
+address and the chosen method in scope when the payment is taken, instead of passing them through a
+query string the customer could edit.
+
+**The build caught what the tests could not.** `useRef(newIdempotencyKey())` ran during render, so
+`crypto.randomUUID()` was evaluated while the page was being prerendered — and `next build` refuses an
+unstable value in a Client Component outright. The key is now made on the click that needs it, which is
+also the only moment it means anything. `pnpm test` was green throughout; only `pnpm build` was not, and
+it named the line. That is the case for keeping the build in the gates rather than trusting the suite.
+
+**A replay is not a second order.** Placing and settling are two calls, so the first can land while the
+second's response is lost — the customer sees a failure, presses again, and `Idempotency-Key` answers
+with the *same* order. Settling it twice is a `409`, which would be reported to someone who has already
+paid. `needsSettlement` reads the order's own status instead, so a retry is quiet and correct.
+
+**Both mock outcomes are controls.** A decline cancels the order and returns its stock, and the
+confirmation says so; a failed settle leaves the customer on the payment step with the buttons still
+live, which is the "payment failure with retry" `UX.md` flow C asks for.
+**How to run:** `pnpm typecheck`, `pnpm lint`, `pnpm format:check`, `pnpm test` (132 passing) and
+`pnpm build` — all green. No API changed, so the backend gates and `openapi.json` are untouched.
+
 ### 2026-10-13 — v0.1.44 — one item filed, one explanation retired
 
 **A new plan item, from the cloud check.** `M6.4` now carries the fix for `M4.4`'s blind spot: a

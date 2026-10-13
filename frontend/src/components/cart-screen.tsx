@@ -257,20 +257,15 @@ export function CartScreen() {
           </div>
         </dl>
 
-        {/* The placeholder `M4` replaces, in the same voice as the one `M1.6` left on the product
-            page: `US-3.4` asks for a proceed-to-checkout action, and there is nowhere to proceed to
-            until checkout exists. A disabled control with its reason stated beats a link to a 404. */}
-        <button
-          type="button"
-          disabled
-          aria-describedby="checkout-note"
-          className="mt-6 inline-flex min-h-11 w-full items-center justify-center rounded-lg bg-primary px-6 text-primary-ink disabled:opacity-60"
+        {/* `US-3.4`'s proceed-to-checkout action, which `M4.5` gave somewhere to go. It was the
+            disabled control with its reason stated for as long as it took `/checkout` to exist; now
+            there is a page behind it, so it is a link. */}
+        <Link
+          href="/checkout"
+          className="mt-6 inline-flex min-h-11 w-full items-center justify-center rounded-lg bg-primary px-6 text-primary-ink"
         >
           Proceed to checkout
-        </button>
-        <p id="checkout-note" className="mt-2 text-sm text-muted">
-          Checkout isn&apos;t open yet.
-        </p>
+        </Link>
       </aside>
     </div>
   );

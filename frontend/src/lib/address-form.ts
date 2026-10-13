@@ -233,7 +233,14 @@ export function fieldErrors(details: FieldIssue[]): FieldMessages {
   return errors;
 }
 
-function cleaned(values: AddressValues) {
+/**
+ * The trimmed, normalised values every payload built from this form shares — including the
+ * checkout's (`M4.5`), which sends the same fields with `label` left out.
+ *
+ * Exported rather than private because a second copy of these rules is a second place the country
+ * could stay lower-case, and `API.md` section 6 would then see one country spelled two ways.
+ */
+export function cleanedAddress(values: AddressValues) {
   return {
     label: values.label.trim(),
     recipient: values.recipient.trim(),
@@ -250,7 +257,7 @@ function cleaned(values: AddressValues) {
 }
 
 export function toCreatePayload(values: AddressValues): AddressCreatePayload {
-  return { ...cleaned(values), is_default: values.isDefault };
+  return { ...cleanedAddress(values), is_default: values.isDefault };
 }
 
 /**
@@ -261,7 +268,7 @@ export function toCreatePayload(values: AddressValues): AddressCreatePayload {
  * control that lies about what it does.
  */
 export function toUpdatePayload(values: AddressValues): AddressUpdatePayload {
-  return cleaned(values);
+  return cleanedAddress(values);
 }
 
 /** What a card leads with: the label if the customer gave one, otherwise who it is for. */

@@ -120,7 +120,14 @@ Status legend: `[ ]` planned · `[~]` in progress · `[x]` done.
   once an order is `paid` and never on a decline, taking the order's **id** rather than the object so it
   would survive a real queue, and sending through a mailer that reaches no server (`locmem` in dev and
   tests, `dummy` in production so nothing accumulates).
-- [ ] `M4.5` Checkout UI: address → shipping → payment → confirmation.
+- [x] `M4.5` Checkout UI: address → shipping → payment → confirmation — **one** `/checkout` route
+  holding all four steps, because a half-finished order is not a page anyone can be linked to, reload
+  into or share, so there is nothing for a URL to mean. The address step offers a saved address or the
+  address book's own form; the shipping step renders the API's options with the total each produces;
+  the payment step reviews the address and the total before either mock outcome (`US-4.3` asks for
+  failure to be reachable rather than hoped for); and the confirmation reports the order's own status,
+  which the capture decided. The cart's disabled "Proceed to checkout" is now a link to it — which was
+  that control's stated reason for being disabled.
 - [ ] `M4.6` Order history and order-detail pages.
 
 ### M5 — Operator console
