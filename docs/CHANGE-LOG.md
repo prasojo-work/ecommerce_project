@@ -6,6 +6,20 @@
 
 ## History
 
+### 2026-10-13 — v0.1.44 — one item filed, one explanation retired
+
+**A new plan item, from the cloud check.** `M6.4` now carries the fix for `M4.4`'s blind spot: a
+`task_finished` receiver that logs a failed task. Filed rather than built, because it belongs with the
+observability work instead of bolted onto the increment that revealed it — but written down now, while
+the reason is still concrete.
+
+**And an explanation retired.** The open rate-limit action in `RUNBOOK.md` §8 blamed the dashboard's
+`NINJA_NUM_PROXIES` value. The founder checked it — it **is** `2` — and redeployed, and the limit still
+does not count. So the value is wrong rather than overridden, and `2` counts infrastructure instead of
+the visitor. The action is rewritten to say that, and to say how to settle it: log the resolved ident
+once and read it out of Render's logs, rather than reasoning the number out a third time.
+**How to run:** nothing; a roadmap item and a corrected diagnosis.
+
 ### 2026-10-13 — v0.1.43 — the checkout, verified where it actually runs
 
 **What was done.** The `M4` checkout path was driven end to end against the deployed stack — not the

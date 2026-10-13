@@ -1344,11 +1344,22 @@ code default alike.
 > default applies, then redeploy. Expected afterwards: fifteen rapid attempts end in `429`s from the
 > eleventh, and a forged `X-Forwarded-For` prefix does not open a bucket of its own.
 >
-> **Still open on 2026-10-13**, re-checked against the `M4` deploy: fifteen rapid `POST /auth/login`
-> with a wrong password produced fifteen `401`s and no `429`, so the limit is still keyed on something
-> that changes between requests. The rate is `10/min` and the cache is a single process, so a stable key
-> could not miss. `render.yaml` does not set `NINJA_NUM_PROXIES` at all — which leaves the dashboard as
-> the only place a wrong value can be coming from.
+> **Still open on 2026-10-13**, re-checked three times against the `M4` deploy. Fifteen rapid
+> `POST /auth/login` with a wrong password produced fifteen `401`s and no `429`; then it was confirmed
+> that the dashboard's `NINJA_NUM_PROXIES` **is** `2` and the service was redeployed, and a third check
+> gave the same fifteen `401`s. The dashboard-override explanation is therefore dead — and with it the
+> assumption that `2` is the right number.
+>
+> Ninja indexes the comma-split header as `addrs[-min(num_proxies, len(addrs))]`, so `2` counts the
+> *second* entry from the right. For the limit to miss, that entry has to change between requests, which
+> means it is infrastructure rather than the visitor: the chain carries more hops than the two
+> Cloudflare-then-Render assumed here. MDN states the general rule — with *N* proxies the last *N-1*
+> entries are internal — so the value is probably `3`, and almost certainly not `2`.
+>
+> **Do not reason the number out a third time; measure it.** Log the resolved ident (or the raw header)
+> once from the running instance, read it in Render's logs, and set `NINJA_NUM_PROXIES` to the position
+> the visitor actually occupies. This is the same lesson as §7.8: the deployed API gets measured, not
+> reasoned about, because every test and every `docker compose up` passes while the wiring is wrong.
 
 The correction itself is pinned by
 `tests/test_accounts_api.py::test_the_counted_address_is_the_client_and_not_a_hop_in_front_of_it`;

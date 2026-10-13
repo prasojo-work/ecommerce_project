@@ -137,6 +137,10 @@ Status legend: `[ ]` planned · `[~]` in progress · `[x]` done.
 - [ ] `M6.3` Security hardening (CSP, headers, throttles, secret guard, dependency audit) and the
   end-to-end error-envelope + request-id verification → `SECURITY-REVIEW.md`.
   *(merges the old `M6.4` + `M6.5`)*
+- [ ] `M6.4` Observability: a `task_finished` receiver that logs a failed task. Django 6's `immediate`
+  backend catches a task's exception onto its `TaskResult` instead of raising it, so a broken
+  confirmation email leaves the request green and the logs empty — silent from both outside and in
+  (`M4.4`, `RUNBOOK.md` §7.8).
 
 ### M7 — Launch
 
