@@ -1343,6 +1343,12 @@ code default alike.
 > **Action on Render's dashboard:** set `NINJA_NUM_PROXIES` to `2`, or delete it so `prod.py`'s
 > default applies, then redeploy. Expected afterwards: fifteen rapid attempts end in `429`s from the
 > eleventh, and a forged `X-Forwarded-For` prefix does not open a bucket of its own.
+>
+> **Still open on 2026-10-13**, re-checked against the `M4` deploy: fifteen rapid `POST /auth/login`
+> with a wrong password produced fifteen `401`s and no `429`, so the limit is still keyed on something
+> that changes between requests. The rate is `10/min` and the cache is a single process, so a stable key
+> could not miss. `render.yaml` does not set `NINJA_NUM_PROXIES` at all — which leaves the dashboard as
+> the only place a wrong value can be coming from.
 
 The correction itself is pinned by
 `tests/test_accounts_api.py::test_the_counted_address_is_the_client_and_not_a_hop_in_front_of_it`;
