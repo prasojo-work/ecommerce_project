@@ -35,7 +35,12 @@ event emission) does not block HTTP requests.
 ## Consequences
 
 - No broker to run or pay for; fewer moving parts on free tiers.
-- A worker process is needed to execute tasks in production (a Render background worker).
+- **Correction (2026-10-13, `M4.4`): there is no worker process, and v1 needs none.** The original
+  note here said "a worker process is needed to execute tasks in production". Django 6 ships only the
+  `immediate` and `dummy` task backends, so `immediate` runs a task in the process that enqueued it and
+  the single Render web service is enough — which is what `render.yaml` deploys and what `RUNBOOK.md`
+  §7 documents. A *queue-backed* backend is what would add a worker service, and adding one swaps a
+  setting rather than rewriting the callers. The decision itself is unchanged and in force.
 - The codebase mixes sync and async intentionally; a short convention note is added to the
   backend README so contributors know when to choose which.
 - Uses a genuinely modern Django capability, which is itself portfolio value.

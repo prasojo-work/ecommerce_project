@@ -44,8 +44,7 @@ graph TB
     Web[Next.js web app<br/>Vercel edge + Node runtime]
   end
   subgraph Server[Render]
-    API[Django 6 + Ninja API<br/>ASGI / Uvicorn]
-    Worker[Django Tasks worker<br/>background jobs]
+    API[Django 6 + Ninja API<br/>ASGI / Uvicorn, with in-process Tasks]
   end
   DB[(Supabase PostgreSQL)]
   CDN[Static assets / image CDN]
@@ -53,18 +52,20 @@ graph TB
   Web -->|REST JSON| API
   Web --> CDN
   API --> DB
-  Worker --> DB
-  API -.->|enqueue| Worker
 ```
 
 | Container | Responsibility | Technology | Hosted on |
 |---|---|---|---|
 | Web app | Storefront + account + checkout UI | Next.js (App Router, RSC, TypeScript) | Vercel |
-| API | Domain logic, auth, REST endpoints | Django 6 + Django Ninja (ASGI) | Render |
-| Worker | Off-request jobs (emails, Phase 2 events) | Django 6 Tasks framework | Render |
+| API | Domain logic, auth, REST endpoints, off-request jobs | Django 6 + Django Ninja (ASGI) | Render |
 | Database | System of record | PostgreSQL | Supabase |
 | Admin | Operator console for catalog/stock/orders | Django admin (server-rendered) | Render |
 | Static assets | Curated product images | Next.js static / object storage | Vercel |
+
+Background jobs — the order-confirmation email today, Phase 2 event emission later — are **not a
+container**. Django 6 ships only the `immediate` and `dummy` task backends, so a task runs in the web
+process that enqueued it and one Render service is enough (`ADR-0006`). A queue-backed backend would
+add a service; it would not change the callers.
 
 ## 4. Domain & bounded contexts (DDD-lite)
 

@@ -6,6 +6,24 @@
 
 ## History
 
+### 2026-10-13 — v0.1.42 — docs: the worker that was never there
+
+**What was wrong.** `ARCHITECTURE.md` §3 drew a `Worker` container and listed it in the container
+table; `ADR-0006`'s consequences said a worker process is needed in production (a Render background
+worker); `ROADMAP.md` `M7.1` promised to deploy one; `TODO_cloud-engineer.md` named it as a target. None
+of it was true. `render.yaml` declares a single `type: web` service, and Django 6 ships only the
+`immediate` and `dummy` task backends — so `immediate` runs a task in the web process that enqueued it,
+and there has never been a queue for a worker to consume or a second service to host one.
+
+**What changed.** The §3 diagram and its table now show one Render service carrying the off-request
+jobs, with a paragraph saying why; `M7.1` and the cloud TODO match reality. `ADR-0006` keeps its
+original wording and carries a dated correction beside it, because `ADR-0000` permits only the status
+line to change later and a decision record that quietly rewrites itself stops being a record.
+
+**Deliberately left alone.** `ARCHITECTURE.md` §9 still has a worker draining a queue — that is Phase 2's
+ingestion outline, a design for work that does not exist yet rather than a claim about the deploy.
+**How to run:** nothing; documentation only.
+
 ### 2026-10-13 — v0.1.41 — `M4.4`: the receipt, off the request path
 
 **What landed.** The order-confirmation email, as a `Task` (`ADR-0006`). `orders/tasks.py` holds it and

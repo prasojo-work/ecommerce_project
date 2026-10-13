@@ -7,7 +7,7 @@
 ## Context
 
 - Goal: a publicly reachable demo at zero cost (`GOAL-1`, `NFR-8`).
-- Targets: Vercel (web), Render (API + worker), Supabase (Postgres), Upstash (Phase 2).
+- Targets: Vercel (web), Render (API), Supabase (Postgres), Upstash (Phase 2).
 - Constraint: solo operator; minimise manual ops; keep the platform portable.
 
 ## Design Items

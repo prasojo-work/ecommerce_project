@@ -142,7 +142,7 @@ Status legend: `[ ]` planned · `[~]` in progress · `[x]` done.
 
 `M7` is thin by design: `M2.7` already stood up the deploy, so this is the hardened, final one.
 
-- [ ] `M7.1` Production deploy — Render web **and** worker, Supabase, Vercel; run migrations and
+- [ ] `M7.1` Production deploy — Render web, Supabase, Vercel; run migrations and
   seed the demo database.
 - [ ] `M7.2` Production smoke journey + keep-alive ping; finalise the runbook.
 - [ ] `M7.3` README with screenshots, architecture diagram, and the live URL.
