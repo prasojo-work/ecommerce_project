@@ -6,6 +6,66 @@
 
 ## History
 
+### 2026-10-13 — v0.1.47 — `M4` closes: the retrospective
+
+`M4`'s exit criterion is "order created, paid, history shown", and that path now runs end to end: the
+quote prices a cart, creation reserves its stock and answers one order per idempotency key, the mock
+capture moves it to `paid` and enqueues its receipt, and `/orders` reads it back. Six increments,
+committed and green; `ROADMAP.md` §2 marks `M4` `[x]`.
+
+**The milestone's spine was decided before any of it was built.** `ADR-0017` reversed the cart to
+require sign-in and, with it, moved the binding race-safe stock decrement from capture to *order
+creation* — which is what made `M4.3` one transaction instead of two, and deleted an increment from
+`M3`. Everything after had to respect that one place: `M4.2` prices *without* checking stock, because a
+second, weaker check elsewhere could only disagree with the transaction that binds; `M4.3`'s cancel
+releases the reservation, so a decline cannot shrink the shop; and `M4.2` corrected `API.md` §6 to
+`access` where the pre-reversal contract still said "optional".
+
+**A receipt is not a cart.** `M4.1` snapshots what was bought rather than referencing it, and turns on
+the `SET_NULL`/`PROTECT` line between the two: a cart is live intent, so withdrawing a SKU may not
+silently rearrange one, while an order is evidence, so neither may it be deleted. The money arithmetic
+(`total = subtotal + shipping`, `line_total = unit_price × quantity`) is a `CheckConstraint` rather
+than code that happens to agree.
+
+**The interface was the decision, three times.** The quote prices and creation sells; the four checkout
+steps live in one route because a half-finished order has nothing for a URL to mean; and the history and
+detail make the caller's scope the authorisation, so a foreign order is the same `404` as one that never
+existed rather than a `403` that would confirm it does.
+
+**What the code proved, in the order it bit:**
+
+1. **A gate is only a gate over what it includes.** `basedpyright`'s `include` named five directories
+   but not `cart` or `orders`, so `M3.1`'s "0 errors" was true of code the gate had never opened.
+   `M4.2` added both, and the first run found the implicit-`order_id` reads `ADR-0014` predicts. The
+   same lesson `M3` learned about a suite that passed for the wrong reason, one layer down.
+2. **Some claims can only be checked off the machine that wrote them.** `M4.3`'s "stock, order and
+   payment land together" is a claim about three rows in one transaction, and no test sharing a process
+   with the code can show it. Driving the *deployed* stack showed the rows, the `200` replay of an
+   idempotency key, and the second capture's `409` — and found what an in-process test could not:
+   `M4.4`'s receipt fails *silently* (`immediate` catches the exception onto an unread `TaskResult`,
+   the production mailer discards by design), so a customer would get no confirmation and the logs
+   would say nothing. Written into `RUNBOOK.md` §7.8 and filed as `M6.4`.
+3. **The build is a gate.** `M4.5`'s idempotency key was minted during render, which `pnpm test` was
+   content with and `next build` refused outright — the same shape as (1), at the top of the stack.
+
+**Where the documents had drifted from the code, the milestone corrected them:** `ARCHITECTURE.md` §6
+moved the decrement to creation (`ADR-0017`), §3 and `M7.1` lost a worker that never existed, and
+`RUNBOOK.md` §8 retired a rate-limit explanation the founder had by now disproved. A gate is also where
+the documents are held to what actually runs.
+
+**Risk register, re-scored at the gate.** No risk changed status. The one this milestone touched is
+`RISK-6` (async complexity): `M4.4`'s tasks are the first async hop, and their silent-failure mode is
+that risk in miniature — it already has its response filed (`M6.4`) and written down (`RUNBOOK.md`
+§7.8).
+
+**Evidence.** Backend **306** tests against PostgreSQL (260 at `M4.2`); `ruff format --check`,
+`ruff check`, `basedpyright` (0 errors, over `cart` and `orders` for the first time) and the
+`export_openapi_schema` drift check green. The contract test `test_openapi_documents_every_api_path`
+grew by each of `M4`'s paths as they landed. Frontend **141** tests (119 at `M3`); `tsc --noEmit`,
+`eslint`, `prettier` and `next build` green, with `/checkout`, `/orders` and `/orders/[number]` among
+the built routes. The end-to-end evidence is `v0.1.43` (the deployed checkout) and `M4.6`'s API suite;
+the browser sign-in journey remains the one step that needs a person, as `M2.7` first noted.
+
 ### 2026-10-13 — v0.1.46 — M4.6: the orders a customer can read back
 
 **What landed.** `GET /orders` and `GET /orders/{number}` (`US-4.5`, `US-4.6`): the history as rows,
