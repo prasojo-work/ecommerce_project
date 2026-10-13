@@ -1,11 +1,7 @@
-import createClient from "openapi-fetch";
-
-import { authorizedFetch } from "@/api/auth";
 import { asFailure, messageForFailure, type ApiFailure } from "@/lib/api-failure";
 import { setCart, setCartFailure, type Cart } from "@/lib/cart";
-import { getApiBaseUrl } from "@/lib/config";
 
-import type { paths } from "./schema";
+import { createAuthorizedClient } from "./transport";
 
 /**
  * The cart's four endpoints (`API.md` section 5, `US-3.1`-`US-3.4`).
@@ -21,17 +17,7 @@ import type { paths } from "./schema";
 
 export type CartOutcome = { ok: true; cart: Cart } | ApiFailure;
 
-/** See `api/account.ts`: a `Request` does not spread, and a streamed body cannot be retried. */
-async function send(request: Request): Promise<Response> {
-  const bodiless = request.method === "GET" || request.method === "DELETE";
-  return authorizedFetch(request.url, {
-    method: request.method,
-    headers: request.headers,
-    body: bodiless ? undefined : await request.text(),
-  });
-}
-
-const client = createClient<paths>({ baseUrl: getApiBaseUrl(), fetch: send });
+const client = createAuthorizedClient();
 
 /**
  * The caller's cart (`US-3.4`), and the read the header's count comes from.

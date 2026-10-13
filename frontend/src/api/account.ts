@@ -1,11 +1,8 @@
-import createClient from "openapi-fetch";
-
-import { authorizedFetch } from "@/api/auth";
 import { asFailure, type ApiFailure } from "@/lib/api-failure";
-import { getApiBaseUrl } from "@/lib/config";
 import { getSession, setSession, type SessionUser } from "@/lib/session";
 
-import type { components, paths } from "./schema";
+import type { components } from "./schema";
+import { createAuthorizedClient } from "./transport";
 
 /**
  * The account's own endpoints (`US-2.4`, `US-2.5`) — the first in the app that need a token, and
@@ -25,28 +22,7 @@ export type AddressOutcome = { ok: true; address: Address } | ApiFailure;
 export type ProfileOutcome = { ok: true; user: SessionUser } | ApiFailure;
 export type DeletedOutcome = { ok: true } | ApiFailure;
 
-/**
- * Hand openapi-fetch's request to `authorizedFetch`.
- *
- * Two details, both of which produce a silent failure rather than an error:
- *
- * - **A `Request` is not spreadable.** `{ ...request }` yields an empty object, so the method and the
- *   body would be dropped and every `POST` would arrive as a bodiless `GET`-shaped request. The parts
- *   are copied explicitly instead.
- * - **The body is read to text rather than streamed.** `authorizedFetch` retries once after renewing
- *   the token, and a stream can only be read once — a streamed body would make the retry send
- *   nothing at all, so a call that collided with an expired token would fail for the wrong reason.
- */
-async function send(request: Request): Promise<Response> {
-  const bodiless = request.method === "GET" || request.method === "DELETE";
-  return authorizedFetch(request.url, {
-    method: request.method,
-    headers: request.headers,
-    body: bodiless ? undefined : await request.text(),
-  });
-}
-
-const client = createClient<paths>({ baseUrl: getApiBaseUrl(), fetch: send });
+const client = createAuthorizedClient();
 
 /**
  * `PATCH /auth/me` (`US-2.4`), and the reason it touches the session: the header renders the name

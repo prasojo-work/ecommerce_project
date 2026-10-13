@@ -1,10 +1,7 @@
-import createClient from "openapi-fetch";
-
-import { authorizedFetch } from "@/api/auth";
 import { asFailure, type ApiFailure } from "@/lib/api-failure";
-import { getApiBaseUrl } from "@/lib/config";
 
-import type { components, paths } from "./schema";
+import type { components } from "./schema";
+import { createAuthorizedClient } from "./transport";
 
 /**
  * The checkout wire (`API.md` sections 6 and 7, `US-4.1`-`US-4.4`).
@@ -42,17 +39,7 @@ export type SettlementOutcome = { ok: true; settlement: Settlement } | ApiFailur
 /** Which way the mock provider should answer (`ADR-0010`). */
 export type SettlementAttempt = "capture" | "decline";
 
-/** See `api/cart.ts`: a `Request` does not spread, and a streamed body cannot be retried. */
-async function send(request: Request): Promise<Response> {
-  const bodiless = request.method === "GET" || request.method === "DELETE";
-  return authorizedFetch(request.url, {
-    method: request.method,
-    headers: request.headers,
-    body: bodiless ? undefined : await request.text(),
-  });
-}
-
-const client = createClient<paths>({ baseUrl: getApiBaseUrl(), fetch: send });
+const client = createAuthorizedClient();
 
 /**
  * `US-4.2`: the cart's subtotal plus every shipping option **with the total it produces**.
