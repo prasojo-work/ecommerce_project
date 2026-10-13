@@ -50,3 +50,9 @@ REFRESH_COOKIE_SAMESITE = "None"
 # Getting this wrong is silent — it changes whose requests a limit counts, not whether it works —
 # which is why the deployed API was measured rather than reasoned about. `base.py` has the numbers.
 NINJA_NUM_PROXIES = env.int("NINJA_NUM_PROXIES", default=2)
+
+# `base.py`'s mailer is `locmem`, which keeps every message it "sends" in `django.core.mail.outbox` —
+# right for dev and tests, and wrong for a long-lived web process, where the list would grow with every
+# order and never shrink. Production discards the message instead: the transport is mocked (`ADR-0010`)
+# and until a real one exists there is nobody to hand the receipt to.
+MAILERS = {"default": {"BACKEND": "django.core.mail.backends.dummy.EmailBackend"}}

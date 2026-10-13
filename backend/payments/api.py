@@ -22,6 +22,7 @@ from accounts.throttling import AuthenticatedRateThrottle
 from catalog.schemas import MoneySchema
 from orders.models import Order, OrderStatus
 from orders.services import InvalidTransition, cancel_order, transition_order
+from orders.tasks import send_order_confirmation
 from payments.models import Payment, PaymentStatus
 from payments.providers import MOCK
 from payments.schemas import MockPaymentRequestSchema, MockPaymentResultSchema, PaymentSchema
@@ -85,6 +86,12 @@ def confirm_mock_payment(
             order = cancel_order(order, note="Mock payment declined.")
     except (NoOpenPayment, InvalidTransition) as exc:
         raise HttpError(409, NOTHING_TO_SETTLE) from exc
+
+    if order.status == OrderStatus.PAID:
+        # `ADR-0006`: the receipt is off the request path — the customer has paid, and the mail is not
+        # the reason they are waiting. A decline never reaches here, because `order` is what the
+        # transition returned, so the email follows the *outcome* and not the attempt.
+        send_order_confirmation.enqueue(order_id=order.pk)
 
     return _result(order, payment)
 

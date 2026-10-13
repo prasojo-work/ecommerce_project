@@ -174,6 +174,31 @@ CORS_ALLOW_CREDENTIALS = True
 # environment rather than hard-coding a provider.
 PAYMENT_PROVIDER = env("PAYMENT_PROVIDER", default="mock")
 
+# Background work runs on Django's built-in Tasks framework (`ADR-0006`). Django 6 ships only the
+# `immediate` and `dummy` backends, so v1's default runs a task in the calling process — no broker,
+# no worker process to pay for, and the enqueue still goes through the same `Task` object a
+# worker-backed backend would. Pointing this at one later is a value here, not a code change.
+TASKS = {
+    "default": {
+        "BACKEND": env(
+            "DJANGO_TASK_BACKEND", default="django.tasks.backends.immediate.ImmediateBackend"
+        ),
+    }
+}
+
+# Email goes through Django's mail API, out of a transport that sends nothing — the mock-first spirit
+# of `ADR-0010` applied to post: `locmem` collects messages in `django.core.mail.outbox` for dev and
+# tests, so nothing reaches an inbox and nothing tries to reach localhost:25 either. Configured as a
+# mailer rather than through `EMAIL_BACKEND`, which Django 6.1 deprecates (removed in 2028).
+MAILERS = {
+    "default": {
+        "BACKEND": env(
+            "DJANGO_MAILER_BACKEND", default="django.core.mail.backends.locmem.EmailBackend"
+        ),
+    }
+}
+DEFAULT_FROM_EMAIL = env("DJANGO_DEFAULT_FROM_EMAIL", default="LYSHEIM <no-reply@lysheim.example>")
+
 LOGGING = {
     "version": 1,
     "disable_existing_loggers": False,

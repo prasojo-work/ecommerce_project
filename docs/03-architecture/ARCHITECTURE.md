@@ -180,7 +180,10 @@ sketch (final design and its ADRs are produced when Phase 2 starts):
   `request_id` (`API.md` §3).
 - **Logging:** JSON lines; correlation id in every record.
 - **Async:** ASGI serving, `async def` for I/O-bound handlers, the built-in Tasks framework
-  for background work (`ADR-0006`).
+  for background work (`ADR-0006`). The convention is **sync by default** — ordinary code unless
+  a handler genuinely awaits I/O — and a `Task` for anything the request should not wait on. The
+  order-confirmation email is the first of those: enqueued once an order is paid, formatted by the
+  task, and sent through a transport that sends nothing.
 
 ## 11. Architecture decision index
 

@@ -1,0 +1,16 @@
+Thank you for your order from LYSHEIM.
+
+Order {{ number }}
+
+{% for line in lines %}{{ line.quantity }} x {{ line.product_name }} ({{ line.variant_name }}) - {{ line.line_total }}
+{% endfor %}
+Subtotal: {{ subtotal }}
+Shipping: {{ shipping }}
+Total:    {{ total }}
+
+Shipping to:
+{% for part in address %}  {{ part }}
+{% endfor %}
+We will email you again when it ships.
+
+LYSHEIM is a demonstration store: no payment was taken and nothing will be posted.

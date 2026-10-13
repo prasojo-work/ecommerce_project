@@ -116,7 +116,10 @@ Status legend: `[ ]` planned · `[~]` in progress · `[x]` done.
   creation and `200` to a key it has already seen; the mock's two routes answer `404` unless
   `PAYMENT_PROVIDER=mock`.
   *(merges the old `M4.3` + `M4.4`)*
-- [ ] `M4.4` Order-confirmation email via the Tasks framework (mocked transport).
+- [x] `M4.4` Order-confirmation email via the Tasks framework (mocked transport) — a `@task` enqueued
+  once an order is `paid` and never on a decline, taking the order's **id** rather than the object so it
+  would survive a real queue, and sending through a mailer that reaches no server (`locmem` in dev and
+  tests, `dummy` in production so nothing accumulates).
 - [ ] `M4.5` Checkout UI: address → shipping → payment → confirmation.
 - [ ] `M4.6` Order history and order-detail pages.
 

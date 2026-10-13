@@ -6,6 +6,35 @@
 
 ## History
 
+### 2026-10-13 — v0.1.41 — `M4.4`: the receipt, off the request path
+
+**What landed.** The order-confirmation email, as a `Task` (`ADR-0006`). `orders/tasks.py` holds it and
+`orders/templates/orders/confirmation_email.txt` is its body; the mock payment's `confirm` route
+enqueues it once the order is `paid` (`SCOPE.md` `US-4.4`).
+
+**Enqueued on the outcome, not the attempt.** The enqueue sits after the transition, guarded by the
+status the transition *returned*, so a payment the provider declined — or a decline the caller asked
+for — sends nothing. A receipt for an order nobody paid for would be worse than a late one.
+
+**The task takes an id, not an order.** Whatever crosses a queue boundary has to be serialisable, so the
+task re-reads the row on the far side. Passing the object would work only for the backend that happens
+to run in-process, which is exactly the accident that becomes a bug the day the backend changes.
+
+**Neither transport is SMTP, and neither is accidental.** `locmem` in dev and tests collects messages in
+`django.core.mail.outbox`, which is what lets a test assert *one* email went to *that* address;
+production uses `dummy`, because `locmem`'s outbox is an unbounded list in a long-lived process. Email
+and tasks are both values — `DJANGO_MAILER_BACKEND`, `DJANGO_TASK_BACKEND` — and `immediate` runs a task
+in the calling process, so dev needs no worker and no broker.
+
+**`MAILERS`, not `EMAIL_BACKEND`.** Django 6.1 deprecates `EMAIL_BACKEND` (removed in 2028) in favour of
+a mailer registry, so this landed as the current shape rather than as a deprecation debt taken on in
+2026. The warning surfaced only because the new module runs green under `-W error::DeprecationWarning`.
+
+**Verified.** 6 new tests, 295 in total, against PostgreSQL; `ruff check`, `ruff format --check`,
+`basedpyright` (0 errors) and `makemigrations --check` clean — no model changed, so no migration. **How
+to run:** nothing extra. The gates in `RUNBOOK.md` §3 suffice, and `backend/.env` needs no new key
+unless a real transport is wanted.
+
 ### 2026-10-13 — v0.1.40 — `M4.3`: the order, and the money it waits on
 
 **What landed.** `POST /orders` and the `payments` context. Placing an order turns the caller's cart
