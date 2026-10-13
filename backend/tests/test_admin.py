@@ -1,4 +1,4 @@
-"""The operator console (`M5.1`, `ADR-0007`, `US-5.1`-`US-5.3`).
+"""The operator console (`M5.1`, `ADR-0007`, `US-5.1`-`US-5.5`).
 
 Django admin is the v1 console, and almost everything it needs is *configuration* — which is exactly
 what breaks silently. Three promises are tested here. **It loads**: a model registered against fields
@@ -11,6 +11,12 @@ created through its forms, and `US-5.3`'s low-stock indicator selects and names 
 The final test guards the **API**, not the admin. Installing the console put `CsrfViewMiddleware` in
 front of every request; `django-ninja` exempts each operation at the view, and this is what says the
 API did not notice.
+
+The orders half (`M5.1b`) is the opposite kind of page. The catalog is a form an operator fills in; an
+order is a receipt nobody edits, so `US-5.4`'s details and `US-5.5`'s audit are read-only and the way
+an order moves is an action — one per reachable status — that calls the same `transition_order` the
+API does. What is tested there is that the console cannot be used to assign a status at all: no
+editable field on the form, and a hand-written POST carrying one changes nothing.
 """
 
 import json
@@ -18,16 +24,25 @@ import json
 import pytest
 from django.contrib import admin
 from django.core.management import call_command
-from django.test import Client
+from django.db.models import QuerySet
+from django.http import HttpResponse
+from django.test import Client, RequestFactory
 
 from accounts.models import User
 from catalog.admin import LOW_STOCK_THRESHOLD, ProductVariantAdmin
 from catalog.models import Category, Product, ProductVariant
+from orders.admin import OrderAdmin
+from orders.models import Order, OrderEvent, OrderItem, OrderStatus
+from orders.services import transition_order
+from orders.shipping import DEFAULT_METHOD_CODE, SHIPPING_METHODS
 
 pytestmark = pytest.mark.django_db
 
 PASSWORD = "correct-horse-9!"
 UNIT_PRICE = 12900
+STANDARD_SHIPPING_CENTS = next(
+    method.price_cents for method in SHIPPING_METHODS if method.code == DEFAULT_METHOD_CODE
+)
 
 
 @pytest.fixture
@@ -66,6 +81,77 @@ def make_variant(sku: str, stock_qty: int) -> ProductVariant:
     )
 
 
+def make_order(variant: ProductVariant, *, quantity: int = 2) -> Order:
+    """An order the way checkout leaves one: priced lines, and its own first event.
+
+    Built here rather than through `POST /orders` because what is under test is the console, not the
+    checkout path — and an order that did not start where a new one starts would make every
+    transition assertion say the wrong thing.
+    """
+    subtotal_cents = variant.price_cents * quantity
+    order = Order.objects.create(
+        email="ada@example.com",
+        subtotal_cents=subtotal_cents,
+        shipping_cents=STANDARD_SHIPPING_CENTS,
+        total_cents=subtotal_cents + STANDARD_SHIPPING_CENTS,
+        shipping_recipient="Ada Lovelace",
+        shipping_line1="12 Analytical Way",
+        shipping_city="London",
+        shipping_postal_code="EC1A 1BB",
+        shipping_country="GB",
+    )
+    OrderItem.objects.create(
+        order=order,
+        variant=variant,
+        product_name=variant.product.name,
+        variant_name=variant.name,
+        unit_price_cents=variant.price_cents,
+        quantity=quantity,
+        line_total_cents=subtotal_cents,
+    )
+    # The one event with no previous state, and no actor: checkout did this, not a person.
+    OrderEvent.objects.create(order=order, to_status=OrderStatus.PENDING, note="Order placed.")
+    return order
+
+
+def timeline(order: Order) -> QuerySet[OrderEvent]:
+    """The order's events, read from this side because `django-stubs` does not know the reverse
+    accessor (`Order.events`) that the model does have."""
+    return OrderEvent.objects.filter(order=order)
+
+
+def readonly_inline_data(*prefixes: str) -> dict[str, str]:
+    """The management form each read-only inline still needs, with no rows filled in.
+
+    Django validates a formset before it will accept a change form, so a POST that omits these is
+    redisplayed with an error and proves nothing about what the console would have saved. Zero rows
+    is what "the console shows these and does not edit them" submits.
+    """
+    data: dict[str, str] = {}
+    for prefix in prefixes:
+        data[f"{prefix}-TOTAL_FORMS"] = "0"
+        data[f"{prefix}-INITIAL_FORMS"] = "0"
+        data[f"{prefix}-MIN_NUM_FORMS"] = "0"
+        data[f"{prefix}-MAX_NUM_FORMS"] = "1000"
+    return data
+
+
+def run_action(client: Client, action: str, *orders: Order) -> HttpResponse:
+    """Post an action against a selection, the way the changelist's dropdown does.
+
+    Followed through: the changelist answers a POST with a redirect, so the report an operator reads
+    — "Moved: …" and the orders left alone — is rendered by the page it lands on, and this is the
+    response that carries it.
+    """
+    response = client.post(
+        "/admin/orders/order/",
+        {"action": action, "_selected_action": [str(order.pk) for order in orders]},
+        follow=True,
+    )
+    assert isinstance(response, HttpResponse)
+    return response
+
+
 def test_the_admin_passes_djangos_system_checks() -> None:
     # `admin.E108` — a list column naming a field the model does not have — is what a mis-registered
     # model produces, and the custom user model, with no `username`, is the one here that would.
@@ -101,6 +187,7 @@ def test_an_operator_reaches_the_console(operator_client: Client) -> None:
         "/admin/catalog/product/",
         "/admin/catalog/productvariant/",
         "/admin/catalog/imagecredit/",
+        "/admin/orders/order/",
     ],
 )
 def test_every_registered_table_opens(operator_client: Client, path: str) -> None:
@@ -201,3 +288,140 @@ def test_installing_the_admin_did_not_put_csrf_in_front_of_the_api() -> None:
     )
 
     assert response.status_code == 201
+
+
+def test_the_order_page_shows_the_lines_and_the_timeline(operator_client: Client) -> None:
+    # `US-5.4` asks to "see orders and their details" and `US-5.5` to have the change audited; both
+    # are read-only inlines here, and this is the page saying the operator can see what was bought
+    # and how the order has moved.
+    order = make_order(make_variant("AAL-OAK", 5))
+
+    response = operator_client.get(f"/admin/orders/order/{order.pk}/change/")
+
+    assert response.status_code == 200
+    content = response.content.decode()
+    assert "Aalto Chair" in content
+    assert "Order placed." in content
+
+
+def test_the_order_form_offers_no_way_to_assign_the_status(operator: User) -> None:
+    # `US-5.5`'s "valid transitions only" holds exactly as long as `status` cannot be typed in. The
+    # day someone adds it to a fieldset without `readonly_fields`, `ALLOWED_TRANSITIONS` has an
+    # end-run around it — so the assertion is that no field on this form is editable at all.
+    model_admin = OrderAdmin(Order, admin.site)
+    request = RequestFactory().get("/admin/orders/order/")
+    request.user = operator
+    order = make_order(make_variant("AAL-OAK", 5))
+
+    assert "status" in model_admin.get_readonly_fields(request, order)
+    assert model_admin.get_form(request, order).base_fields == {}
+
+
+def test_a_hand_written_post_cannot_move_the_status(operator_client: Client) -> None:
+    # The end-run, attempted over HTTP: the console renders no `status` input, so a POST ships one
+    # anyway. It is not a form field, so nothing reads it, and the order is where it was.
+    order = make_order(make_variant("AAL-OAK", 5))
+
+    response = operator_client.post(
+        f"/admin/orders/order/{order.pk}/change/",
+        {"status": OrderStatus.DELIVERED, **readonly_inline_data("items", "events")},
+    )
+
+    order.refresh_from_db()
+    assert response.status_code == 302
+    assert order.status == OrderStatus.PENDING
+    assert timeline(order).count() == 1
+
+
+def test_the_change_page_offers_no_save_button(operator_client: Client) -> None:
+    # Every field is read-only, so Django's Save would be a control that appears to write and
+    # cannot. The submit row reads as Close instead — the page saying movements are the actions.
+    order = make_order(make_variant("AAL-OAK", 5))
+
+    content = operator_client.get(f"/admin/orders/order/{order.pk}/change/").content.decode()
+
+    assert 'name="_save"' not in content
+    assert 'name="_continue"' not in content
+
+
+def test_the_console_neither_adds_nor_removes_orders(operator_client: Client) -> None:
+    # An order is what checkout writes, and a receipt is not a thing to remove — cancelling is how an
+    # order is undone, and that is recorded. Both doors are shut rather than merely missing from a
+    # template, so neither the operator nor a hand-written URL gets through.
+    order = make_order(make_variant("AAL-OAK", 5))
+
+    assert operator_client.get("/admin/orders/order/add/").status_code == 403
+    assert operator_client.get(f"/admin/orders/order/{order.pk}/delete/").status_code == 403
+
+
+def test_marking_an_order_paid_moves_it_and_records_the_operator(
+    operator_client: Client, operator: User
+) -> None:
+    # `US-5.5`: the move is written down, with who made it. An action that assigned `status` itself
+    # would leave the trail one line short and the assignment invisible.
+    order = make_order(make_variant("AAL-OAK", 5))
+
+    response = run_action(operator_client, "mark_paid", order)
+
+    assert response.status_code == 200
+    order.refresh_from_db()
+    assert order.status == OrderStatus.PAID
+    event = timeline(order).order_by("-id").first()
+    assert event is not None
+    assert (event.from_status, event.to_status) == (OrderStatus.PENDING, OrderStatus.PAID)
+    assert event.actor == operator
+
+
+def test_an_illegal_move_is_refused_and_records_nothing(operator_client: Client) -> None:
+    # `US-5.5`'s "valid transitions only": `pending` cannot become `shipped` (`DATA-MODEL.md` §3),
+    # and the console is not a way around that — the order is left where it was and no event claims
+    # otherwise. Writing the event anyway would be worse than refusing.
+    order = make_order(make_variant("AAL-OAK", 5))
+
+    response = run_action(operator_client, "mark_shipped", order)
+
+    order.refresh_from_db()
+    assert order.status == OrderStatus.PENDING
+    assert timeline(order).count() == 1
+    assert "cannot become" in response.content.decode()
+
+
+def test_a_selection_moves_what_it_can_and_leaves_the_rest(operator_client: Client) -> None:
+    # A selection is not all or nothing. Two ticks where one order has already moved should land the
+    # one that can move and say so about the other, not fail the pair.
+    pending = make_order(make_variant("AAL-OAK", 5))
+    already = make_order(make_variant("AAL-WALNUT", 5))
+    transition_order(already, OrderStatus.PAID)
+
+    response = run_action(operator_client, "mark_paid", pending, already)
+
+    pending.refresh_from_db()
+    already.refresh_from_db()
+    assert pending.status == OrderStatus.PAID
+    assert already.status == OrderStatus.PAID
+    # Still two: the second order was not moved twice, and the audit says so.
+    assert timeline(already).count() == 2
+    assert "Left alone" in response.content.decode()
+
+
+def test_cancelling_returns_the_stock_the_order_reserved(
+    operator_client: Client, operator: User
+) -> None:
+    # `ADR-0017`: creation took the stock, so cancelling has to put it back or a cancellation quietly
+    # shrinks the shop's sellable quantity forever. The console cancels through `cancel_order`, which
+    # is the one place that knows a cancellation is also a stock event.
+    variant = make_variant("AAL-OAK", 5)
+    order = make_order(variant, quantity=2)
+    # The reservation checkout made, applied here because the fixture builds the order directly.
+    ProductVariant.objects.filter(pk=variant.pk).update(stock_qty=3)
+
+    run_action(operator_client, "cancel_orders", order)
+
+    variant.refresh_from_db()
+    order.refresh_from_db()
+    assert order.status == OrderStatus.CANCELLED
+    assert variant.stock_qty == 5
+    event = timeline(order).order_by("-id").first()
+    assert event is not None
+    assert event.to_status == OrderStatus.CANCELLED
+    assert event.actor == operator

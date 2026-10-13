@@ -6,6 +6,41 @@
 
 ## History
 
+### 2026-10-13 — v0.1.49 — `M5.1b`: the orders half, and a status an operator cannot type
+
+**What landed.** `orders/admin.py`, and with it the console's other half (`US-5.4`, `US-5.5`): the
+order list with a filter and a search box, the lines and the event timeline on the change page, and
+four actions — paid, shipped, delivered, cancelled — that move an order along `ALLOWED_TRANSITIONS`.
+`M5.1` closes here.
+
+**An order is a receipt, so the page is read-only.** Every column is in `readonly_fields`, `status`
+among them, and the change form has no editable field at all. That is the mechanism, not a nicety: the
+way an order moves is an action, each action calls the `transition_order` the API calls, and
+`ALLOWED_TRANSITIONS` stays a rule because there is nowhere to type a status into. The test that holds
+this is that the form's `base_fields` is empty — the day someone adds `status` to a fieldset without
+`readonly_fields`, the guard gains an end-run around it, and that is the change this catches.
+
+**A Save button that cannot save.** With nothing editable, Django's submit row would still offer Save
+— a control that appears to write and does not, which is the kind of small lie this codebase refuses
+elsewhere. `render_change_form` turns the flag off and the row reads as Close instead. Add and delete
+are shut for the same reason: an order is what checkout writes, and a receipt is not a thing to remove.
+Cancelling is how an order is undone, and cancelling is recorded.
+
+**Cancelling is also a stock event.** The cancel action calls `cancel_order` rather than transitioning
+the order itself, which is the reason `orders/services.py` gives for the function existing. Creation
+took the stock (`ADR-0017`), so an action that assigned `cancelled` would leave the shelf short — and
+a shop whose sellable quantity shrinks a little with every cancellation is a failure nobody notices
+for months. The test watches the stock go from 5 to 3 and back to 5.
+
+**A selection is not all or nothing.** `transition_order` raises rather than returning a flag, and an
+operator who ticks two orders and finds one already shipped should be told which of them moved and
+which did not, not shown an error page. Each action collects both and reports them; an order that
+refused keeps the timeline it had, and no event claims otherwise.
+
+**How to run.** Unchanged from `M5.1a`: `uv run python manage.py check`,
+`uv run ruff format --check .`, `uv run ruff check .`, `uv run basedpyright`, `uv run pytest` (332
+passing, +10).
+
 ### 2026-10-13 — v0.1.48 — `M5.1a`: the console, installed and pointed at the catalog
 
 **What landed.** Django admin as the v1 operator console (`ADR-0007`, `SCOPE.md` §8 D1) at `/admin/`
