@@ -10,6 +10,6 @@ urlpatterns = [
     path("healthz", healthz, name="healthz"),
     path("api/v1/", api.urls),
     # The operator console is Django admin, not part of the REST API (`ADR-0007`, `API.md` §9).
-    # Access is gated by `is_staff`; `M5.2`'s runbook entry covers making an operator.
+    # Access is gated by `is_staff`; `RUNBOOK.md` section 9 covers making an operator.
     path("admin/", admin.site.urls),
 ]

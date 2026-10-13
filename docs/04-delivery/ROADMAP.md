@@ -145,7 +145,9 @@ Status legend: `[ ]` planned · `[~]` in progress · `[x]` done.
   context processors, plus `accounts/admin.py` and `catalog/admin.py`. `M5.1b` landed the orders
   (`US-5.4`, `US-5.5`): a read-only receipt whose status moves only through actions, each calling the
   `transition_order` the API calls — and `cancel_order` for the one move that is also a stock event.
-- [ ] `M5.2` Operator runbook entry (create an `is_staff` operator; day-to-day actions).
+- [x] `M5.2` Operator runbook entry (create an `is_staff` operator; day-to-day actions) — `RUNBOOK.md`
+  §9: making an operator, the `is_staff`-versus-`is_superuser` gap, signing in, the catalog work, and
+  how an order moves.
 
 ### M6 — Hardening
 

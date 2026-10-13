@@ -124,7 +124,11 @@ class ProductVariantAdmin(admin.ModelAdmin):
 
 @admin.register(ImageCredit)
 class ImageCreditAdmin(admin.ModelAdmin):
-    """`ADR-0012`'s attribution rows (`US-6.1`), without which an image cannot be added."""
+    """`ADR-0012`'s attribution rows — what `US-6.1`'s credits page renders (`M6`).
+
+    An image points at one or at none: `ProductImage.credit` is nullable, so this table is where an
+    attribution is edited rather than a condition on adding an image.
+    """
 
     list_display = ("title", "creator", "license", "source")
     list_filter = ("license", "source")

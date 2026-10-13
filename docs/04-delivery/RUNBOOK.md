@@ -1460,3 +1460,107 @@ and one unit off `brisk-ash-dining-chair` variant 13; delete the account the way
   `accounts/models.py` are the entire cost. Do not "fix" it by subclassing `AbstractUser`, which
   would add `first_name`, `last_name` and `date_joined` that `DATA-MODEL.md` section 2 does not
   specify.
+
+## 9. Operators
+
+> Added at `M5.2`, once the console existed (`M5.1`). `ADR-0007` chose Django admin for v1,
+> `SCOPE.md` §8 D1 fixed its form, and `API.md` §9 fixed its path.
+
+Numbered after §8 rather than slotted in before §7 because the sections around it are cited by number
+from elsewhere — `ADR-0014` points at §8, the roadmap and the change log at §7.8 — and a runbook whose
+numbers move is a runbook whose cross-references rot.
+
+The console is at `/admin/`. Everything an operator does, they do there.
+
+### 9.1 Making an operator
+
+An operator is an account with `is_staff` (`DATA-MODEL.md` §2), which is the flag `ADR-0007` gates on.
+A visitor is sent to the login page and a signed-in *customer* is refused; `is_staff` is the whole
+difference.
+
+```bash
+cd backend
+uv run python manage.py createsuperuser            # prompts for an email and a password
+uv run python manage.py changepassword ops@example.com
+```
+
+`createsuperuser` sets `is_staff` **and** `is_superuser`. The two are not the same, and the gap is worth
+knowing before it surprises you:
+
+- `is_staff` gets the account *into* `/admin/`. It is what `AdminSite.has_permission` checks.
+- `is_superuser` is what grants the *model permissions* the console then checks, per table and per
+  action.
+
+So an account with `is_staff` and nothing else reaches the console and is refused every list and every
+action. That is Django working as designed, and it reads like a broken login; `createsuperuser` gives
+the first operator both flags, which is why §9.1 leads with it.
+
+For a second operator who should not hold the whole shop, keep `is_staff` and grant permissions on the
+user's own page — *User permissions*, per app and per model (`catalog | product | Can change product`,
+`orders | order | Can change order`, …). The console's order actions are declared with `change`
+permission, so an operator without it can read an order and cannot move one.
+
+Two commands, no sign-up page and no invitation flow. Deliberate: an account that can see every
+customer's order should not be creatable from a form on the internet.
+
+### 9.2 Signing in
+
+`/admin/` in a browser, with that email and password. This session has nothing to do with the
+storefront's — the console uses `M5.1a`'s cookie session, the storefront uses `ADR-0009`'s JWT pair —
+so an operator who also shops has two independent sessions, and that is expected. Signing out of one
+does not touch the other.
+
+### 9.3 The catalog — `US-5.1`-`US-5.3`
+
+- **Categories** and **Products** are lists with a filter and a search box; a slug fills itself in from
+  the name.
+- **A product's variants and images are on the product page**, below it, not a page away.
+- **Money is in cents**, because that is how it is stored (`DATA-MODEL.md` §5): `12900` is `$129.00`. A
+  variant's `price_cents` is what a customer is charged; `Product.base_price_cents` is the product's
+  own price field.
+- **Stock is edited straight from the variant list**, because a season's worth of SKUs is one page of
+  edits rather than one SKU at a time. The **stock** column reads *Out of stock*, *Low* or *In stock*
+  in words (`NFR-2`), and the **stock** filter beside it selects the low and the empty ones.
+- **"Low" means five or fewer** (`catalog/admin.py`, `LOW_STOCK_THRESHOLD`). It is a display choice and
+  not a rule: nothing server-side refuses a sale at that number, and the only rule on stock is that it
+  cannot go below zero.
+- **Image credits** are their own table. An image's credit is optional on the model, so this is where
+  the attribution an image *does* carry is kept, and `US-6.1`'s page renders from it (`M6`).
+
+### 9.4 Orders — `US-5.4`, `US-5.5`
+
+The order list filters by status and by date, and searches by number, email or recipient. Open one and
+it is **a receipt, not a form**: every field is read-only, the lines are the lines as they were bought,
+and the timeline at the foot is the whole history — who moved it, when, and from what to what.
+
+It moves by **action**. Select orders on the list and choose one from the dropdown:
+
+| Action | Moves an order from | to |
+|---|---|---|
+| Mark as paid | `pending` | `paid` |
+| Mark as shipped | `paid` | `shipped` |
+| Mark as delivered | `shipped` | `delivered` |
+| Cancel and return to stock | anywhere but `cancelled` | `cancelled` |
+
+Those are `DATA-MODEL.md` §3's transitions and nothing else. The console cannot skip a step: choosing
+*Mark as shipped* for a `pending` order leaves it where it was, says so, and writes no event. Every move
+that does happen writes one, under the operator's name.
+
+**Cancel is the one move that touches the catalog.** Checkout reserved the stock (`ADR-0017`), so
+cancelling puts it back on the shelf — which is why the action says "and return to stock", and why it
+goes through the same function the API would use rather than assigning the status. An order that has
+shipped, or been delivered, can still be cancelled: a return is a cancellation, and the timeline keeps
+the whole story.
+
+**A selection is not all or nothing.** Tick two orders where one has already moved and the one that can
+move does; the report names both — the orders moved and the ones left alone.
+
+### 9.5 What the console will not do
+
+- **It will not save an order.** There is no Save button, because there is no editable field; the row
+  offers Close instead, which is the page saying that movements are the actions.
+- **It will not add or delete an order.** An order is what checkout writes, and a receipt is not a
+  thing to remove — cancelling is how an order is undone, and cancelling is recorded. Both URLs answer
+  `403` rather than the button merely being hidden.
+- **It will not accept a status you type.** There is no input for it anywhere, which is what keeps
+  `ALLOWED_TRANSITIONS` a rule rather than a suggestion (`M5.1b`).

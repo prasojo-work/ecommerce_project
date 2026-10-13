@@ -6,6 +6,34 @@
 
 ## History
 
+### 2026-10-13 — v0.1.50 — `M5.2`: the operator's runbook, and two comments that had gone stale
+
+**What landed.** `RUNBOOK.md` §9, the operator's side of the console: how to make an operator, why
+`is_staff` on its own is not enough, signing in, the day-to-day catalog work, and how an order moves.
+`M5` closes here.
+
+**Numbered §9, after Troubleshooting.** §7 and §8 are cited by number from outside this file —
+`ADR-0014` pins §8 as the reverse-accessor gotcha, the roadmap and this log point at §7.8 — so the
+section was appended rather than slotted in before §7. A runbook whose numbers move is a runbook whose
+cross-references rot, and those cross-references live in documents that may not be rewritten.
+
+**Two comments that were true when written and are not any more.** `accounts.User`'s docstring said
+`is_staff` "currently selects nothing, because `django.contrib.admin` is not installed yet" — exactly
+the kind of sentence that is right until the milestone lands and then quietly lies. It now says what
+the flag does and, just as usefully, what it still does not: only `AdminSite` reads it, and `/auth/me`
+reports it and never checks it. The second is smaller: `ImageCreditAdmin`'s docstring claimed an image
+"cannot be added" without a credit, and `ProductImage.credit` is nullable. Both are the same failure in
+miniature — a comment describing an intention rather than the code beneath it — and both were written
+for `M5.1`, two commits ago.
+
+**The part of §9 worth repeating here.** `is_staff` gets an account into `/admin/` and grants it
+nothing; `is_superuser`, or explicit per-model grants, is what opens the tables. The operator fixture
+first written for `M5.1a` met exactly that — it reached the index and was refused every changelist —
+and because it reads like a broken login rather than a permission model, §9 spells it out.
+
+**How to run.** No behaviour changed; the docstrings and the runbook are the whole diff. The gates in
+`RUNBOOK.md` §3 are unchanged and the suite still reports 332 passing.
+
 ### 2026-10-13 — v0.1.49 — `M5.1b`: the orders half, and a status an operator cannot type
 
 **What landed.** `orders/admin.py`, and with it the console's other half (`US-5.4`, `US-5.5`): the

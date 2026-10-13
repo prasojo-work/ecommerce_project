@@ -75,9 +75,10 @@ class User(AbstractBaseUser, PermissionsMixin, TimeStampedModel):  # pyright: ig
     `get_by_natural_key`. Uniqueness then follows from an ordinary unique constraint instead of
     from an extension — one less thing that behaves differently on the two backends.
 
-    `is_staff` is the operator flag `DATA-MODEL.md` describes. It currently selects nothing,
-    because `django.contrib.admin` is not installed yet; it is here so the column exists before
-    the operator console (`ADR-0007`) needs it.
+    `is_staff` is the operator flag `DATA-MODEL.md` describes, and since `M5.1` it is what opens the
+    operator console: `AdminSite.has_permission` turns away any account without it. Nothing else reads
+    it — `/auth/me` reports the flag and never checks it, and an order belongs to the account that
+    placed it, whatever that account is staff of.
     """
 
     email = models.EmailField(unique=True)
