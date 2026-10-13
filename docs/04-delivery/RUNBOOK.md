@@ -1348,6 +1348,30 @@ The correction itself is pinned by
 `tests/test_accounts_api.py::test_the_counted_address_is_the_client_and_not_a_hop_in_front_of_it`;
 what was never verified is the dashboard's value.
 
+**After `M4.3` and `M4.4`, 2026-10-13.** The checkout path re-checked from outside, because it is the one
+journey that writes stock, an order and a payment inside a single request, and a test that shares a
+process with the code cannot show all three landing in Supabase:
+
+| Check | Result | The assertion |
+| --- | --- | --- |
+| `GET /api/v1/openapi.json` | advertises `/orders`, `/payments/mock/confirm`, `/payments/mock/fail` | the deploy carried `M4.3`'s code — and, since boot runs `migrate`, the order and payment tables came with it |
+| `POST /api/v1/orders`, no token | `401` | creating an order is behind the token in production, not only in tests |
+| `POST /api/v1/payments/mock/confirm`, no token | `401` | so is settling one |
+| A checkout driven through the live API | quote `106500`; order `LSH-DA8B2C1D` `pending`; total `108400` | cart → quote → order works against Supabase, and the chosen method's cost is carried into the total rather than recomputed |
+| The same `Idempotency-Key` twice | `201`, then `200` with **one** number | `NFR-4` holds where the row to find is in Supabase rather than in a test transaction |
+| `POST /payments/mock/confirm` | `order_status: paid`, `payment_status: succeeded` | the deployed `PAYMENT_PROVIDER=mock` selects the mock adapter |
+| The same confirm again | `409` | nothing left to settle, and the second call did not move the order back |
+| `GET /api/v1/orders` | `405` | only `POST` exists until `M4.6`; the contract, not a fault |
+
+**What it does not cover.** `M4.4`'s email has no effect this vantage point can see: the deployed mailer
+throws the message away (`dummy`, per `prod.py`), and the `immediate` task backend catches a task's
+exception onto a `TaskResult` nobody reads instead of raising it. So the confirm above proves the
+endpoint completed and cannot distinguish a rendered receipt from a failed one — a blind spot worth
+closing with a `task_finished` receiver that logs failures.
+
+The smoke left `smoke-m4@example.com`, its cart and the paid order `LSH-DA8B2C1D` in the demo database,
+and one unit off `brisk-ash-dining-chair` variant 13; delete the account the way §7.5 describes.
+
 ## 8. Troubleshooting
 
 > Accumulates as real problems occur (e.g. Postgres connection, port conflicts, cold-start

@@ -6,6 +6,29 @@
 
 ## History
 
+### 2026-10-13 — v0.1.43 — the checkout, verified where it actually runs
+
+**What was done.** The `M4` checkout path was driven end to end against the deployed stack — not the
+localhost one, and not a test — because `M4.3`'s claim is that stock, an order and a payment land
+together in one transaction, and no test sharing a process with the code can show all three rows
+arriving in Supabase.
+
+**What it showed.** Everything it was asked to: the quote; the order at `pending` with the shipping cost
+carried into its total; the same `Idempotency-Key` answering `200` with the *first* order instead of
+creating a second; the mock capture moving the order to `paid`; and a second capture refused with `409`.
+The deployed schema advertises all three `M4.3` routes, which also proves the boot path's `migrate`
+created their tables.
+
+**What it could not show — which is the finding.** `M4.4`'s email. The deployed mailer discards the
+message by design, and the `immediate` task backend catches a task's exception onto a `TaskResult`
+nobody reads rather than raising it. A broken receipt is therefore invisible from outside the stack *and*
+from its logs. The blind spot is now written down in `RUNBOOK.md` §7.8 with the fix it suggests, rather
+than left for a customer who never gets a confirmation to discover.
+
+**Left behind.** A smoke account, its cart and a paid order in the demo database, plus one unit off one
+variant — the same footprint `M2.7`'s smoke left, and §7.5 says how to delete it.
+**How to run:** §7.8's table is the checklist; the smoke is a dozen `curl`s against the two public hosts.
+
 ### 2026-10-13 — v0.1.42 — docs: the worker that was never there
 
 **What was wrong.** `ARCHITECTURE.md` §3 drew a `Worker` container and listed it in the container
