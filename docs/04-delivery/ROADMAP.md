@@ -139,8 +139,11 @@ Status legend: `[ ]` planned · `[~]` in progress · `[x]` done.
 
 ### M5 — Operator console
 
-- [ ] `M5.1` Django admin for the catalog and orders — list filters, search, inline images, guarded
-  status transitions, and the audit visible. *(merges the old `M5.1` + `M5.2`)*
+- [~] `M5.1` Django admin for the catalog and orders — list filters, search, inline images, guarded
+  status transitions, and the audit visible. *(merges the old `M5.1` + `M5.2`)* — `M5.1a` landed the
+  console itself and the catalog (`US-5.1`-`US-5.3`): the framework apps, middleware and template
+  context processors, plus `accounts/admin.py` and `catalog/admin.py`. The orders half (`US-5.4`,
+  `US-5.5`) is `M5.1b`.
 - [ ] `M5.2` Operator runbook entry (create an `is_staff` operator; day-to-day actions).
 
 ### M6 — Hardening

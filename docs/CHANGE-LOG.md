@@ -6,6 +6,45 @@
 
 ## History
 
+### 2026-10-13 — v0.1.48 — `M5.1a`: the console, installed and pointed at the catalog
+
+**What landed.** Django admin as the v1 operator console (`ADR-0007`, `SCOPE.md` §8 D1) at `/admin/`
+(`API.md` §9): the framework's `admin`, `sessions` and `messages` apps with the middleware and the
+template context processors they need; `accounts/admin.py` and `catalog/admin.py`; and the tests that
+hold the console to what `ADR-0007` asks of it.
+
+**The app is Django's, so the wiring is the work.** The REST API is stateless (`ADR-0009`) and wants
+neither sessions nor messages; the console is where they belong. `MIDDLEWARE` gained four entries —
+`Session`, `Csrf`, `Auth`, `Message` — and `XFrameOptions` for the one page here that renders
+server-side HTML a person signs into. The cost to an API request is the length of that list:
+`SessionMiddleware` loads lazily and does not touch the database without a session cookie, and
+`AuthenticationMiddleware` sets a lazy `request.user` the API never reads.
+
+**`CsrfViewMiddleware`, in front of everything, and the API did not notice.** `django-ninja` sets
+`csrf_exempt` on every operation at the view, so the middleware adds a check to the admin's forms and
+to nothing else. That is a claim worth a test rather than a comment, so one test registers a user
+through `Client(enforce_csrf_checks=True)` with no token and expects a `201`.
+
+**The user model had to be registered by hand.** Installing `admin` makes Django register *its* user
+model — `django.contrib.auth.models.User`, the swapped-out default — and not `AUTH_USER_MODEL`, so
+`accounts.User` arrives at the console unregistered. The framework's `UserAdmin` is built for a user
+with a `username`, whose absence is an `admin.E108` system-check error, so `accounts/admin.py`
+supplies the fieldsets this model has plus `is_staff` — the operator flag `ADR-0007` gates on.
+
+**"Genuinely usable", per `ADR-0007`.** A filter and a search box on every catalog table; variants and
+images inline on the product that owns them; stock editable from the variant list, because `US-5.3`'s
+"set stock levels" is a page of edits, not one SKU at a time; and a low-stock column with a filter
+beside it, said in words rather than colour (`NFR-2`).
+
+**What the tests had to learn.** `is_staff` opens the console but grants no model permissions — the
+first operator fixture reached the index and was refused every changelist — so the fixture is a
+superuser, the shape `createsuperuser` produces and `M5.2` will document. The orders half of the
+console (`US-5.4`, `US-5.5`) is `M5.1b`; `M5.1` stays `[~]` until it lands.
+
+**How to run.** `uv run python manage.py check`, `uv run ruff format --check .`, `uv run ruff check .`,
+`uv run basedpyright`, `uv run pytest`; `uv run python manage.py migrate` applies the framework apps'
+own migrations (no project migration — `makemigrations --check` reports none).
+
 ### 2026-10-13 — v0.1.47 — `M4` closes: the retrospective
 
 `M4`'s exit criterion is "order created, paid, history shown", and that path now runs end to end: the

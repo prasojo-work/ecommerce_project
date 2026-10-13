@@ -19,8 +19,14 @@ environ.Env.read_env(BASE_DIR / ".env")
 SECRET_KEY = env("DJANGO_SECRET_KEY", default="insecure-development-key-change-me")
 
 INSTALLED_APPS = [
+    # The operator console (`M5.1`, `ADR-0007`). `admin` pulls in sessions and the messages
+    # framework, and those two are here for its benefit alone: the REST API is stateless
+    # (`ADR-0009`) and reads neither.
+    "django.contrib.admin",
     "django.contrib.auth",
     "django.contrib.contenttypes",
+    "django.contrib.sessions",
+    "django.contrib.messages",
     "django.contrib.staticfiles",
     "corsheaders",
     "core",
@@ -117,7 +123,17 @@ MIDDLEWARE = [
     # to sit above anything that could answer first — `CommonMiddleware` most of all.
     "corsheaders.middleware.CorsMiddleware",
     "django.middleware.security.SecurityMiddleware",
+    "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
+    # The admin's forms are the only thing in this backend that leans on Django's CSRF protection:
+    # every `django-ninja` operation is exempted at the view, so this adds no check to an API
+    # request. The API's own cookie surface (`/auth/refresh`) keeps its origin guard (`ADR-0009`).
+    "django.middleware.csrf.CsrfViewMiddleware",
+    "django.contrib.auth.middleware.AuthenticationMiddleware",
+    "django.contrib.messages.middleware.MessageMiddleware",
+    # The admin is the one page here that renders server-side HTML a person signs into, so it is
+    # the one worth refusing to frame; API responses are JSON and unaffected.
+    "django.middleware.clickjacking.XFrameOptionsMiddleware",
 ]
 
 ROOT_URLCONF = "config.urls"
@@ -127,7 +143,16 @@ TEMPLATES = [
         "BACKEND": "django.template.backends.django.DjangoTemplates",
         "DIRS": [],
         "APP_DIRS": True,
-        "OPTIONS": {"context_processors": []},
+        "OPTIONS": {
+            # Django admin's own pages read all three (its sidebar, its user menu, its messages).
+            # Nothing in the storefront renders through a Django template — the frontend is Next.js
+            # — so these cost the API nothing.
+            "context_processors": [
+                "django.template.context_processors.request",
+                "django.contrib.auth.context_processors.auth",
+                "django.contrib.messages.context_processors.messages",
+            ]
+        },
     },
 ]
 
