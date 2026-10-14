@@ -1383,11 +1383,18 @@ process with the code cannot show all three landing in Supabase:
 | The same confirm again | `409` | nothing left to settle, and the second call did not move the order back |
 | `GET /api/v1/orders` | `405` | only `POST` exists until `M4.6`; the contract, not a fault |
 
-**What it does not cover.** `M4.4`'s email has no effect this vantage point can see: the deployed mailer
-throws the message away (`dummy`, per `prod.py`), and the `immediate` task backend catches a task's
-exception onto a `TaskResult` nobody reads instead of raising it. So the confirm above proves the
-endpoint completed and cannot distinguish a rendered receipt from a failed one — a blind spot worth
-closing with a `task_finished` receiver that logs failures.
+**What it does not cover.** `M4.4`'s email has no effect this vantage point can see, for two reasons: the
+deployed mailer throws the message away (`dummy`, per `prod.py`), and the `immediate` backend catches a
+task's exception onto its `TaskResult` instead of raising it, so the `200` above proves the endpoint
+completed and cannot distinguish a rendered receipt from a failed one.
+
+What is *not* blind is the log. Corrected at `M6.4`: `task_finished` is a signal Django already
+subscribes to — `django.tasks.signals.log_task_finished` logs a `FAILED` task at `ERROR` with the
+traceback, and `config/settings/base.py` lets that logger reach the JSON handler — so a broken receipt is
+written down even though the request stays green. `tests/test_order_email.py` holds that. What remains
+unwatched is the alerting: nobody reads that line at v1, and the production `dummy` mailer never raises
+at all, so the line this section describes matters to the other configurations rather than to the
+deployed one.
 
 The smoke left `smoke-m4@example.com`, its cart and the paid order `LSH-DA8B2C1D` in the demo database,
 and one unit off `brisk-ash-dining-chair` variant 13; delete the account the way §7.5 describes.

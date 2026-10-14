@@ -100,7 +100,9 @@ deeper async support out of the box. Our policy:
 - Use the **built-in Tasks framework** (`@task`) for off-request work: order-confirmation
   email (mocked), analytics/event emission (Phase 2), image processing. This avoids adding
   Celery to a project that does not need it.
-- Enable the built-in **Content Security Policy** support as part of security hardening.
+- Produce a **Content Security Policy** as part of security hardening. *Corrected at `M6.3`: there is
+  no built-in to enable — Django ships no CSP, so the header comes from a middleware over a setting
+  (`SECURITY-REVIEW.md` §3.1).*
 
 > Rationale: async is used where it is appropriate, not evangelically. The goal is a
 > demonstrative, honest use of the framework's modern capabilities.

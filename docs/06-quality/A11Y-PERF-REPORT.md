@@ -236,6 +236,8 @@ drift between the component runner and the browser runner.
 | Catalog p95 | `pnpm perf:audit` | 55.5 / 50.6 ms against 300 ms |
 | Caching, images | `pnpm perf:audit` | immutable chunks, `webp` at 4 h |
 
-**Remaining for `M6`:** `M6.3` (security hardening: CSP, headers, throttles, secret guard, dependency
-audit, and the end-to-end error-envelope + request-id verification → `SECURITY-REVIEW.md`) and `M6.4`
-(a `task_finished` receiver that logs a failed task).
+**Where this stands.** These budgets were re-measured after `M6.3` put a `Content-Security-Policy` on the
+storefront, and all 17 assertions pass again with it in force. The other two `M6` increments are closed:
+`M6.3` (security hardening, the console throttle, and the end-to-end error-envelope + request-id
+verification) is [`SECURITY-REVIEW.md`](SECURITY-REVIEW.md), and `M6.4` turned out to need no receiver —
+Django already logs a failed task, and `tests/test_order_email.py` holds that now.

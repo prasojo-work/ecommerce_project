@@ -169,13 +169,39 @@ Status legend: `[ ]` planned · `[~]` in progress · `[x]` done.
   listing, 1 112 ms for the PDP, on a throttled mobile profile) and its 300 ms catalog p95 (55 ms).
   `pnpm perf:audit` measures all of it; both audits are excluded from CI on purpose, and the report
   says which claims they do **not** cover. *(merges the old `M6.2` + `M6.3`)*
-- [ ] `M6.3` Security hardening (CSP, headers, throttles, secret guard, dependency audit) and the
-  end-to-end error-envelope + request-id verification → `SECURITY-REVIEW.md`.
+- [x] `M6.3` Security hardening (CSP, headers, throttles, secret guard, dependency audit) and the
+  end-to-end error-envelope + request-id verification → [`../06-quality/SECURITY-REVIEW.md`](../06-quality/SECURITY-REVIEW.md).
+  The increment's real find was that the console's sign-in had **no** limit on it at all: Ninja attaches
+  throttles to Ninja operations, `/admin/login/` is a plain Django view, so every rule in the rate mapping
+  stopped short of the one page where a guessed password buys every order in the system. The fix applies
+  the same `LiveRateThrottle` from a middleware — keyed on the client rather than the submitted name,
+  because keyed on the account it would be a way to lock a known operator out; counting only `POST`,
+  because a refresh is not an attempt; and refusing with `Retry-After`. The policy turned out not to exist
+  either: `SECURITY-BASELINE.md`, `PLAN.md` and `ARCHITECTURE.md` all call the CSP "a Django 6 built-in"
+  and Django ships **no** CSP at all, so all three were corrected and the header is one middleware over
+  one setting — with the console on a
+  second, deliberately two-directive-wider policy, since its own templates carry inline `<script>`, and the
+  narrowness held by a test that subtracting the two leaves exactly those directives. `manage.py
+  check --deploy` under production settings reports **0 warnings and 1 error**, and the error is
+  `mail.E001` on the mock transport `ADR-0010` chose; both dependency audits are clean and now *fail* a CI
+  job rather than log to nobody. Verified in a browser as well as by header: `hydrated: true` and **zero**
+  CSP violations on every route, which is the difference between "the header is set" and "the header does
+  not break the app". Four deviations are recorded rather than hidden — `unsafe-inline` on `script-src`,
+  the `dummy` mailer, a secret guard with no scanner beside it, and per-process rate windows.
   *(merges the old `M6.4` + `M6.5`)*
-- [ ] `M6.4` Observability: a `task_finished` receiver that logs a failed task. Django 6's `immediate`
-  backend catches a task's exception onto its `TaskResult` instead of raising it, so a broken
-  confirmation email leaves the request green and the logs empty — silent from both outside and in
-  (`M4.4`, `RUNBOOK.md` §7.8).
+- [x] `M6.4` Observability: a failing task is visible in the logs — and the receiver this increment was
+  meant to write **already exists, in Django**. The premise was that the `immediate` backend catches a
+  task's exception onto its `TaskResult` instead of raising it, leaving a broken confirmation email
+  silent "from both outside and in". Half of that holds and half does not. The request *is* green,
+  which is right — a receipt is not worth a `500` after the card has been charged. The logs are not
+  empty, though: `django.tasks.signals.log_task_finished` logs the failure at `ERROR` from the signal
+  Django raises inside its own `except` block, with the traceback attached, and
+  `config.settings.base` lets that logger reach the JSON console handler
+  (`disable_existing_loggers: False`, root at `INFO`). A second receiver would have logged every
+  failure twice, so what this increment adds is the proof rather than the code:
+  `tests/test_order_email.py` fails the real task on purpose and asserts both the `ERROR` record and
+  the traceback the caller's `TaskResult` carries. Corrected rather than quietly dropped — an
+  increment whose premise is wrong is worth recording as wrong.
 
 ### M7 — Launch
 

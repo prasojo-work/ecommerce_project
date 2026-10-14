@@ -84,3 +84,8 @@ jobs:
         run: |
           uv run python manage.py export_openapi_schema
           git -C .. diff --exit-code -- frontend/openapi.json
+
+      # `SEC-FIND-1.8`. Last of the steps so the fast gates report first, and a failing step rather
+      # than a warning: an advisory nobody is obliged to act on is a log line, not a control.
+      - name: Dependency audit
+        run: uv run pip-audit

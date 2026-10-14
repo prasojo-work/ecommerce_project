@@ -5,7 +5,7 @@
 Turned on only through the environment; the container never ships development defaults.
 """
 
-from django.core.exceptions import ImproperlyConfigured
+from config.env import ensure_production_secret_key
 
 from .base import *
 from .base import env
@@ -13,8 +13,7 @@ from .base import env
 DEBUG = False
 ALLOWED_HOSTS = env.list("DJANGO_ALLOWED_HOSTS", default=[])
 
-if SECRET_KEY == "insecure-development-key-change-me":
-    raise ImproperlyConfigured("DJANGO_SECRET_KEY must be set in production.")
+ensure_production_secret_key(SECRET_KEY)
 
 # Transport and browser hardening (see docs/06-quality/SECURITY-BASELINE.md section 6).
 SECURE_SSL_REDIRECT = env.bool("DJANGO_SECURE_SSL_REDIRECT", default=True)

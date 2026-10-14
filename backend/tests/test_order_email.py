@@ -10,6 +10,8 @@ transport is mocked, so these assert composition and recipient and never touch a
 """
 
 import json
+import logging
+import traceback
 from typing import Any
 
 import pytest
@@ -165,3 +167,44 @@ def test_the_task_can_be_enqueued_and_reports_success(order: Order) -> None:
     assert result.status == TaskResultStatus.SUCCESSFUL
     assert len(mail.outbox) == 1
     assert mail.outbox[0].to == [order.email]
+
+
+# --- a failing task is visible in the logs ---------------------------------------------------
+#
+# `M6.4`. The `immediate` backend catches a task's exception onto its `TaskResult` instead of raising
+# it, which is the right call — a receipt is not worth a `500` after the card has been charged — and
+# it raises the question of whether the failure is visible anywhere afterwards. It is: Django 6's own
+# `task_finished` receiver logs it at `ERROR` with the traceback, and the logging in
+# `config.settings.base` lets that logger through to the JSON console handler. Observed rather than
+# assumed — these two pins are the observation.
+
+
+def test_a_failed_task_is_logged_at_error_with_its_exception(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """`Order.objects.get` on a number that does not exist is a real failure of the real task, and
+    the one thing that must not happen is for it to leave no trace."""
+    with caplog.at_level(logging.ERROR, logger="django.tasks"):
+        result = send_order_confirmation.enqueue(order_id=999_999)
+
+    assert result.status == TaskResultStatus.FAILED
+
+    errors = [record for record in caplog.records if record.name == "django.tasks"]
+    assert len(errors) == 1
+    assert errors[0].levelno == logging.ERROR
+    assert "state=FAILED" in errors[0].getMessage()
+
+    assert errors[0].exc_info is not None
+    rendered = "".join(traceback.format_exception(*errors[0].exc_info))
+    assert "DoesNotExist" in rendered
+
+
+def test_the_failure_is_also_on_the_result_the_caller_holds() -> None:
+    """The log line is for a human watching a stream; this is for anything that reads the result —
+    a dashboard, a retry, or the `TaskResult` row a real queue would persist."""
+    result = send_order_confirmation.enqueue(order_id=999_999)
+
+    assert result.status == TaskResultStatus.FAILED
+    assert len(result.errors) == 1
+    assert "DoesNotExist" in result.errors[0].exception_class_path
+    assert "DoesNotExist" in result.errors[0].traceback

@@ -64,40 +64,47 @@ graph LR
 
 ## 4. Findings & required controls
 
-- [ ] **SEC-FIND-1.1 [AuthN — token exposure]** Long-lived tokens in JS-readable storage
+> Ticked at `M6.3` against the evidence in [`SECURITY-REVIEW.md`](SECURITY-REVIEW.md), with every
+> validation column in §5 run. One finding is left open on purpose and says why.
+
+- [x] **SEC-FIND-1.1 [AuthN — token exposure]** Long-lived tokens in JS-readable storage
   would be XSS-exfiltratable. **Risk:** High likelihood × High impact if regression occurs.
   **Component:** web session. **Control:** access token in memory only; refresh token in an
   httpOnly, Secure cookie (`ADR-0009`).
-- [ ] **SEC-FIND-1.2 [AuthZ — IDOR]** Order, address, and cart resources identified by id are
+- [x] **SEC-FIND-1.2 [AuthZ — IDOR]** Order, address, and cart resources identified by id are
   a broken-access-control risk. **Risk:** Medium × High. **Component:** API. **Control:**
   enforce object ownership server-side on every read/write; add explicit tests.
-- [ ] **SEC-FIND-1.3 [Injection]** Any raw SQL or string-built queries. **Risk:** Medium ×
+- [x] **SEC-FIND-1.3 [Injection]** Any raw SQL or string-built queries. **Risk:** Medium ×
   High. **Component:** backend. **Control:** Django ORM only, parameterised queries, input
   validated by Ninja schemas; no string concatenation into SQL.
-- [ ] **SEC-FIND-1.4 [XSS]** Unescaped rendering of user/catalog content. **Risk:** Medium ×
+- [x] **SEC-FIND-1.4 [XSS]** Unescaped rendering of user/catalog content. **Risk:** Medium ×
   High. **Component:** frontend. **Control:** React escaping by default; no
-  `dangerouslySetInnerHTML`; ship a **Content Security Policy** (Django 6 built-in).
+  `dangerouslySetInnerHTML`; ship a **Content Security Policy**. *Corrected at `M6.3`: Django has no
+  CSP support to enable — the header is produced by a middleware over a setting, and the policy has a
+  known residual (`SECURITY-REVIEW.md` §3.1, §6.2).*
 - [ ] **SEC-FIND-1.5 [Secrets]** Credentials in code, logs, or git. **Risk:** Low likelihood ×
   Critical impact. **Component:** all. **Control:** env-only config; `.env` git-ignored;
   `.env.example` documents keys; a settings guard fails fast if a required secret is missing;
-  never log tokens/PII.
-- [ ] **SEC-FIND-1.6 [DoS / abuse]** Unthrottled auth and order creation. **Risk:** Medium ×
+  never log tokens/PII. *Left open at `M6.3`, deliberately: the guard is built and tested in both
+  directions, but `SEC-REMEDIATE-1.5` also asks for a secret scan in CI and none is wired
+  (`SECURITY-REVIEW.md` §6.3).*
+- [x] **SEC-FIND-1.6 [DoS / abuse]** Unthrottled auth and order creation. **Risk:** Medium ×
   Medium. **Component:** API. **Control:** throttling on auth, add-to-cart, and order
   endpoints; bounded `page_size`; request body size limits.
-- [ ] **SEC-FIND-1.7 [Admin exposure]** The operator console is the highest-value target.
+- [x] **SEC-FIND-1.7 [Admin exposure]** The operator console is the highest-value target.
   **Risk:** Medium × High. **Component:** admin. **Control:** strong unique password,
   `is_staff` gate, throttled login, and **not** linked publicly. (MFA is out of scope for v1
   and is recorded as an accepted residual risk.)
-- [ ] **SEC-FIND-1.8 [Supply chain]** Vulnerable or unpinned dependencies. **Risk:** Medium ×
+- [x] **SEC-FIND-1.8 [Supply chain]** Vulnerable or unpinned dependencies. **Risk:** Medium ×
   High. **Component:** CI. **Control:** lockfiles committed; `pip-audit` and `pnpm audit` in
   CI; Dependabot-style update cadence.
-- [ ] **SEC-FIND-1.9 [Logging hygiene]** Secrets or PII written to logs. **Risk:** Medium ×
+- [x] **SEC-FIND-1.9 [Logging hygiene]** Secrets or PII written to logs. **Risk:** Medium ×
   Medium. **Component:** backend. **Control:** structured logs with an allow-list of fields;
   redact credentials and PII; request ids for correlation.
-- [ ] **SEC-FIND-1.10 [Transport & headers]** Missing HSTS/Secure cookies/CORS restrictions.
+- [x] **SEC-FIND-1.10 [Transport & headers]** Missing HSTS/Secure cookies/CORS restrictions.
   **Risk:** Medium × Medium. **Component:** edge + API. **Control:** HTTPS only, HSTS,
   `Secure`/`HttpOnly`/`SameSite` cookies, and an explicit CORS allow-list (Vercel origin).
-- [ ] **SEC-FIND-1.11 [CSRF on cookie auth]** The refresh cookie reintroduces CSRF risk.
+- [x] **SEC-FIND-1.11 [CSRF on cookie auth]** The refresh cookie reintroduces CSRF risk.
   **Risk:** Medium × Medium. **Component:** auth. **Control:** origin check on the refresh
   endpoint plus `SameSite`; refresh scoped to its path (`ADR-0009`).
 - [x] **SEC-FIND-1.12 [Cart cookie tampering]** Forged guest cart identifiers. **Risk:** Low ×

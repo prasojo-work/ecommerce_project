@@ -59,3 +59,9 @@ jobs:
 
       - name: Build
         run: pnpm build
+
+      # `SEC-FIND-1.8`, and the frontend half of what `SECURITY-BASELINE.md` section 6 asks for.
+      # `--prod` on purpose: the dev dependencies are this repository's own build tooling, and a
+      # candidate there is not something the storefront ships to anybody.
+      - name: Dependency audit
+        run: pnpm audit --prod

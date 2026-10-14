@@ -491,7 +491,7 @@ def requests_allowed_per(scope: str) -> int:
     return int(str(settings.NINJA_DEFAULT_THROTTLE_RATES[scope]).split("/")[0])
 
 
-@pytest.mark.parametrize("scope", ["login", "register", "refresh", "auth"])
+@pytest.mark.parametrize("scope", ["login", "register", "refresh", "auth", "admin-login"])
 def test_every_scope_has_a_configured_rate(scope: str) -> None:
     """A throttle whose scope has no rate raises `ImproperlyConfigured` at request time, not at
     startup, so an endpoint could ship and only fail under the request that used it."""

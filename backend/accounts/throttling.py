@@ -75,6 +75,22 @@ class RefreshRateThrottle(LiveRateThrottle):
     scope = "refresh"
 
 
+class AdminLoginRateThrottle(LiveRateThrottle):
+    """The operator console's sign-in (`SEC-FIND-1.7`).
+
+    Not an endpoint of this API at all: `/admin/login/` is Django's own view, so the one screen
+    `SECURITY-BASELINE.md` calls the highest-value target in the system was the only one with no limit
+    on it — Ninja attaches throttles to Ninja operations, and this is not one.
+
+    The class lives here anyway, beside the others, because it is the same kind of thing: a scope, a
+    rate in `NINJA_DEFAULT_THROTTLE_RATES`, and a client-keyed window in the shared cache. What
+    differs is only where it is attached, and that is `accounts/middleware.py`'s job rather than a
+    route decorator's.
+    """
+
+    scope = "admin-login"
+
+
 class AuthenticatedRateThrottle(AuthRateThrottle):
     """The same, for endpoints that already carry a token, keyed per account rather than per IP.
 
@@ -94,6 +110,7 @@ class AuthenticatedRateThrottle(AuthRateThrottle):
 
 
 __all__ = [
+    "AdminLoginRateThrottle",
     "AuthenticatedRateThrottle",
     "LoginRateThrottle",
     "RefreshRateThrottle",

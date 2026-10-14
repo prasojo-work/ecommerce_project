@@ -135,9 +135,10 @@ sequenceDiagram
 - **Performance.** Catalog and PDP are server-rendered (RSC) with HTTP caching and an API
   cache for catalog reads; images are optimized and served from the edge. Budgets in
   `SCOPE.md` NFR-1.
-- **Security.** JWT access + refresh (see `ADR-0009`), auth throttling, CSP (Django 6
-  built-in), OWASP-minded input validation, and secrets only in the environment. Detailed in
-  the Stage 5 security review.
+- **Security.** JWT access + refresh (see `ADR-0009`), auth throttling, a Content Security Policy
+  produced by a middleware rather than built into Django (corrected at `M6.3`;
+  `SECURITY-REVIEW.md` §3.1), OWASP-minded input validation, and secrets only in the environment.
+  Evidence in `docs/06-quality/SECURITY-REVIEW.md`.
 - **Observability.** Structured JSON logs with a correlation id propagated from the web app to
   the API; `/healthz` for uptime checks.
 - **Reliability.** Order creation is idempotent by idempotency key to survive double

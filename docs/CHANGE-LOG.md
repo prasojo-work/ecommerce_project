@@ -6,6 +6,102 @@
 
 ## History
 
+### 2026-10-14 — v0.1.55 — `M6.4`: the receiver Django already had
+
+**What landed.** Two tests and a correction. `tests/test_order_email.py` now fails the real
+confirmation task on purpose — `Order.objects.get` on a number that does not exist — and asserts that
+the failure is visible: one `ERROR` record from the `django.tasks` logger, carrying the traceback, plus
+the same traceback on the `TaskResult` a caller holds.
+
+**Why that is all it is.** `M6.4` was planned as a `task_finished` receiver that logs a failed task, on
+the reading that the `immediate` backend catches a task's exception onto its `TaskResult` instead of
+raising it, so a broken confirmation email leaves the request green and the logs empty — "silent from
+both outside and in". The first half is right and the second is not. Django 6 ships
+`django/tasks/signals.py`, whose `log_task_finished` receiver is connected to that same signal and logs
+at `ERROR` when the status is `FAILED`, passing `exc_info` — and the signal is raised from inside
+`ImmediateBackend`'s own `except BaseException` block, so the traceback is live and attached.
+`config.settings.base` then does the rest: `disable_existing_loggers: False` with a root logger at
+`INFO` onto the JSON console handler means nothing was standing in the way.
+
+**How it was settled.** Not by reading Django's source, although that is where it started. A task
+raising `ValueError` was enqueued through `manage.py shell` under the project's own settings, and the
+stream came back with `{"level": "ERROR", "logger": "django.tasks", "message": "... state=FAILED"}`
+and a full `exc_info` traceback ending in `ValueError: kaboom-probe`. That run is what the roadmap entry
+cites; the two tests are its permanent form.
+
+**The decision: write nothing.** A second receiver would have produced a second log line for every
+failure, at a level of our choosing, next to the one Django already emits — the failure would be
+noisier and no more visible. What was missing was not a control but the knowledge that the control
+exists, and a test is how that knowledge stops depending on somebody remembering it.
+
+**What this does not claim.** Nothing watches the log stream at v1. A failure is written down and
+nobody is paged, which is monitoring rather than observability, and belongs with the deployment work.
+And in production the mailer is `dummy` (`ADR-0010`) and never raises, so the line this increment proves
+matters to the test and `locmem` configurations and to whatever transport replaces them.
+
+### 2026-10-14 — v0.1.54 — `M6.3`: the console that had no limit, and the CSP Django does not ship
+
+**What landed.** Four controls against `SECURITY-BASELINE.md`'s twelve findings, and the report that
+says which are met and which are only partly met: [`SECURITY-REVIEW.md`](06-quality/SECURITY-REVIEW.md).
+A `Content-Security-Policy` on the API, the console and the storefront; a throttle on the console's
+sign-in; `X-Request-ID` exposed through CORS so a browser can finally read the correlation id the server
+has emitted since `M0.5`; and the two dependency audits wired into CI as steps that fail the job rather
+than warn. The findings are tabulated in the review; what follows is what the increment went looking for
+and found.
+
+**The console had no rate limit at all.** `SEC-FIND-1.7` is High priority, calls the admin "the
+highest-value target", and names "admin login throttled" as its control — and that page was the only
+sign-in in this system with no limit on it. Ninja attaches throttles to Ninja operations and
+`/admin/login/` is a plain Django view, so every rule in `NINJA_DEFAULT_THROTTLE_RATES` stopped one route
+short of the screen where a guessed password buys the catalog and every order in it.
+`accounts/middleware.py` now applies the same `LiveRateThrottle` the auth endpoints use, reading the same
+rates by the same key rules, so the console's window cannot drift away from the API's. Three decisions in
+it are the difference between a control and a liability: keyed on the client and not the submitted name,
+because keyed on the account it is a way to lock a known operator out of their own console; counting only
+`POST`, because a `GET` is somebody opening a form and counting it spends an operator's budget on a
+browser refresh; and answering `429` with `Retry-After`, because a bare `429` leaves the client guessing.
+
+**The CSP the baseline described does not exist.** `SECURITY-BASELINE.md` names the policy it wants;
+`SEC-FIND-1.4` there, `PLAN.md`'s framework choices and `ARCHITECTURE.md`'s cross-cutting concerns each
+say how to get it — "a Django 6 built-in". Django ships no CSP support at all, so all three are
+corrected in the same commit that answers them. One middleware over one setting was the smaller thing
+to own than a dependency, and it keeps the policy beside the rest of the project's policy
+(`ADR-0011`).
+route rather than for symmetry: `base-uri 'self'` so an injected `<base>` cannot re-point every relative
+URL on the page, `form-action 'self'` so a form we served cannot post an address elsewhere, and
+`frame-ancestors 'none'` in place of the `X-Frame-Options` that browsers have been dropping.
+
+**Two policies, and the exception is deliberate.** Django's admin templates ship inline `<script>` and
+`style` attributes, so under the strict policy the console renders as unstyled dead markup — not a
+security posture but an outage. The console therefore gets a second policy that widens exactly two
+directives and keeps every origin restriction. That narrowness is asserted rather than described: a test
+subtracts the strict policy from the console's and requires the remainder to be precisely those two
+directives, so a third appearing later is a visible change in review and not a silent widening.
+
+**Verified in a browser, not only by header.** A header that renders the app unusable is a worse outcome
+than no header, and a `curl` cannot tell the two apart. A probe loaded four routes in Chromium, marked
+`window` before following an in-app link, and checked the mark survived: `hydrated: true` on every route,
+beside **zero** CSP violations in the console. The same run caught the policy enforcing itself from the
+other side — a genuinely cross-origin `fetch` refused by the browser, which is the observable difference
+between a policy that is present and one that is doing something.
+
+**`check --deploy` under production settings: one error, zero warnings.** The error is `mail.E001` on the
+`dummy` transport `ADR-0010` chose — a deliberate decision, recorded as such in the review rather than
+silenced with a check-silencing setting. The unqualified command in the baseline's own §9 runs against
+the *development* settings, where the transport warnings appear by design, because those settings turn
+TLS redirects and secure cookies off so that a local plain-HTTP request is served at all; the useful run
+is the production one, and the review carries its exact output.
+
+**What the review does not claim.** A policy with `script-src 'unsafe-inline'` in it — which both apps
+have, because Next.js streams an inline bootstrap script and `headers()` in `next.config.ts` is evaluated
+per build rather than per request — is a partial answer to `SEC-FIND-1.4`, so the review says "Met, with
+a residual" and names the per-request nonce as the next step. `SEC-REMEDIATE-1.5`'s validation asks for a
+secret-guard test *and* a secret scan in CI; the guard is built and tested in both directions, the
+scanner is not wired, and that is written down as a gap instead of a tick. The rate windows live in the
+process cache, so they multiply by the worker count — acceptable only because the deployment is one
+process. And nothing here was validated by attempting a breach: no exploit work, no pen-testing, per the
+baseline's own policy.
+
 ### 2026-10-14 — v0.1.53 — `M6.2`: the a11y and performance evidence, and the link that was colour alone
 
 **What landed.** `M6.2`'s combined report, [`A11Y-PERF-REPORT.md`](06-quality/A11Y-PERF-REPORT.md), and

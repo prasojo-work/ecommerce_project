@@ -11,12 +11,15 @@ from pathlib import Path
 
 import environ
 
+from config.env import INSECURE_DEVELOPMENT_KEY
+from core.middleware import REQUEST_ID_HEADER
+
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
 
 env = environ.Env()
 environ.Env.read_env(BASE_DIR / ".env")
 
-SECRET_KEY = env("DJANGO_SECRET_KEY", default="insecure-development-key-change-me")
+SECRET_KEY = env("DJANGO_SECRET_KEY", default=INSECURE_DEVELOPMENT_KEY)
 
 INSTALLED_APPS = [
     # The operator console (`M5.1`, `ADR-0007`). `admin` pulls in sessions and the messages
@@ -86,6 +89,11 @@ NINJA_DEFAULT_THROTTLE_RATES = {
     "refresh": "60/min",
     # Authenticated endpoints (`/auth/me`, `/auth/logout`), keyed per account rather than per IP.
     "auth": "240/min",
+    # Django's own console sign-in (`SEC-FIND-1.7`). Not a Ninja operation, so `accounts/middleware.py`
+    # attaches it rather than a route decorator — but it is a rate like the others and belongs in this
+    # mapping. Ten for the same reason `/auth/login` is ten, and the same scope of damage if it were
+    # missing: a guessed password here buys the whole catalog and every order in it.
+    "admin-login": "10/min",
 }
 
 # How many proxies sit in front of the app, which decides whose IP a throttle counts. Ninja keys on
@@ -119,6 +127,14 @@ CACHES = {
 
 MIDDLEWARE = [
     "core.middleware.RequestIDMiddleware",
+    # Above `CorsMiddleware` on purpose: that one answers a preflight itself and never reaches a
+    # view, so a middleware below it would leave those responses unhardened. This one only decorates
+    # whatever comes back, which is also why it has no opinion about the request.
+    "core.middleware.ContentSecurityPolicyMiddleware",
+    # The console's sign-in is a plain Django view, so Ninja's throttles cannot reach it and this is
+    # what stands in front of it (`SEC-FIND-1.7`). Below the CSP middleware so a `429` still carries
+    # the header, and above the CORS one so a preflight is not counted against anybody.
+    "accounts.middleware.AdminLoginThrottleMiddleware",
     # Answers the browser's preflight itself and adds the CORS headers to every response, so it has
     # to sit above anything that could answer first — `CommonMiddleware` most of all.
     "corsheaders.middleware.CorsMiddleware",
@@ -192,6 +208,44 @@ CORS_ALLOWED_ORIGINS = env.list("CORS_ALLOWED_ORIGINS", default=[])
 # package refuses to combine credentials with a wildcard, and a wildcard would defeat the origin
 # guard on `/auth/refresh` at the same time.
 CORS_ALLOW_CREDENTIALS = True
+
+# A response header is invisible to JavaScript unless CORS says otherwise, and the correlation id is
+# the one response header the web app has to read: it is how an error a shopper saw is matched to the
+# log line that explains it (`NFR-5`, and the envelope in `API.md` section 3 carries the same value).
+# `RUNBOOK.md` and the browser's own network tab would otherwise disagree about an id the server has
+# been emitting all along — the "ids across API and web" half that is easy to leave half-done.
+CORS_EXPOSE_HEADERS = [REQUEST_ID_HEADER]
+
+# The `Content-Security-Policy` the API answers with (`SEC-FIND-1.4`, `SECURITY-BASELINE.md` section
+# 6). Declared here rather than in the middleware because it is policy, in the same sense the throttle
+# rates are (`ADR-0011`), and because the baseline's own list is the specification it has to match.
+# The three directives beyond the baseline's are the cheap ones that close a real gap each: `base-uri`
+# stops an injected `<base>` from re-pointing every relative URL on the page, `frame-ancestors` is
+# what replaced `X-Frame-Options` for browsers that ignore the old header, and `form-action` stops a
+# form on a page we served from posting an address somewhere else.
+CONTENT_SECURITY_POLICY = "; ".join(
+    [
+        "default-src 'self'",
+        "img-src 'self' data:",
+        "object-src 'none'",
+        "base-uri 'self'",
+        "form-action 'self'",
+        "frame-ancestors 'none'",
+    ]
+)
+
+# The operator console cannot live under the policy above. Django's own admin templates carry inline
+# `<script>` and `style` attributes, so `'unsafe-inline'` is the difference between a console that
+# works and one that renders unstyled and half-dead — a broken console being the failure mode nobody
+# forgives. Every origin restriction that matters is kept: nothing is allowed to load from anywhere
+# but this host, and nothing may frame the console at all.
+CONTENT_SECURITY_POLICY_ADMIN = "; ".join(
+    [
+        CONTENT_SECURITY_POLICY,
+        "style-src 'self' 'unsafe-inline'",
+        "script-src 'self' 'unsafe-inline'",
+    ]
+)
 
 # Which payment adapter is in force (`ADR-0010`). Configuration, not code: a real provider is a
 # second adapter in `payments/providers.py` plus a new value here, with no change in `orders`. The

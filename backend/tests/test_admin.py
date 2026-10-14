@@ -20,9 +20,12 @@ editable field on the form, and a hand-written POST carrying one changes nothing
 """
 
 import json
+from collections.abc import Iterator
 
 import pytest
+from django.conf import settings
 from django.contrib import admin
+from django.core.cache import cache
 from django.core.management import call_command
 from django.db.models import QuerySet
 from django.http import HttpResponse
@@ -425,3 +428,70 @@ def test_cancelling_returns_the_stock_the_order_reserved(
     assert event is not None
     assert event.to_status == OrderStatus.CANCELLED
     assert event.actor == operator
+
+
+# --- the console's sign-in is rate-limited (`M6.3`, `SEC-FIND-1.7`) ------------------------
+
+ADMIN_LOGIN = "/admin/login/"
+
+
+@pytest.fixture(autouse=True)
+def clear_throttle_windows() -> Iterator[None]:
+    """The window lives in the process cache, which outlives a test and is shared by every client —
+    the same fixture, and the same reason, as the one in `test_accounts_api.py`."""
+    cache.clear()
+    yield
+    cache.clear()
+
+
+def admin_login_attempts_per_window() -> int:
+    """The configured limit, read from settings so the test cannot drift away from the policy."""
+    return int(str(settings.NINJA_DEFAULT_THROTTLE_RATES["admin-login"]).split("/")[0])
+
+
+def failed_sign_in(client: Client, username: str = "operator") -> int:
+    """POST the console's sign-in form with the wrong password, and report the status."""
+    return client.post(ADMIN_LOGIN, {"username": username, "password": "wrong"}).status_code
+
+
+def test_the_console_sign_in_is_rate_limited(client: Client) -> None:
+    """`SEC-FIND-1.7`: the console is the highest-value target here, and its sign-in had no limit.
+
+    Ninja's throttles are attached to Ninja operations, and `/admin/login/` is a plain Django view —
+    so the one screen where a guessed password buys the entire catalog and every order was the only
+    one in the project outside every rate limit. The refusal also has to say when to come back: a bare
+    `429` leaves a client guessing, and guessing wrong makes the block longer.
+    """
+    allowed = admin_login_attempts_per_window()
+
+    for _ in range(allowed):
+        assert failed_sign_in(client) == 200
+
+    refused = client.post(ADMIN_LOGIN, {"username": "operator", "password": "wrong"})
+
+    assert refused.status_code == 429
+    assert int(refused["Retry-After"]) >= 1
+
+
+def test_viewing_the_sign_in_form_is_not_counted(client: Client) -> None:
+    """A `GET` is somebody looking at a form. Counting it would spend an operator's budget on a
+    browser refresh and turn the back button into a lockout."""
+    for _ in range(admin_login_attempts_per_window() * 2):
+        assert client.get(ADMIN_LOGIN).status_code == 200
+
+    assert failed_sign_in(client) == 200
+
+
+def test_the_limit_counts_the_client_and_not_the_username(client: Client) -> None:
+    """Changing the name in the form must not buy a fresh window.
+
+    Keyed on the submitted username, this would be a way to lock a known operator out of the console
+    rather than a way to slow an attacker down — the same argument `accounts/throttling.py` makes for
+    the auth endpoints, and it has to hold here too or the limit is a liability.
+    """
+    allowed = admin_login_attempts_per_window()
+
+    for attempt in range(allowed):
+        assert failed_sign_in(client, username=f"nobody-{attempt}") == 200
+
+    assert failed_sign_in(client, username="a-name-never-tried") == 429

@@ -15,6 +15,8 @@ nothing.
 import pytest
 from django.test import Client, override_settings
 
+from core.middleware import REQUEST_ID_HEADER
+
 TRUSTED_ORIGIN = "https://storefront.example"
 FOREIGN_ORIGIN = "https://evil.example"
 
@@ -91,3 +93,18 @@ def test_a_protected_route_can_be_called_with_a_bearer_header(client: Client) ->
 
     assert response.status_code == 200
     assert "authorization" in response["Access-Control-Allow-Headers"].lower()
+
+
+@override_settings(CORS_ALLOWED_ORIGINS=[TRUSTED_ORIGIN])
+def test_the_request_id_is_exposed_to_the_browser(client: Client) -> None:
+    """`NFR-5` says correlation ids cross the API and the web app.
+
+    Without this header the id arrives and JavaScript cannot see it: a response header is readable
+    from the browser only when CORS names it, so the server would be emitting a correlation id for
+    every request that the client could not use to explain an error to anyone. The value is no
+    secret — the same id is in the error body (`API.md` section 3) — so exposing it grants nothing
+    new; *not* exposing it is what leaves the correlation one-sided.
+    """
+    response = client.get("/healthz", headers={"Origin": TRUSTED_ORIGIN})
+
+    assert REQUEST_ID_HEADER.lower() in response["Access-Control-Expose-Headers"].lower()
