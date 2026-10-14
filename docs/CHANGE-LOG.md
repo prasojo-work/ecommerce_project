@@ -6,6 +6,89 @@
 
 ## History
 
+### 2026-10-14 — v0.1.56 — `M6` closes: the retrospective
+
+`M6`'s exit criterion is "a11y/perf/security reports committed", and two reports now are:
+[`A11Y-PERF-REPORT.md`](06-quality/A11Y-PERF-REPORT.md) and
+[`SECURITY-REVIEW.md`](06-quality/SECURITY-REVIEW.md), with `NFR-7`'s coverage gate and `M6.4`'s
+failure-visibility tests standing behind them. Four increments, committed and green; `ROADMAP.md` §2
+marks `M6` `[x]`.
+
+**Every one of the four corrected an assumption rather than completing one.** That is the honest summary
+of a milestone about evidence, and it is not a complaint about the plan — it is what happens when the
+claims in a plan meet the framework, the code and a browser for the first time.
+
+1. **`M6.1` — the assumption was that coverage was the work.** The measured run came back at 98.09%, and
+   the thirteen uncovered statements were all *refusals* or *fallbacks*, never a happy path. The gap was
+   not "not enough tests" but "the refusals nobody exercised", which is where this codebase's risk
+   actually lives.
+2. **`M6.2` — the assumption was that axe would decide accessibility.** Two routes failed
+   `link-in-text-block` and a third *passed* while carrying the identical defect: one component renders
+   both the login and registration forms, and axe's "in a block of text" test turns partly on how much of
+   the block the link is. A fix that satisfies the checker and leaves the sibling page wrong is worse than
+   no checker, because it certifies the wrong thing.
+3. **`M6.3` — the assumption was that the controls existed.** The console's sign-in had *no* rate limit at
+   all, because Ninja's throttles cannot reach a plain Django view; and the Content-Security-Policy three
+   documents describe as a "Django 6 built-in" is not in Django, which has no CSP support of any kind.
+4. **`M6.4` — the assumption was that the failure was invisible.** `M4`'s retrospective recorded that a
+   broken receipt "fails silently" and prescribed a `task_finished` receiver for it.
+   `task_finished` is a signal Django already subscribes to, and it logs at `ERROR` with the traceback.
+   The increment meant to write the receiver wrote two tests instead.
+
+The four corrections all point the same way: each was a claim in a document that nobody had re-checked.
+That is this milestone's real output, and the two reports are where the corrections are recorded rather
+than left in a memory.
+
+**A gate can only decide what its environment can decide.** `M4` learned that a gate is only a gate over
+what it *includes*; this milestone is the same lesson about *environments*, and it came up three times.
+
+1. **jsdom cannot measure colour.** axe in jsdom has no layout engine and no cascade, so `color-contrast`
+   returns `incomplete` there and `toHaveNoViolations` only ever reads `violations`. A green component run
+   is therefore not a contrast claim — which is why the accessibility evidence is two layers, and why the
+   report names that boundary rather than letting a pass read as a broader one.
+2. **A header is not a working page.** `curl` can show that a `Content-Security-Policy` is present and
+   cannot show that the app still hydrates under it; a policy that renders the storefront dead would pass
+   a header check. The browser probe is the difference between "the header is set" and "the header does
+   not break the app", and no test in the suite could have decided either.
+3. **A local build is not the deployed one.** The LCP, the catalog p95 and the bundle budget are
+   regression gates measured on loopback; `NFR-1`'s field numbers belong to `M7`, and both reports say
+   which claims their numbers do not carry.
+
+**The gate is also where the documents were held to the code.** Four drifted and were corrected:
+`PLAN.md` and `ARCHITECTURE.md` both promised "the built-in **Content Security Policy**" and
+`SECURITY-BASELINE.md`'s `SEC-FIND-1.4` repeated the claim, so all three now say the header is produced
+rather than enabled; `RUNBOOK.md` §7.8's "a `TaskResult` nobody reads" is corrected to what the log
+actually carries; and the baseline's findings are ticked against the review's evidence with `SEC-FIND-1.5`
+left deliberately open, because its validation column asks for a secret scan in CI and no scanner is
+wired. The M4 retrospective's "the logs would say nothing" is *not* edited — this log is append-only, and
+the correction lives in `v0.1.55` and in the runbook. A box that cannot be filled in honestly is worth
+less than no box, which is the same rule that took `M5`'s overview row out of `ROADMAP.md` §2 two entries
+ago.
+
+**Risk register, re-scored at the gate.** No risk changed status. `RISK-6` (async complexity) is the one
+this milestone touched, and it resolves to a narrower claim than either extreme: the silent-failure mode
+`M4` feared is logged by the framework, and what remains open is that nothing alerts on the line and the
+production `dummy` mailer never raises at all. `RISK-7` (cross-site cookie/CORS) gained two controls it did
+not have — the storefront's own policy, and `X-Request-ID` exposed so a browser can read the correlation id
+the API has been emitting since `M0.5` — both verified in a browser rather than argued. `RISK-2` stayed
+open with its `M7` keep-alive item untouched.
+
+**What the milestone did not close, and where it went.** Nothing was deferred silently: the CSP's
+`unsafe-inline` and the nonce that would replace it, `NFR-1`'s field-level numbers, the browser sign-in
+journey `M2.7` left open, the alerting on a failed task, and the header check against the deployed URL are
+all `M7` items or residuals recorded in the report that raises them (`SECURITY-REVIEW.md` §6,
+`A11Y-PERF-REPORT.md` §"what this does not cover").
+
+**Evidence.** Backend **356** tests against PostgreSQL, `PYTEST_EXIT=0`, with `NFR-7`'s gate green — the
+measured scope at 100% (707 statements, none missed) against `fail_under = 80` — plus `ruff format
+--check`, `ruff check`, `basedpyright` (0 errors), `manage.py check`, the `export_openapi_schema` drift
+check, `pip-audit` (clean), and `check --deploy` under production settings (**1 error, 0 warnings**, the
+error being `mail.E001` on the mock transport, accepted and explained in `SECURITY-REVIEW.md` §6.1).
+Frontend **163** tests plus `tsc --noEmit`, `eslint`, `prettier`, `next build`, `pnpm audit --prod` and
+`pnpm audit:routes` — 17 assertions, 11 routes at WCAG 2.1 AA and 6 performance budgets, re-run against
+the build that carries the CSP. The end-to-end evidence for the milestone is those two reports; the
+browser sign-in journey remains the one step that needs a person, as `M2.7` first noted.
+
 ### 2026-10-14 — v0.1.55 — `M6.4`: the receiver Django already had
 
 **What landed.** Two tests and a correction. `tests/test_order_email.py` now fails the real
