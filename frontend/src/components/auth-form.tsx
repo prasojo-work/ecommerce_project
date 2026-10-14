@@ -120,14 +120,23 @@ export function AuthForm({ mode }: { mode: AuthMode }) {
         {busy ? "Please wait…" : registering ? "Create account" : "Sign in"}
       </button>
 
+      {/* Underlined on purpose. Tailwind's preflight gives an anchor the colour *and* the decoration
+          of the text around it, so without this the link is set apart by colour alone — the one
+          thing WCAG 1.4.1 forbids. The `M6.2` route audit is what found it. */}
       <p className="text-sm text-muted">
         {registering ? (
           <>
-            Already have an account? <Link href="/login">Sign in</Link>
+            Already have an account?{" "}
+            <Link href="/login" className="text-primary underline underline-offset-4">
+              Sign in
+            </Link>
           </>
         ) : (
           <>
-            New here? <Link href="/register">Create an account</Link>
+            New here?{" "}
+            <Link href="/register" className="text-primary underline underline-offset-4">
+              Create an account
+            </Link>
           </>
         )}
       </p>

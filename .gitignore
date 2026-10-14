@@ -22,6 +22,11 @@ coverage/
 .pnpm-store/
 *.tsbuildinfo
 
+# Playwright — the browsers are installed from the registry, never vendored
+test-results/
+playwright-report/
+blob-report/
+
 # Environment — never commit real secrets
 .env
 .env.*

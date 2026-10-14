@@ -6,6 +6,56 @@
 
 ## History
 
+### 2026-10-14 — v0.1.53 — `M6.2`: the a11y and performance evidence, and the link that was colour alone
+
+**What landed.** `M6.2`'s combined report, [`A11Y-PERF-REPORT.md`](06-quality/A11Y-PERF-REPORT.md), and
+the harness that produces the numbers in it. Accessibility is measured in two places now: axe in
+**jsdom** over the components — 22 tests in six files, inside `pnpm test`, on every push, with a control
+test that hands the harness a known violation so a runner that passes everything cannot be mistaken for
+a clean codebase — and axe in **Chromium** over the eleven public routes at `pnpm axe:audit`, against a
+production build with the seeded API behind it.
+
+**Why two layers.** Because only one of them can decide colour. jsdom has no layout engine and no
+cascade, so axe's `color-contrast` rule comes back `incomplete` there, and `toHaveNoViolations` only
+ever reads `violations` — a green component run is not a contrast claim, and letting it be read as one
+would be evidence that looks stronger the less it is checked. Contrast, target size and landmark
+structure are measured in the browser, and only there.
+
+**The finding.** The first route run was 9 passing and 2 failing, both on `link-in-text-block` (WCAG
+1.4.1, *Use of Color*): the credits list and the registration form set their links apart from the
+sentence around them by colour alone. The cause was a Tailwind default rather than anything a component
+did wrong — preflight gives every anchor `color: inherit; text-decoration: inherit`, so an unstyled
+`<Link>` inherits the colour *and* the underline of the text beside it, and `hover:underline` is by
+definition absent in the state a reader reads in. The fix was to take the `text-primary underline` the
+rest of the app already used: two files, ten lines, no new abstraction.
+
+**The part worth remembering.** `/login` passed that same audit carrying the identical defect. One
+component renders both forms, and axe judges "in a block of text" partly by how much of the block the
+link is — "Create an account" crosses that line where "Sign in" does not. A pass for the wrong reason
+is not a pass, so both branches of the component were fixed rather than the one the checker objected
+to. A fix that satisfies the checker and leaves the other page wrong is the thing this entry exists to
+record.
+
+**Performance.** `NFR-1` names an LCP, a catalog p95 and — the clause that had nothing behind it until
+now — a documented JS bundle budget. All three are measured in `e2e/perf.spec.ts` under Lighthouse's
+mobile profile (4× CPU, Slow 4G at 150 ms RTT, a 390 × 844 viewport) driven through the two protocol
+primitives, so the measurement is reproducible with this repository and nothing else installed.
+Measured: LCP 668/704 ms for the listing and 1 112 ms for the PDP against 2 500 ms; 148 KiB of
+first-load JS against the **200 KiB** budget this entry introduces; 55 ms catalog p95 against 300 ms.
+Static chunks are asserted `immutable`, and images are asserted to arrive as `webp` from the optimizer
+under a four-hour cache.
+
+**What the report refuses to claim.** That a loopback LCP is the p75 `NFR-1` means: with no TLS hop
+and no CDN it measures how much work the app does before it paints, which is a regression gate, and the
+field number belongs to `M7`. Nor that keyboard traversal, focus order, visible focus or screen-reader
+flow are covered — axe decides none of those, and the report says so rather than spending `NFR-2`'s
+authority on them.
+
+**Why it is not in CI.** A route audit needs a browser and a whole stack behind it — the seeded API and
+a running build — and `frontend.yml` has neither; giving the frontend job Postgres and Python to prove
+something about composed markup is a large amount of CI for a small amount of proof. The component
+layer *is* inside `pnpm test`, and therefore in CI, which is where a cheap regression gate belongs.
+
 ### 2026-10-14 — v0.1.52 — roadmap: the `M5` overview row, withdrawn rather than guessed
 
 **What changed.** `ROADMAP.md` §2 no longer carries an `M5` row. `M5` is not deleted — §3 keeps

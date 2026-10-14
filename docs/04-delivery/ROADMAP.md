@@ -155,8 +155,20 @@ Status legend: `[ ]` planned · `[~]` in progress · `[x]` done.
   rather than in the workflow, so CI and a laptop enforce one number from one place (`RUNBOOK.md` §3).
   The 13 statements the baseline run found were refusals and `__str__` fallbacks, and each has a test
   now: the domain layer measures 100%.
-- [ ] `M6.2` Accessibility (axe on key routes) **and** performance (LCP budget, caching, image
-  optimisation) pass → one combined report. *(merges the old `M6.2` + `M6.3`)*
+- [x] `M6.2` Accessibility (axe on key routes) **and** performance (LCP budget, caching, image
+  optimisation) pass → one combined report: [`../06-quality/A11Y-PERF-REPORT.md`](../06-quality/A11Y-PERF-REPORT.md).
+  Two layers, because one would be the weaker claim: axe in **jsdom** over the components (22 tests,
+  inside `pnpm test`, on every push) and axe in **Chromium** over 11 routes (`pnpm axe:audit`), which
+  is the only layer that can decide colour — jsdom has no cascade, so it returns `color-contrast` as
+  *incomplete* and a green component run is not a contrast claim. The first route run was 9 passing and
+  2 failing on `link-in-text-block`: Tailwind's preflight gives an anchor the colour *and* the
+  decoration of the text around it, so an unstyled `<Link>` with `hover:underline` is set apart by
+  colour alone, which is what `1.4.1` forbids. Fixed by taking the `text-primary underline` the rest of
+  the app already used. `NFR-1`'s third clause — "a documented JS bundle budget" — is now a number:
+  **200 KiB** first-load against 148 KiB measured, next to `NFR-1`'s own 2.5 s LCP (668 ms for the
+  listing, 1 112 ms for the PDP, on a throttled mobile profile) and its 300 ms catalog p95 (55 ms).
+  `pnpm perf:audit` measures all of it; both audits are excluded from CI on purpose, and the report
+  says which claims they do **not** cover. *(merges the old `M6.2` + `M6.3`)*
 - [ ] `M6.3` Security hardening (CSP, headers, throttles, secret guard, dependency audit) and the
   end-to-end error-envelope + request-id verification → `SECURITY-REVIEW.md`.
   *(merges the old `M6.4` + `M6.5`)*

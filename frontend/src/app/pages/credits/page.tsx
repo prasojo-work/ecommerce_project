@@ -72,7 +72,7 @@ async function CreditsList() {
                 {deed ? (
                   <a
                     href={deed}
-                    className="text-primary underline-offset-4 hover:underline"
+                    className="text-primary underline underline-offset-4"
                     aria-label={`Licence ${credit.license}, opens the Creative Commons deed`}
                   >
                     {credit.license}
@@ -83,7 +83,7 @@ async function CreditsList() {
                 · {credit.source} ·{" "}
                 <a
                   href={credit.source_page_url}
-                  className="text-primary underline-offset-4 hover:underline"
+                  className="text-primary underline underline-offset-4"
                   // Forty-six links reading "source" are indistinguishable to a screen reader on
                   // their own, so each one names the image it belongs to.
                   aria-label={`View the source of ${credit.title}`}
