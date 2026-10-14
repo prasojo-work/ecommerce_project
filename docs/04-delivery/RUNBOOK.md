@@ -1310,7 +1310,8 @@ wiring is wrong. The checks, and what each one actually asserts:
 
 And the first-visit cost, which is a reviewer's first impression: 48s for the first page load, 2s once
 warm, 28s for a route's own first hit, and 1s from the API when awake. That is `ADR-0011`'s accepted
-trade, with the keep-alive ping that the ADR names as the mitigation still unbuilt.
+trade — and the mitigation the ADR names is now `.github/workflows/keepalive.yml` (§7.9), which begins
+with the next push to `main`.
 
 Two items remained after that first verification, both outside this repository: a redeploy with the
 corrected `NINJA_NUM_PROXIES`, and a sign-in through the live stack, which needs a browser.
@@ -1368,6 +1369,17 @@ The correction itself is pinned by
 `tests/test_accounts_api.py::test_the_counted_address_is_the_client_and_not_a_hop_in_front_of_it`;
 what was never verified is the dashboard's value.
 
+**Measured at `M7.2`, 2026-10-14 — and it still does not count.** The action above asked for a
+measurement, so one was taken against the deploy carrying `M6`: fifteen rapid
+`POST /api/v1/auth/login` attempts produced fifteen `401`s and no `429`. A second pass with a
+**constant forged** `X-Forwarded-For` of `203.0.113.10` produced fifteen `401`s as well — and that
+second pass is the informative one, because a constant value at the counted position would have filled
+a single bucket. So the entry being counted varies even when the caller controls everything visible,
+which points at infrastructure rather than at the visitor, exactly as the paragraph above concluded.
+The action stands unchanged, and for the third time: **do not reason the number out.** Read the
+resolved ident in Render's logs and set `NINJA_NUM_PROXIES` to the position the visitor actually
+occupies.
+
 **After `M4.3` and `M4.4`, 2026-10-13.** The checkout path re-checked from outside, because it is the one
 journey that writes stock, an order and a payment inside a single request, and a test that shares a
 process with the code cannot show all three landing in Supabase:
@@ -1398,6 +1410,84 @@ deployed one.
 
 The smoke left `smoke-m4@example.com`, its cart and the paid order `LSH-DA8B2C1D` in the demo database,
 and one unit off `brisk-ash-dining-chair` variant 13; delete the account the way §7.5 describes.
+
+### 7.9 The keep-alive ping
+
+`ADR-0011` accepts Render's free-tier cold start and names a periodic ping as its mitigation.
+`.github/workflows/keepalive.yml` is that ping: every ten minutes, `GET /healthz` on the API and
+`GET /` on the storefront, each with a 90-second ceiling and two retries, and the job **fails** if
+either does not answer `200`.
+
+Three things are worth knowing before trusting it:
+
+- **It runs from the default branch.** A `schedule` trigger fires only for a workflow on `main`, so it
+  starts with the next push rather than with the commit that added it. Until then, ping by hand — the
+  same two `curl` calls, or Actions → *Keep-alive* → *Run workflow*, which is what `workflow_dispatch`
+  is there for and how the command was verified.
+- **It is best-effort by construction.** GitHub queues scheduled jobs and a delay of some minutes is
+  normal, against an idle window of roughly fifteen. So the demo is *usually* warm rather than always,
+  and that is the standard the ADR accepted.
+- **It doubles as an uptime check.** A host that is down fails the job, and a failed scheduled run
+  notifies the repository owner. That is a second reason not to make the ping silent.
+
+What it cannot survive is GitHub disabling scheduled workflows after 60 days without repository
+activity. Nothing in the file prevents that, and a silent stop would look exactly like a working
+schedule. The alternative with no such cliff is an external pinger (UptimeRobot and similar) — an
+account to create rather than a file to write, so it is left to the Founder.
+
+### 7.10 `M7.2` — the launch verification, 2026-10-14
+
+The first pass over the *launch* build, and the first time anything in this repository was checked
+against the deployed build rather than a local one. §7.8 holds the earlier passes; this is the one the
+launch rests on.
+
+**The smoke journey**, from outside the stack:
+
+| Check | Result | The assertion |
+| --- | --- | --- |
+| `GET /healthz` | `200` | the container is up and bound `$PORT` |
+| `GET /api/v1/products` | `200`, `total: 46` | Supabase, migrations and the seed all work |
+| `GET http://…/healthz` | `301` | TLS is enforced before Django sees the request |
+| Security headers on `/healthz` | `strict-transport-security`, `x-content-type-options` | `prod.py`'s hardening is applied, not merely written |
+| `GET /api/v1/addresses`, no token | `401` | auth is enforced in production, not only in tests |
+| `POST /auth/refresh`, foreign `Origin` | `403` | `M2.4`'s origin guard is live |
+| Preflight, real `Origin` | `200`, `access-control-allow-origin: https://ecommerce-project-five-psi.vercel.app` | CORS is granted to the deployed frontend |
+| Preflight, foreign `Origin` | `200` with **zero** `access-control-allow-*` headers | the browser refuses it on the missing header; that header is the assertion, not the status |
+| Nine routes on the storefront | all `200` | `/`, `/products`, `/cart`, `/checkout`, `/orders`, `/login`, `/register`, `/account`, `/pages/credits` |
+| `Content-Security-Policy` on `/` | present | the storefront's own policy shipped with the build |
+
+**The two audits, pointed at the deploy.** Both specs read `A11Y_BASE_URL`, which exists so the same
+assertions can run against a deployed environment instead of a local `next start`:
+
+```
+A11Y_BASE_URL=https://ecommerce-project-five-psi.vercel.app pnpm audit:routes
+```
+
+`17 passed` — 11 routes at WCAG 2.1 `AA` in a real browser, and the six performance budgets. The
+numbers below are the deploy's own, which is the point of running them there:
+
+| Budget | Deployed | The promise |
+| --- | --- | --- |
+| LCP, catalog listing (throttled mobile) | 1 508 ms | `NFR-1`'s 2 500 ms |
+| LCP, product detail (throttled mobile) | 1 720 ms | `NFR-1`'s 2 500 ms |
+| First-load JS | 159.2 KiB / 158.0 KiB | 200 KiB, the budget `M6.2` documented |
+| Catalog read p95 | 48.6 ms over 24 requests | `NFR-1`'s 300 ms |
+
+**The one assertion that had to change, and why it is worth more than the change.** The image check
+read `max-age` and demanded at least an hour. Self-hosted that is right — `next start` answers with
+`cache-control: public, max-age=14400, must-revalidate`. Vercel does not: the browser is told
+`public, max-age=0, must-revalidate`, and the optimised image is held in the **CDN**, where the
+evidence is `x-vercel-cache: HIT` on a repeat request rather than a number in a header. So a check
+written for one host was failing a deploy that was honouring the same promise by the only means that
+host offers. The spec now branches — where a CDN header is present it proves the cache hit, and where
+it is absent it proves the `max-age` — and both branches pass against the environment each was written
+for (CDN `HIT` live, `max-age=14400` locally). The lesson generalises past this one assertion: an audit
+is evidence about the environment it was written in, and pointing it somewhere else is what finds that
+out.
+
+**What this pass does not cover.** No sign-in through the live stack, because that needs a browser and
+a session rather than a request — the one item §7.8 has been carrying since `M2.7`. And the rate-limit
+result is a *failure*, not a pass, recorded in §7.8 above.
 
 ## 8. Troubleshooting
 

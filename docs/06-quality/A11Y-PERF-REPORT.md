@@ -204,7 +204,8 @@ Asserted rather than eyeballed, so a regression is caught:
 | Evidence | Observed |
 |---|---|
 | Hashed JS chunk | `cache-control: public, max-age=31536000, immutable` |
-| Optimised image (`w=640`) | `content-type: image/webp`, `public, max-age=14400, must-revalidate`, 20 676 bytes |
+| Optimised image (`w=640`), self-hosted | `content-type: image/webp`, `public, max-age=14400, must-revalidate`, 20 676 bytes |
+| Optimised image (`w=640`), on Vercel | the same bytes and the same format, but `public, max-age=0, must-revalidate` with `x-vercel-cache: HIT` — the CDN holds it rather than the browser (§7) |
 | Image markup | `next/image` on every shipped image, with a `srcset` from 256w to 3840w at `q=75` |
 
 The image request is made with a browser's `accept` header, because the optimizer negotiates on it — a
@@ -241,3 +242,37 @@ storefront, and all 17 assertions pass again with it in force. The other two `M6
 `M6.3` (security hardening, the console throttle, and the end-to-end error-envelope + request-id
 verification) is [`SECURITY-REVIEW.md`](SECURITY-REVIEW.md), and `M6.4` turned out to need no receiver —
 Django already logs a failed task, and `tests/test_order_email.py` holds that now.
+
+## 7. Production verification (`M7.2`, 2026-10-14)
+
+Both gates were re-run against the deployed hosts rather than a local `next start`, because they are
+only evidence about the environment they are pointed at — and `A11Y_BASE_URL` exists so that they can
+be:
+
+```
+A11Y_BASE_URL=https://ecommerce-project-five-psi.vercel.app pnpm audit:routes
+```
+
+`17 passed` — the same 11 routes at WCAG 2.1 `AA` and the same six performance budgets, on the public
+build rather than on a laptop:
+
+| Gate | Local (§6) | Deployed | The promise |
+|---|---|---|---|
+| Route accessibility | 11 routes, 0 violations | 11 routes, 0 violations | `NFR-2` |
+| LCP | 668 / 1 112 ms | 1 508 / 1 720 ms | `NFR-1`'s 2 500 ms |
+| First-load JS | 147.8 / 148.3 KiB | 159.2 / 158.0 KiB | 200 KiB |
+| Catalog p95 | 55.5 / 50.6 ms | 48.6 ms | `NFR-1`'s 300 ms |
+
+The larger LCP is the network and not a regression — the deployed run is throttled mobile (4× CPU,
+Slow 4G) over a real connection rather than over loopback — and it still lands at 60-69% of the budget.
+
+**Confronting the deploy changed exactly one assertion, and it is worth recording why.** The image
+check in §4.5 read `max-age` and demanded at least an hour. That is true self-hosted — `next start`
+answers with `cache-control: public, max-age=14400, must-revalidate` — and false on Vercel, which tells
+the browser `max-age=0, must-revalidate` and holds the optimised image in its **CDN**, where the
+evidence is `x-vercel-cache: HIT` on a repeat request rather than a number in a header. The check was
+therefore failing a deploy that was honouring the same promise by the only means that host offers. It
+now branches on whether a CDN header is present: with one, it proves the cache hit; without one, it
+proves the `max-age`. Both branches pass where each was written — CDN `HIT` in production,
+`max-age=14400` locally — which is a small change and a general lesson. An audit is evidence about the
+environment it was written in, and pointing it somewhere else is how that gets found out.

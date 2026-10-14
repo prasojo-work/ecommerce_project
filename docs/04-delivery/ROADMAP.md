@@ -30,7 +30,7 @@ Status legend: `[ ]` planned · `[~]` in progress · `[x]` done.
 | M3 | Cart | A cart a signed-in shopper can fill | Add/update/remove, stock-capped, behind the bearer token | `[x]` |
 | M4 | Checkout & orders | Mock purchase end to end | Order created, paid, history shown | `[x]` |
 | M6 | Hardening | Quality evidence produced | a11y/perf/security reports committed | `[x]` |
-| M7 | Launch | Public demo hardened and finalised | Live URL passes a smoke journey; README published | `[ ]` |
+| M7 | Launch | Public demo hardened and finalised | Live URL passes a smoke journey; README published | `[~]` |
 | M8 | Data track (Phase 2) | Analytics on real events | Funnel dashboard built on events | `[ ]` |
 
 ## 3. Milestone detail
@@ -207,9 +207,29 @@ Status legend: `[ ]` planned · `[~]` in progress · `[x]` done.
 
 `M7` is thin by design: `M2.7` already stood up the deploy, so this is the hardened, final one.
 
-- [ ] `M7.1` Production deploy — Render web, Supabase, Vercel; run migrations and
-  seed the demo database.
-- [ ] `M7.2` Production smoke journey + keep-alive ping; finalise the runbook.
+- [x] `M7.1` Production deploy — Render web, Supabase, Vercel; run migrations and
+  seed the demo database. **It was already standing, and the push that closed `M6` had redeployed it**:
+  `render.yaml` sets `autoDeployTrigger: commit`, so a push to `main` deploys the API, whose boot path
+  runs `migrate` and the idempotent seed before `uvicorn`, and Vercel rebuilds the web app from the same
+  push. So there was nothing to deploy and this increment became an audit of a deploy nobody had
+  confirmed — and its first finding is that both hosts were *already* serving the hardened build:
+  the live API answers with `M6.3`'s `Content-Security-Policy`, and the storefront with the widened
+  two-directive policy the console gets instead.
+- [x] `M7.2` Production smoke journey + keep-alive ping; finalise the runbook. The journey re-run end
+  to end from outside — `/healthz`, 46 products over the public URL, `http` → `https`, `401` without a
+  token, the refresh origin guard's `403`, a foreign-origin preflight that answers `200` and withholds
+  every `access-control-allow-*` header, and nine routes answering `200` — and then the two audits
+  **pointed at the deployed hosts** rather than at a local `next start`, which is what `A11Y_BASE_URL`
+  was put there for: **17 of 17 pass in production**, 11 routes at WCAG 2.1 `AA`, LCP 1 508 ms
+  (listing) and 1 720 ms (PDP) on the throttled mobile profile, 159 KiB of first-load JS, and a 48.6 ms
+  catalog p95. Running them against the deploy is what turned up the third thing this milestone
+  corrected: the image-cache assertion read `max-age`, and Vercel does not set a long one — it tells the
+  browser `max-age=0, must-revalidate` and holds the optimised image in its **CDN**, where the evidence
+  is a cache hit rather than a header. A check written for one host was failing a deploy that was
+  honouring the same promise in the only way that host can. The ping is
+  `.github/workflows/keepalive.yml` on a ten-minute schedule — and it begins with the next push to
+  `main`, because a scheduled workflow runs from the default branch, which is noted here rather than
+  assumed to have happened.
 - [ ] `M7.3` README with screenshots, architecture diagram, and the live URL.
 
 ### M8 — Data track (Phase 2, deferred)

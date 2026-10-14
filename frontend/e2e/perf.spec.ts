@@ -204,7 +204,12 @@ test(`catalog reads answer within the p95 budget`, async ({ request }) => {
 test("static assets ship immutable and images ship optimised", async ({ request }) => {
   const html = await (await request.get("/products")).text();
 
-  const chunk = html.match(/\/_next\/static\/chunks\/[^"]+\.js/)?.[0] ?? "";
+  // The path shape is not the same everywhere, and matching only the local one made this assertion
+  // unable to check the build worth checking. A local `next build` serves chunks from
+  // `/_next/static/chunks/`; Vercel rewrites them under an extra `immutable/` segment
+  // (`/_next/static/immutable/chunks/`), because the filenames are already content-hashed. Against
+  // the deployed app the old pattern found nothing and failed as though assets were missing.
+  const chunk = html.match(/\/_next\/static\/(?:immutable\/)?chunks\/[^"]+\.js/)?.[0] ?? "";
   expect(chunk, "the listing served no JS chunks").not.toBe("");
 
   const chunkResponse = await request.get(chunk);
@@ -226,13 +231,33 @@ test("static assets ship immutable and images ship optimised", async ({ request 
   });
   const imageCache = imageResponse.headers()["cache-control"] ?? "";
   const maxAge = Number(/max-age=(\d+)/.exec(imageCache)?.[1] ?? 0);
+  const cdnCache = imageResponse.headers()["x-vercel-cache"] ?? "";
 
   console.log(
-    `optimised image: ${imageResponse.headers()["content-type"]}, ${imageCache} ` +
-      `(${imageResponse.headers()["content-length"] ?? "?"} bytes)`,
+    `optimised image: ${imageResponse.headers()["content-type"]}, ${imageCache}` +
+      (cdnCache ? `, x-vercel-cache=${cdnCache}` : "") +
+      ` (${imageResponse.headers()["content-length"] ?? "?"} bytes)`,
   );
 
   expect(imageResponse.status()).toBe(200);
   expect(imageResponse.headers()["content-type"]).toMatch(/^image\/(avif|webp|jpeg|png)/);
-  expect(maxAge, "the optimizer's cache should outlive a page view").toBeGreaterThanOrEqual(3_600);
+
+  // One intent, two hosts. Self-hosted, `next start` hands the browser the optimised image and tells
+  // it to keep it for hours. On Vercel the browser is told to revalidate (`max-age=0`) and the **CDN**
+  // is what holds the result — visible only as a cache header, which is where the earlier version of
+  // this assertion stopped reading. Asserting `max-age` alone failed the deployed build for satisfying
+  // the same guarantee a different way, so each host is asked the question it can answer.
+  if (cdnCache) {
+    const second = await request.get(image.replaceAll("&amp;", "&"), {
+      headers: { accept: "image/avif,image/webp,image/apng,*/*" },
+    });
+    const secondCache = second.headers()["x-vercel-cache"] ?? "";
+
+    console.log(`second request for the same image: x-vercel-cache=${secondCache}`);
+    expect(secondCache, "the CDN should hold the optimised image, not re-optimise it").toBe("HIT");
+  } else {
+    expect(maxAge, "the optimizer's cache should outlive a page view").toBeGreaterThanOrEqual(
+      3_600,
+    );
+  }
 });

@@ -6,6 +6,38 @@
 
 ## History
 
+### 2026-10-14 — v0.1.57 — `M7.1` and `M7.2`: the deploy audited, and a ping that keeps it warm
+
+Two increments, and the first turned out to be an audit rather than a deploy. `M7.1` was "production
+deploy", but `render.yaml` sets `autoDeployTrigger: commit` and the API's boot path runs `migrate` and
+the idempotent seed — so the push that closed `M6` had already redeployed both hosts, and the live API
+was answering with `M6.3`'s `Content-Security-Policy` before any of this was checked. So the increment
+verified a deploy nobody had confirmed, which is worth more than a deploy that was never looked at
+again.
+
+`M7.2` then ran the smoke journey and **both audits against the deployed hosts** rather than a local
+`next start` — 17 of 17 pass in production: 11 routes at WCAG 2.1 `AA`, LCP 1 508 ms and 1 720 ms
+against `NFR-1`'s 2 500 ms, 159 KiB of first-load JS against the 200 KiB budget `M6.2` documented, and
+a 48.6 ms catalog p95 against its 300 ms. The keep-alive `ADR-0011` has named since `M2.7` is at last
+`.github/workflows/keepalive.yml`: a ten-minute schedule over both hosts, and the job fails when one
+does not answer `200`, which makes it an uptime check as well as a warmer. It begins with the next push
+to `main`, because a scheduled workflow runs from the default branch.
+
+**What pointing the audit outward found.** One assertion, and it is the kind worth keeping. The image
+check read `max-age` and demanded an hour — true of `next start`, false of Vercel, which hands the
+browser `max-age=0, must-revalidate` and keeps the optimised image in its CDN, where the proof is
+`x-vercel-cache: HIT` rather than a value in a header. A check written for one host was therefore
+failing a deploy that was keeping the same promise by the only means that host offers; it now asks each
+host the question it can answer. The same pass re-measured the rate limit `M2.7` left open, and it
+**still does not count** — fifteen rapid `POST /auth/login` attempts, fifteen `401`s, and a constant
+forged `X-Forwarded-For` changed nothing — so the runbook's action stands, and so does its instruction
+not to reason the number out a third time.
+
+Docs: `RUNBOOK.md` gains §7.9 (the ping) and §7.10 (this verification), and loses the claim that the
+ping was "still unbuilt"; `A11Y-PERF-REPORT.md` gains §7 and the two-host cache row it needed.
+`M7.3` — the README, which the recon found still describes checkout as unbuilt — is all that remains
+before `M7` closes.
+
 ### 2026-10-14 — v0.1.56 — `M6` closes: the retrospective
 
 `M6`'s exit criterion is "a11y/perf/security reports committed", and two reports now are:

@@ -1,0 +1,50 @@
+name: Keep-alive
+
+# `ADR-0011` accepts Render's free-tier cold start and names a periodic ping as the mitigation. The
+# API sleeps after roughly fifteen minutes idle, so the first request after a quiet spell can take
+# tens of seconds — and the person who pays that cost is a recruiter opening the demo for the first
+# time. This pings both public hosts on a schedule instead.
+#
+# Two caveats, both of which matter more than the ping does:
+#
+#   1. `schedule` on a free runner is best-effort. GitHub queues the job rather than running it at the
+#      minute named, and a delay is normal. Fifteen minutes idle versus a ten-minute schedule leaves
+#      margin for that, and "usually warm" is the standard `ADR-0011` accepts.
+#   2. GitHub disables scheduled workflows after 60 days without repository activity. Nothing in this
+#      file can prevent that, and a silent stop would look exactly like a working schedule. The
+#      alternative with no such cliff is an external pinger (UptimeRobot and similar), which is one
+#      account to create — recorded in `docs/04-delivery/RUNBOOK.md` §7.2 rather than assumed here.
+#
+# It doubles as an uptime check: the job fails when a host does not answer `200`, and a failed
+# scheduled run notifies the repository owner. A ping that could not report its own failure would be
+# decoration.
+
+on:
+  schedule:
+    - cron: "*/10 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  ping:
+    name: Wake the API and the web app
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Ping both public hosts
+        run: |
+          set -euo pipefail
+
+          for url in \
+            "https://lysheim-api.onrender.com/healthz" \
+            "https://ecommerce-project-five-psi.vercel.app/"
+          do
+            # `--retry` because a cold start answers slowly rather than not at all, and a 90s ceiling
+            # because the measured worst case (48s, 2026-10-12) has to fit inside it.
+            code=$(curl -sS -o /dev/null -w '%{http_code}' \
+              --max-time 90 --retry 2 --retry-delay 5 "$url")
+            echo "$url -> $code"
+            test "$code" = "200"
+          done
