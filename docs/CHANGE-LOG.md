@@ -6,6 +6,27 @@
 
 ## History
 
+### 2026-10-14 — v0.1.52 — roadmap: the `M5` overview row, withdrawn rather than guessed
+
+**What changed.** `ROADMAP.md` §2 no longer carries an `M5` row. `M5` is not deleted — §3 keeps
+`M5.1` and `M5.2` with their notes, §4 keeps the sequencing through it, and the history above keeps
+the increments. What §2 no longer does is claim a status it cannot support.
+
+**Why a row was withdrawn instead of a box ticked.** A milestone's overview status is set at its gate,
+and the gate is the retrospective: `M4`'s row turned `[x]` in the same entry that closed it (`v0.1.47`),
+and `M1`'s was corrected the same way. `M5.1` and `M5.2` both landed, and `v0.1.50`'s entry ends
+"`M5` closes here" — but no retrospective was written, so the row had only two states available and
+both are untrue. `[ ]` claims planned work that is finished. `[x]` claims a close nobody performed,
+which is the specific untruth the gate exists to prevent. A box that cannot be filled in honestly is
+worth less than no box, so there is no row.
+
+**What brings it back.** The retrospective. Written, the row returns with `[x]` against it, and this
+entry is the answer to a reader who wonders why a milestone is missing from a table that otherwise
+counts every one of them.
+
+**Why it is recorded at all.** A missing row invites a well-meant repair. This entry is what stops a
+future increment silently re-adding `| M5 | ... | [ ] |` and calling the table complete.
+
 ### 2026-10-14 — v0.1.51 — `M6.1`: the coverage gate, and the thirteen refusals it found untested
 
 **What landed.** `NFR-7`'s "backend domain/service coverage target ≥ 80%" is now a gate rather than a

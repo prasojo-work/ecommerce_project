@@ -29,7 +29,6 @@ Status legend: `[ ]` planned · `[~]` in progress · `[x]` done.
 | M2 | Accounts & auth | Register/login works; the app is live | JWT flow + refresh exercised by tests; a public URL serves the catalog and auth | `[~]` |
 | M3 | Cart | A cart a signed-in shopper can fill | Add/update/remove, stock-capped, behind the bearer token | `[x]` |
 | M4 | Checkout & orders | Mock purchase end to end | Order created, paid, history shown | `[x]` |
-| M5 | Operator console | Catalog/stock/orders manageable | Admin manages products + order status | `[ ]` |
 | M6 | Hardening | Quality evidence produced | a11y/perf/security reports committed | `[ ]` |
 | M7 | Launch | Public demo hardened and finalised | Live URL passes a smoke journey; README published | `[ ]` |
 | M8 | Data track (Phase 2) | Analytics on real events | Funnel dashboard built on events | `[ ]` |
