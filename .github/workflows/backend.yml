@@ -71,8 +71,11 @@ jobs:
       - name: Types
         run: uv run basedpyright
 
-      - name: Tests
-        run: uv run pytest
+      # `--cov` runs the measurement; the threshold and the measured source live in
+      # `pyproject.toml` (`NFR-7`: the domain/service layer at 80% minimum), so the runner and a
+      # laptop enforce the same number from the same place.
+      - name: Tests and coverage
+        run: uv run pytest --cov
 
       # The frontend generates its TypeScript types from the committed snapshot, so the snapshot
       # has to match the code. Regenerate it and fail on any difference. `git -C ..` targets the

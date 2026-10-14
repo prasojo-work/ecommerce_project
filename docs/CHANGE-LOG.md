@@ -6,6 +6,50 @@
 
 ## History
 
+### 2026-10-14 — v0.1.51 — `M6.1`: the coverage gate, and the thirteen refusals it found untested
+
+**What landed.** `NFR-7`'s "backend domain/service coverage target ≥ 80%" is now a gate rather than a
+number somebody remembers to check. `pytest --cov` runs the measurement, and the threshold and the
+measured scope are declared in `backend/pyproject.toml` with nothing about either in the workflow.
+That placement is the point: the runner and a laptop read the same `fail_under` from the same file, so
+the number cannot drift between them and changing it is one edit in one place.
+
+**What is measured, and what is left out on purpose.** The measured layer is the six domain apps minus
+three groups, written as exclusions because a list of what to leave out is easier to keep honest than a
+list of files somebody has to remember to add. Migrations are generated. The adapters (`*/api.py`,
+`*/admin.py`, `*/schemas.py`, `core/views.py`) are exercised end to end already, and measuring them
+beside the rules would let a thickened router raise the number without a rule becoming any better
+tested — which is the failure a coverage gate exists to prevent. The wiring (`*/apps.py`,
+`core/management/*`) holds no rules, and `catalog/seed_data.py` is content: it reaches 100% the moment
+it is imported, so measuring it would only pad the total.
+
+**The thirteen statements, and why they read as a group.** The baseline measured 98.09%, and every gap
+was a *refusal* or a *fallback* — never a happy path. That is the shape this repo's tests already aim
+at, which is exactly why the omissions look like oversights rather than like decisions about what
+deserves a test:
+
+- `create_superuser` guards `is_staff` and `is_superuser` in two separate checks, and only the first
+  was tested — so `is_superuser=False`, an operator who reaches the console and is granted nothing, was
+  the untested half.
+- `rate_for` raising on a scope nobody configured, which is what lets its neighbour in
+  `test_accounts_api.py` claim the failure lands "at request time, not at startup".
+- The two silent-refresh refusals: a `jti` whose row has gone, and a row whose own `expires_at` has
+  passed while the envelope still verifies. The envelope's `exp` and the row's expiry are minted
+  together; the tests pin which of the two decides, and it is the row.
+- Four `__str__` fallbacks — `Address`, `RefreshToken`, `ProductImage`, `Payment` — which are read by
+  the console and by the order emails rather than by a debugger.
+- The bare-`Exception` handler in `core/errors.py`, the one branch no endpoint can reach on purpose.
+  It is tested on a throwaway `NinjaAPI` carrying a route that raises, asserting both halves of `NFR-5`:
+  the envelope the client is shown, and the traceback that stays in the log and out of the body.
+- `create_order` on a cart that is `active` with nothing in it. `cart/api.py` deletes the line and never
+  the cart, so an emptied basket is a different row from a fresh account's and takes a different
+  branch — and only the fresh account was ever exercised.
+- `get_gateway` refusing a `PAYMENT_PROVIDER` that names no adapter (`ADR-0010`): falling back to the
+  mock would take a real payment nowhere while still reporting success.
+
+**How to run.** `uv run pytest --cov` (`RUNBOOK.md` §3) for the suite with the gate, or `uv run pytest`
+for the suite on its own. The domain layer measures 100% and the suite reports 343 passing, up from 332.
+
 ### 2026-10-13 — v0.1.50 — `M5.2`: the operator's runbook, and two comments that had gone stale
 
 **What landed.** `RUNBOOK.md` §9, the operator's side of the console: how to make an operator, why

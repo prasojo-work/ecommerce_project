@@ -52,6 +52,19 @@ def test_str_for_credit(credit: ImageCredit) -> None:
     assert str(credit) == "Slipcovered Vintage Armchair by DesignFolly.com"
 
 
+def test_str_for_an_image_answers_for_the_slot_until_alt_text_is_written(product: Product) -> None:
+    """`alt` is the accessible description (`US-1.5`) and is optional, so the fallback has to name
+    the product and the position: in the console's inline, "position 0" is the only thing that says
+    which of several images an operator is looking at."""
+    unnamed = ProductImage.objects.create(product=product, path="images/aalto-1.jpg")
+    described = ProductImage.objects.create(
+        product=product, path="images/aalto-2.jpg", alt="In profile"
+    )
+
+    assert str(unnamed) == "Aalto Chair image at position 0"
+    assert str(described) == "In profile"
+
+
 def test_category_slug_is_unique(category: Category) -> None:
     with pytest.raises(IntegrityError), transaction.atomic():
         Category.objects.create(name="Duplicate", slug="seating")

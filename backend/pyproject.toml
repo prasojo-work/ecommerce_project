@@ -20,6 +20,7 @@ dev = [
     "django-stubs>=5.2",
     "pytest>=8.4",
     "pytest-django>=4.11",
+    "pytest-cov>=7.1.0",
 ]
 
 [tool.uv]
@@ -46,6 +47,41 @@ DJANGO_SETTINGS_MODULE = "config.settings.dev"
 pythonpath = ["."]
 testpaths = ["tests"]
 addopts = "-q"
+
+[tool.coverage.run]
+# `NFR-7` asks for a "backend domain/service coverage target >= 80%", and this is that layer: the
+# modules that hold rules. It is written as the six domain apps minus three categories, because a
+# list of exclusions is easier to keep honest than a list of files someone has to remember to add.
+#
+#   * generated -- `*/migrations/*`.
+#   * adapters  -- `*/api.py` and `accounts/addresses_api.py` are HTTP transport, `*/schemas.py` is
+#     serialization shape, `*/admin.py` is the operator console, `core/views.py` is `/healthz`. All
+#     are exercised end to end already, and measuring them beside the rules would let a thickened
+#     router raise this number without a rule being any better tested.
+#   * wiring    -- `*/apps.py` is app config, `core/management/*` is the `seed` and
+#     `export_openapi_schema` commands.
+#
+# `catalog/seed_data.py` is out for a third reason: it is content rather than rules, and it reaches
+# 100% the moment it is imported, so measuring it would only pad the number.
+source = ["accounts", "cart", "catalog", "core", "orders", "payments"]
+omit = [
+    "*/migrations/*",
+    "*/api.py",
+    "*/schemas.py",
+    "*/admin.py",
+    "*/apps.py",
+    "accounts/addresses_api.py",
+    "core/management/*",
+    "core/views.py",
+    "catalog/seed_data.py",
+]
+
+[tool.coverage.report]
+# The number `NFR-7` names, and the reason it lives here rather than in the CI workflow: a laptop and
+# the runner then enforce the same threshold, and there is one place to change it.
+fail_under = 80
+show_missing = true
+skip_covered = true
 
 [tool.basedpyright]
 typeCheckingMode = "standard"

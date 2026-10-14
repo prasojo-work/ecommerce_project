@@ -48,7 +48,10 @@ uv sync
 # (M0) run
 uv run uvicorn config.asgi:application --reload
 # (M0) quality gates
-uv run ruff check . && uv run ruff format --check . && uv run basedpyright && uv run pytest
+uv run ruff check . && uv run ruff format --check . && uv run basedpyright
+# (M0) tests; `--cov` adds `NFR-7`'s coverage gate (M6.1) — the threshold and the measured scope
+# live in `backend/pyproject.toml`, so this and CI enforce the same number from the same place
+uv run pytest --cov
 # (M0) migrate
 uv run python manage.py migrate
 # (M1) seed demo data (idempotent; --reset clears first)

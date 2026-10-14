@@ -11,6 +11,7 @@ import json
 from typing import Any
 
 import pytest
+from django.core.exceptions import ImproperlyConfigured
 from django.test import Client
 
 from accounts.models import User
@@ -21,6 +22,7 @@ from orders.models import Order, OrderEvent, OrderStatus
 from orders.services import ShippingAddress, create_order
 from orders.shipping import DEFAULT_METHOD_CODE, SHIPPING_METHODS, ShippingMethod
 from payments.models import Payment, PaymentStatus
+from payments.providers import get_gateway
 
 pytestmark = pytest.mark.django_db
 
@@ -229,3 +231,25 @@ def test_the_mock_endpoints_are_absent_for_a_real_provider(
     assert response.status_code == 404
     order.refresh_from_db()
     assert order.status == OrderStatus.PENDING
+
+
+def test_a_provider_naming_no_adapter_is_refused_rather_than_defaulted_to_the_mock(
+    settings: Any,
+) -> None:
+    """`ADR-0010`: exactly one adapter exists in v1, and which one is configuration rather than
+    code. An unrecognised value is a deployment mistake, and quietly serving the mock would take a
+    real payment nowhere while still reporting success — so the lookup raises instead."""
+    settings.PAYMENT_PROVIDER = "stripe"
+
+    with pytest.raises(ImproperlyConfigured, match="stripe"):
+        get_gateway()
+
+
+def test_a_payment_renders_its_provider_its_state_and_its_order(order: Order) -> None:
+    """Read in a log line and in the console, so the order is named in it: the row on its own does
+    not say which purchase it belongs to."""
+    payment = Payment.objects.get(order=order)
+
+    assert str(payment) == (
+        f"mock {PaymentStatus.INITIATED} {payment.amount_cents} for order {order.pk}"
+    )

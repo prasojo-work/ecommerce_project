@@ -239,6 +239,19 @@ def test_an_empty_cart_is_a_conflict(shopper: User) -> None:
     assert Order.objects.count() == 0
 
 
+def test_a_cart_that_has_been_emptied_is_the_same_conflict(shopper: User) -> None:
+    """Removing the last line deletes the line, not the cart, so an account that has emptied its
+    basket is left holding an `active` cart with nothing in it — a different row from the fresh
+    account above, and so a different branch in `create_order`."""
+    cart_with(shopper, [])
+
+    response = place(shopper)
+
+    assert response.status_code == 409
+    assert error_code(response) == "CONFLICT"
+    assert Order.objects.count() == 0
+
+
 def test_more_than_the_stock_is_a_conflict_that_writes_nothing(
     shopper: User, variant: ProductVariant
 ) -> None:

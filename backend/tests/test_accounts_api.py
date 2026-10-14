@@ -12,17 +12,23 @@ tests read the configured rate rather than hard-coding one, and the origin tests
 
 import json
 from collections.abc import Iterator
+from datetime import timedelta
 from typing import Any
 
 import pytest
 from django.conf import settings
 from django.core.cache import cache
+from django.core.exceptions import ImproperlyConfigured
 from django.test import Client, override_settings
+from django.utils import timezone
 
 from accounts.models import RefreshToken, User
+from accounts.throttling import rate_for
 from accounts.tokens import (
     ACCESS_TOKEN_TYPE,
     REFRESH_TOKEN_TYPE,
+    SESSION_EXPIRED_MESSAGE,
+    SESSION_UNKNOWN_MESSAGE,
     TokenError,
     decode,
     issue_tokens,
@@ -369,6 +375,32 @@ def test_refresh_with_an_unreadable_cookie_is_refused_and_cleared(client: Client
     assert response.cookies[settings.REFRESH_COOKIE_NAME].value == ""
 
 
+def test_a_refresh_token_with_no_row_is_refused(client: Client, user: User) -> None:
+    """Only the `jti` is kept server-side, so a token whose row has gone still verifies: the
+    signature and the expiry belong to the envelope. It cannot name a session, and naming one is
+    the whole of what it is for, so it is refused rather than trusted for what it still says."""
+    login(client)
+    RefreshToken.objects.all().delete()
+
+    response = refresh(client)
+
+    assert response.status_code == 401
+    assert response.json()["error"]["message"] == SESSION_UNKNOWN_MESSAGE
+
+
+def test_a_refresh_row_that_has_expired_is_refused(client: Client, user: User) -> None:
+    """The row's own `expires_at` is the authority, not the envelope's `exp`. The pair are minted
+    together, but the row is the half a logout or a reuse sweep can reach, so it is the stricter of
+    the two and the one that decides — a session the database has written off is over."""
+    login(client)
+    RefreshToken.objects.update(expires_at=timezone.now() - timedelta(seconds=1))
+
+    response = refresh(client)
+
+    assert response.status_code == 401
+    assert response.json()["error"]["message"] == SESSION_EXPIRED_MESSAGE
+
+
 def test_reusing_a_rotated_token_ends_every_session(client: Client, user: User) -> None:
     """A revoked token presented again means a copy is in circulation, so nothing survives."""
     login(client)
@@ -464,6 +496,16 @@ def test_every_scope_has_a_configured_rate(scope: str) -> None:
     """A throttle whose scope has no rate raises `ImproperlyConfigured` at request time, not at
     startup, so an endpoint could ship and only fail under the request that used it."""
     assert settings.NINJA_DEFAULT_THROTTLE_RATES.get(scope)
+
+
+@override_settings(NINJA_DEFAULT_THROTTLE_RATES={})
+def test_an_unconfigured_scope_is_refused_rather_than_given_no_limit() -> None:
+    """The other half of the test above. The rate is read when a request asks for it, so a scope
+    nobody configured fails at that moment rather than at startup: a throttle that quietly stood
+    down instead would be a limit whose absence nobody could see, and the endpoint it guards would
+    look protected from the outside."""
+    with pytest.raises(ImproperlyConfigured, match="login"):
+        rate_for("login")
 
 
 def test_login_is_rate_limited(client: Client, user: User) -> None:

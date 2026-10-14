@@ -4,13 +4,16 @@ The user model is the one thing in this project that cannot be swapped cheaply l
 test here asserts the swap itself rather than a behaviour.
 """
 
+from uuid import uuid4
+
 import pytest
 from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError
 from django.db import IntegrityError, transaction
+from django.utils import timezone
 
-from accounts.models import Address, User
+from accounts.models import Address, RefreshToken, User
 
 pytestmark = pytest.mark.django_db
 
@@ -92,8 +95,24 @@ def test_create_superuser_refuses_to_clear_its_own_flags() -> None:
         )
 
 
+def test_create_superuser_also_refuses_to_clear_is_superuser() -> None:
+    """Both flags, not only the one checked first. `is_staff` opens the console and `is_superuser`
+    is what grants anything inside it, so a caller that got the second one wrong would produce an
+    operator who can sign in and then find nothing they are allowed to touch."""
+    with pytest.raises(ValueError, match="is_superuser=True"):
+        User.objects.create_superuser(
+            email="root@example.com", password="correct-horse-9", is_superuser=False
+        )
+
+
 def test_str_is_the_email(user: User) -> None:
     assert str(user) == "ada@example.com"
+
+
+def test_an_address_renders_as_its_recipient_and_its_first_line(address: Address) -> None:
+    """Printed by the console and by the order emails, so this is presentation rather than a debug
+    aid: the recipient and the first line are what tell two saved addresses apart at a glance."""
+    assert str(address) == "Ada Lovelace, 12 Marylebone Road"
 
 
 def test_timestamps_are_set_on_both_tables(user: User, address: Address) -> None:
@@ -219,3 +238,15 @@ def test_country_is_capped_at_two_characters(user: User) -> None:
 
     with pytest.raises(ValidationError):
         wrong.full_clean()
+
+
+def test_a_refresh_token_renders_its_account_and_whether_it_is_still_live(user: User) -> None:
+    """The state word is the point: it makes a list of sessions readable without opening each row,
+    and `revoked_at` alone decides it — so a token signed out by `logout` reads the same as one a
+    rotation replaced."""
+    token = RefreshToken.objects.create(user=user, jti=uuid4(), expires_at=timezone.now())
+
+    assert str(token) == "ada@example.com refresh token (active)"
+
+    token.revoked_at = timezone.now()
+    assert str(token) == "ada@example.com refresh token (revoked)"

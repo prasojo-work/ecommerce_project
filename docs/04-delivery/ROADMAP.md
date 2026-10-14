@@ -151,7 +151,11 @@ Status legend: `[ ]` planned · `[~]` in progress · `[x]` done.
 
 ### M6 — Hardening
 
-- [ ] `M6.1` Coverage push on the domain/service layer (≥ 80%) plus tests for edge cases.
+- [x] `M6.1` Coverage push on the domain/service layer (≥ 80%) plus tests for edge cases — the gate is
+  `pytest --cov`, with `fail_under = 80` and the measured scope declared in `backend/pyproject.toml`
+  rather than in the workflow, so CI and a laptop enforce one number from one place (`RUNBOOK.md` §3).
+  The 13 statements the baseline run found were refusals and `__str__` fallbacks, and each has a test
+  now: the domain layer measures 100%.
 - [ ] `M6.2` Accessibility (axe on key routes) **and** performance (LCP budget, caching, image
   optimisation) pass → one combined report. *(merges the old `M6.2` + `M6.3`)*
 - [ ] `M6.3` Security hardening (CSP, headers, throttles, secret guard, dependency audit) and the
