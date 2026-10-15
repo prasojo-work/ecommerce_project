@@ -48,6 +48,29 @@ Use **option 2**:
 **Moderate.** The token *issuing* is independent of storage; changing transport later is
 contained to the auth module and the client interceptor.
 
+## Rotation, reuse detection, and the interrupted reply
+
+Not part of the original decision, but the contract the implementation settled into, recorded here
+because the code points at this ADR for it.
+
+- Every refresh **rotates**: the presented token is revoked, a successor is issued, and the row
+  records which token superseded it (`RefreshToken.replaced_by`).
+- Presenting an already-revoked token is **reuse**, and reuse revokes every live token the account
+  has. The decisive signal is that a token was revoked *and its successor was spent*: the legitimate
+  client received the successor, so a second holder of the old one means a copy.
+- A successor that was **never spent** is the one case that is not reuse. A browser that navigates
+  away while its refresh is in flight is handed the cancellation rather than the new cookie, so the
+  replacement went nowhere and nobody has ever held it — and the next page load presents the old
+  token again. Read strictly, that revoked every session the customer had, on every device, for a
+  reply that never arrived.
+- So while the replacement is unspent and no older than `REFRESH_ROTATION_GRACE_SECONDS` (120 s by
+  default), the replay is treated as that retry: the replacement is withdrawn, the presented token
+  is pointed at a fresh successor, and a pair is issued.
+
+**The bound, stated plainly:** inside that grace a stolen-but-superseded token is exchangeable
+rather than detected. The window is what keeps the trade small — past it, and once a successor has
+been spent, reuse ends the session exactly as it did before.
+
 ## References
 
 - `docs/02-product/SCOPE.md` §8 (D3)

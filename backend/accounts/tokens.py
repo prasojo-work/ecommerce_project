@@ -191,14 +191,22 @@ def rotate(refresh_token: str) -> tuple[User, TokenPair]:
         with transaction.atomic():
             row = (
                 RefreshToken.objects.select_for_update()
-                .select_related("user", "replaced_by")
+                .select_related("user")
                 .filter(jti=claims["jti"])
                 .first()
             )
             if row is None:
                 raise TokenError(SESSION_UNKNOWN_MESSAGE)
 
-            replacement = row.replaced_by
+            # Read as its own query rather than through `select_related`: a replacement is a nullable
+            # FK, and Postgres refuses `FOR UPDATE` on the nullable side of the outer join that adds
+            # (`NotSupportedError`). It is also only ever wanted for a dead row, so the live path —
+            # every refresh that is not a replay — does not pay for it.
+            replacement = (
+                RefreshToken.objects.filter(replaces=row).first()
+                if row.revoked_at is not None
+                else None
+            )
             retry = (
                 replacement is not None
                 and replacement.revoked_at is None

@@ -6,6 +6,36 @@
 
 ## History
 
+### 2026-10-14 — v0.1.58 — a session that survives the page, and a refresh that is not theft
+
+Found by `M7.3`'s journey, and it is the defect only a browser could have found. `M2.7` left one
+production check open — a sign-in through the live stack, "which needs a browser" — and exercising it
+found a live fault that had been there since `M2.4`.
+
+What the browser did was ordinary: sign in, load a page, click a link. What the API answered was
+`401`. The cause is the intersection of two decisions that are each right on their own. The access
+token is held in memory only (`M2.4`), so **every** full page load calls `POST /auth/refresh`; and
+that endpoint **rotates** (`US-2.3`), so the token presented is revoked and its replacement arrives in
+a `Set-Cookie`. Navigate while that reply is in flight and the fetch is cancelled: the server has
+already rotated, the browser keeps the old cookie, and the next page load presents a token whose
+successor it never received. Read strictly, that is reuse — so `revoke_all` ran, and the customer was
+signed out of **every device** because a reply went nowhere. On a host that sleeps, the window is as
+wide as a cold start.
+
+The fix asks what became of the replacement rather than only that there was one. `RefreshToken` gained
+`replaced_by`, so a rotation now records its successor, and a replay is reuse when that successor was
+*spent*: the legitimate client received it, so a second holder means a copy. A successor that was
+never spent is the interrupted reply — the replacement is withdrawn, the presented token is pointed at
+a fresh successor, and a pair is issued. `REFRESH_ROTATION_GRACE_SECONDS` (120 s by default) bounds
+that reading, so a replay past the window, or one whose successor was used, still ends every session
+exactly as before. `ADR-0009` now carries the contract its own code was citing it for.
+
+Three tests hold the shape: a replay after a *spent* successor still ends everything, a replay of a
+reply that never arrived reissues the session, and a replay past the grace is reuse again — the last
+being what stops the branch from being a hole. Postgres rejected the first draft, and usefully:
+`select_for_update` cannot be applied to the nullable side of the outer join a `select_related` for a
+nullable FK adds, so the replacement is read as its own query and only for a row that is already dead.
+
 ### 2026-10-14 — v0.1.57 — `M7.1` and `M7.2`: the deploy audited, and a ping that keeps it warm
 
 Two increments, and the first turned out to be an audit rather than a deploy. `M7.1` was "production
