@@ -230,7 +230,28 @@ Status legend: `[ ]` planned · `[~]` in progress · `[x]` done.
   `.github/workflows/keepalive.yml` on a ten-minute schedule — and it begins with the next push to
   `main`, because a scheduled workflow runs from the default branch, which is noted here rather than
   assumed to have happened.
-- [ ] `M7.3` README with screenshots, architecture diagram, and the live URL.
+- [x] `M7.3` README with screenshots, architecture diagram, and the live URL. The README had gone
+  stale — it still told a reader that checkout was unbuilt — so it was rewritten around what the app
+  now does: 14 screenshots captured from a real session by `frontend/e2e/journey.spec.ts` rather than
+  mocked up, the C4 container view, the measured quality numbers with their reports, and the
+  deliberate limits with the ADR behind each. The console needed a spec of its own
+  (`e2e/console.spec.ts`, `pnpm console:audit`), because it sits behind an operator account that the
+  customer journey never has — so it **skips** unless credentials are supplied rather than inventing
+  an operator, and CI keeps saying so.
+  Two things the increment found on the way, and the second is why `M7` does not close here.
+  `Idempotency-Key` was missing from `CORS_ALLOW_HEADERS`, so the browser refused the checkout
+  `POST` at the preflight — the order read as a request that never happened rather than as a
+  refusal. That one is fixed and local. **The other is open against the deploy:** pointed at the live
+  hosts, the journey stops at sign-in, and the API says why — `POST /auth/refresh` answers **500**.
+  The cause is the revision the deploy is running: `e24ba6a` still reads the replacement with
+  `select_for_update().select_related("replaced_by")`, and Postgres refuses `FOR UPDATE` on the
+  nullable side of that join (`NotSupportedError`, reproduced locally against Postgres). `fddd774`
+  fixes it and is **committed but not pushed**, so production carries the broken revision and a
+  session cannot survive a page load there. Until that push lands, `M7`'s exit criterion — the live
+  URL passing a journey — is not met, and its §2 row stays `[~]` rather than being asserted. The same
+  pass closed a type gate the deploy never sees: `replaced_by_id` on a self-referential FK trips
+  `basedpyright` because the field is declared against the string `"self"` (`ADR-0014`'s gap, from the
+  field side rather than the reverse one).
 
 ### M8 — Data track (Phase 2, deferred)
 

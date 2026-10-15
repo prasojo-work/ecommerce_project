@@ -6,6 +6,53 @@
 
 ## History
 
+### 2026-10-15 — v0.1.59 — `M7.3`: the README, and the deploy that cannot keep a session
+
+The last increment of `M7`, and it is mostly the README — which had gone stale in the way READMEs
+do, still telling a reader that checkout was "not built yet" two milestones after checkout worked.
+It is now written around what the app does: the journey a shopper actually takes, 14 screenshots, the
+container view, the measured numbers with the report each comes from, and the limits that are
+decisions rather than gaps — each one naming its ADR so a reader can argue with the reasoning instead
+of guessing at it.
+
+**The screenshots are taken, not made up.** `frontend/e2e/journey.spec.ts` drives a real registration,
+cart, checkout, payment, confirmation and order read-back against a running app, and writes a
+screenshot at each step; that spec is also the only end-to-end test this project has, so the images
+and the evidence are the same artefact rather than two that can drift. The console is separate
+(`e2e/console.spec.ts`): it is behind an operator account the journey never has, so it **skips**
+unless `ADMIN_EMAIL` and `ADMIN_PASSWORD` are set. A skipped test that says "no operator here" is
+worth more than a test that manufactures one. Its three screenshots came from a superuser created for
+the run and deleted after it.
+
+**Two defects, found for the price of pointing the journey outward.** The first is local and was
+fixed here: `Idempotency-Key` was in no `CORS_ALLOW_HEADERS`, so the browser refused the checkout
+`POST` during its preflight and the order simply never happened — no error, no `4xx`, nothing in the
+API log, because the request was never sent. The header CORS allows by default does not include the
+one the app invented for itself; the fix is the package's own list plus that one, with a test.
+
+The second is the reason `M7` does not close on this commit. Run against the **deploy**, the journey
+stops before it starts: sign-in reaches `/account`, and then the header never shows a session,
+because `POST /auth/refresh` answers **500**. `v0.1.58` had already diagnosed this from a browser and
+written the fix; what this pass adds is the measurement and the cause. The deployed revision is
+`e24ba6a`, whose `rotate()` reads the replacement with
+`select_for_update().select_related("user", "replaced_by")` — and `replaced_by` is nullable, which
+Postgres refuses outright: `FOR UPDATE cannot be applied to the nullable side of an outer join`. That
+is not inference; it reproduces in one line against a local Postgres. `fddd774` reads the replacement
+as its own query instead, is committed, and is **not pushed** — so the storefront in production signs
+nobody in past their first page load, and the fix on `main` is one push away from the hosts.
+`ROADMAP.md` §2 therefore keeps `M7` at `[~]`, and §3 says which push closes it.
+
+**One type gate, closed.** `replaced_by_id` — the attname of a `OneToOneField("self")` — does not
+exist as far as `django-stubs` is concerned, because the field is declared against the string
+`"self"` and the stub generator cannot follow it back to the class. It is real at runtime and it was
+carrying `basedpyright` red on `main`, which meant `Backend CI` was failing on a revision that had
+already been pushed. Suppressed at the line, with the reason, rather than routed around: this is
+`ADR-0014`'s gap seen from the field side instead of the reverse-relation one.
+
+Evidence: 359 backend tests and coverage at 98.9% against the 80% floor the gate enforces; 163
+frontend tests; `ruff`, `basedpyright`, `eslint`, `prettier` and `tsc` clean; the journey green
+against a local stack end to end (11 screenshots) and the console capture green (3 more).
+
 ### 2026-10-14 — v0.1.58 — a session that survives the page, and a refresh that is not theft
 
 Found by `M7.3`'s journey, and it is the defect only a browser could have found. `M2.7` left one

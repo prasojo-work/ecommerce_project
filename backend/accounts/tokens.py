@@ -210,7 +210,11 @@ def rotate(refresh_token: str) -> tuple[User, TokenPair]:
             retry = (
                 replacement is not None
                 and replacement.revoked_at is None
-                and replacement.replaced_by_id is None
+                # `replaced_by_id` is the attname of a `OneToOneField("self")`. It exists at runtime
+                # and django-stubs has it in no other case: the field is declared against the string
+                # `"self"`, which the stub generator cannot follow back to this class
+                # (`ADR-0014` is the same gap from the reverse side).
+                and replacement.replaced_by_id is None  # pyright: ignore[reportAttributeAccessIssue]
                 and replacement.created_at > now - grace
             )
 

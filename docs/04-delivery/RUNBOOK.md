@@ -1486,8 +1486,71 @@ is evidence about the environment it was written in, and pointing it somewhere e
 out.
 
 **What this pass does not cover.** No sign-in through the live stack, because that needs a browser and
-a session rather than a request — the one item §7.8 has been carrying since `M2.7`. And the rate-limit
-result is a *failure*, not a pass, recorded in §7.8 above.
+a session rather than a request — the one item §7.8 has been carrying since `M2.7`, and the one §7.11
+below finally exercised. And the rate-limit result is a *failure*, not a pass, recorded in §7.8 above.
+
+### 7.11 `M7.3` — the journey spec, the README's screenshots, and the live session fault
+
+`frontend/e2e/journey.spec.ts` is the only end-to-end test in the repository: it registers an account,
+fills a cart, checks out, settles against the mock and reads the order back — in a browser, through
+the same HTTP the customer uses. The README's screenshots are **this spec's output**, so the images and
+the evidence are one artefact. It registers its own account, which is why it needs no credentials and
+can be pointed at any environment:
+
+```
+# against a local stack (storefront :3000, API :8000)
+A11Y_BASE_URL=http://localhost:3000 SHOTS_DIR=../docs/assets/screenshots pnpm journey:audit
+
+# against the deploy — omit SHOTS_DIR, so it cannot overwrite the committed images
+A11Y_BASE_URL=https://ecommerce-project-five-psi.vercel.app pnpm journey:audit
+```
+
+The console is captured separately, because it is behind an operator account the journey never has.
+The spec **skips** unless credentials are given, so CI reports "no operator here" rather than inventing
+one (`RUNBOOK.md` §9 is how the account is made):
+
+```
+ADMIN_EMAIL=… ADMIN_PASSWORD=… CONSOLE_BASE_URL=http://127.0.0.1:8000 \
+  SHOTS_DIR=../docs/assets/screenshots pnpm console:audit
+```
+
+| Environment | Result | Where it stops |
+| --- | --- | --- |
+| Local stack | **passes**, 10–12 s | completes: confirmation, then the order read back from `/orders` |
+| The deploy, 2026-10-15 | **fails at sign-in** | `POST /auth/refresh` answers `500` |
+
+**The live failure, and what it is.** Measured rather than reasoned: register a probe account against
+the deploy, then replay the refresh with the cookie it set —
+
+```
+curl -sS -c jar -o /dev/null -w '%{http_code}\n' "$API/api/v1/auth/register" \
+  -H 'Content-Type: application/json' -H "Origin: $WEB" \
+  -d '{"email":"probe@example.test","password":"…","first_name":"P","last_name":"L"}'
+curl -sS -b jar -w '%{http_code}\n' -X POST "$API/api/v1/auth/refresh" -H "Origin: $WEB"
+```
+
+`201` then `500` (`INTERNAL_ERROR`). The cause is the revision the deploy is running. `e24ba6a` reads
+the replacement inside `rotate()` with:
+
+```python
+RefreshToken.objects.select_for_update().select_related("user", "replaced_by")
+```
+
+`replaced_by` is **nullable**, and Postgres refuses a lock across the outer join that adds — reproduced
+locally in one line rather than inferred:
+
+```
+NotSupportedError: FOR UPDATE cannot be applied to the nullable side of an outer join
+```
+
+`fddd774` reads the replacement as its own query, and only for a row that is already revoked. It is
+committed and **not pushed**, so production is running the broken revision: every full page load calls
+`/auth/refresh` (`M2.4` keeps the access token in memory only), so **a session cannot survive a page
+load on the live storefront**, and the journey cannot get past sign-in. The action is a push — that is
+the whole fix — and then the journey run against the deploy is what flips `M7`'s exit criterion. Two
+probe accounts created while measuring this (`probe-*@…lysheim.test`, and the journey's own
+`browser-check@example.com`) are left in the demo database; they are harmless and deletable from the
+console once an operator exists.
 
 ## 8. Troubleshooting
 
@@ -1505,6 +1568,35 @@ result is a *failure*, not a pass, recorded in §7.8 above.
   `tests/test_accounts_api.py::test_the_counted_address_is_the_client_and_not_a_hop_in_front_of_it`
   pins both wrong directions. The symptom to recognise: a limit that is correct in every test and in
   `docker compose`, and never fires on the internet.
+- **`POST /auth/refresh` answers `500`, and only in production.** `NotSupportedError: FOR UPDATE
+  cannot be applied to the nullable side of an outer join`. `select_for_update()` cannot lock a row
+  reached through a `select_related()` of a **nullable** FK, because that adds a `LEFT JOIN` and
+  Postgres will not lock the nullable side. The trap is that it looks harmless in review and passes
+  every test that does not take the lock on that exact queryset. Reproduce it in one line, and never
+  guess:
+
+  ```python
+  with transaction.atomic():
+      RefreshToken.objects.select_for_update().select_related("user", "replaced_by").first()
+  ```
+
+  The fix is to read the nullable relation as its own query (and, if it is only wanted for some rows,
+  only for those rows). Non-nullable FKs are fine in the same `select_related`. Found at `M7.3`
+  against the live stack; see §7.11.
+- **A custom request header is silently dropped by the browser.** The checkout `POST` never happened —
+  no error, nothing in the API log — because the browser asked permission first and `CORS_ALLOW_HEADERS`
+  did not name `Idempotency-Key`. CORS allows a fixed default set of headers, and any header this app
+  invents for itself is not in it: Django's own `default_headers` does not know about
+  `Idempotency-Key`, so the app must add it (`config/settings/base.py`). The symptom to recognise is a
+  request that produces **no** server-side trace at all, which is what a preflight refusal looks like
+  from inside the API. Verify with the preflight itself:
+
+  ```bash
+  curl -si -X OPTIONS "$API/api/v1/orders" -H "Origin: $WEB" \
+    -H 'Access-Control-Request-Method: POST' \
+    -H 'Access-Control-Request-Headers: authorization,content-type,idempotency-key' \
+    | grep -i access-control-allow-headers
+  ```
 - **A Render deploy fails at start-up with `python manage.py migrate … : not found`.** A compound
   command in `render.yaml`'s `dockerCommand`. Render strips a leading `/bin/sh -c` from that field and
   runs the remainder through its own shell, so the quotes that a `&&` chain needs turn the entire
@@ -1560,6 +1652,14 @@ result is a *failure*, not a pass, recorded in §7.8 above.
   `accounts/models.py` are the entire cost. Do not "fix" it by subclassing `AbstractUser`, which
   would add `first_name`, `last_name` and `date_joined` that `DATA-MODEL.md` section 2 does not
   specify.
+- **`basedpyright` reports `Cannot access attribute "replaced_by_id"` on a self-referential FK.** The
+  attname of a `OneToOneField("self", …)` is real at runtime — Django creates it — but `django-stubs`
+  does not, because the field is declared against the *string* `"self"` and the stub generator cannot
+  follow that back to the model it is in. Same family as `ADR-0014`, reached from the field side
+  rather than the reverse-relation one. The patterns that avoid it are the same: query explicitly
+  (`RefreshToken.objects.filter(replaces=row)`) or use a string lookup (`filter(replaced_by=…)`).
+  Where the natural accessor is genuinely wanted, one scoped `# pyright: ignore[reportAttributeAccessIssue]`
+  with the reason is the cost — do not `cast`.
 
 ## 9. Operators
 

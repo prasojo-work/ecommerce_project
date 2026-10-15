@@ -16,7 +16,8 @@
     "audit:routes": "playwright test --grep-invert @journey",
     "axe:audit": "playwright test e2e/a11y.spec.ts",
     "perf:audit": "playwright test e2e/perf.spec.ts",
-    "journey:audit": "playwright test --grep @journey"
+    "journey:audit": "playwright test --grep @journey",
+    "console:audit": "playwright test --grep @console"
   },
   "dependencies": {
     "next": "16.4.0",

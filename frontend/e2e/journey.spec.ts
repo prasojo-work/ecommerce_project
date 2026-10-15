@@ -67,10 +67,14 @@ test.describe("@journey", () => {
     // 3. The catalogue, and a product that can actually be bought. Which products are in stock is
     //    data rather than markup, so the spec asks the page instead of assuming a slug.
     await page.goto("/products");
-    await shoot(page, "03-catalog");
+    await shoot(page, "03-catalog", { fullPage: false });
     await openAnOrderableProduct(page);
 
-    // 4. The product page, with a colour chosen.
+    // 4. The product page, with a colour chosen. The session is asked for first because every
+    //    `page.goto` above is a full load, and the access token lives in memory only (`M2.4`), so
+    //    each one re-runs the silent refresh: an add clicked before that restore answers is a
+    //    request the API cannot attribute to anybody, and it is refused.
+    await waitForSession(page);
     const variant = page.locator('input[name="variant"]:not([disabled])').first();
     if ((await variant.count()) > 0) {
       await variant.check();
@@ -106,10 +110,14 @@ test.describe("@journey", () => {
     await shoot(page, "08-checkout-payment");
     await page.getByRole("button", { name: "Pay now" }).click();
 
-    // 9. Confirmation, and the number the rest of the journey is addressed by.
-    const confirmation = page.locator("#confirmation-heading");
-    await expect(confirmation).toContainText(/LSH-[A-Z0-9]+/);
-    const number = (await confirmation.textContent())?.match(/LSH-[A-Z0-9]+/)?.[0] ?? "";
+    // 9. Confirmation, and the number the rest of the journey is addressed by. The heading reports the
+    //    status; the number is named in the sentence underneath it.
+    await expect(page.locator("#confirmation-heading")).toHaveText(
+      "Thank you — your order is placed",
+    );
+    const receipt = page.locator('section[aria-labelledby="confirmation-heading"]');
+    await expect(receipt).toContainText(/LSH-[A-Z0-9]+/);
+    const number = (await receipt.textContent())?.match(/LSH-[A-Z0-9]+/)?.[0] ?? "";
     expect(number, "the confirmation named no order").not.toBe("");
     await shoot(page, "09-confirmation");
 
@@ -205,6 +213,15 @@ async function openAnOrderableProduct(page: Page): Promise<void> {
   throw new Error("none of the first twelve products could be added to the cart");
 }
 
+/**
+ * Waits for the restored session to be visible. Every `page.goto` is a full load and the access token
+ * lives in memory only, so each one re-runs the silent refresh — and until that answers, the header
+ * holds the quiet row it shows while restoring rather than the signed-in one.
+ */
+async function waitForSession(page: Page): Promise<void> {
+  await expect(page.getByRole("button", { name: "Sign out" })).toBeVisible();
+}
+
 /** Empties the cart through the UI, so a re-run starts from a known cart. */
 async function emptyCart(page: Page): Promise<void> {
   await page.goto("/cart");
@@ -242,9 +259,15 @@ async function fillAddress(page: Page): Promise<void> {
  *
  * Full-page, because a README wants the whole screen rather than the top of it — and after a scroll
  * pass, because `next/image` loads below-the-fold images lazily and a full-page capture taken
- * without one holds empty boxes where the photographs are.
+ * without one holds empty boxes where the photographs are. Long grids opt out of the full page:
+ * the catalogue is 46 products deep, and the top of it already shows the frame, the filters and the
+ * grid, at a fraction of the weight a committed PNG should carry.
  */
-async function shoot(page: Page, name: string): Promise<void> {
+async function shoot(
+  page: Page,
+  name: string,
+  options: { fullPage?: boolean } = {},
+): Promise<void> {
   if (SHOTS_DIR === undefined || SHOTS_DIR === "") {
     return;
   }
@@ -268,5 +291,5 @@ async function shoot(page: Page, name: string): Promise<void> {
 
   const file = path.join(SHOTS_DIR, `${name}.png`);
   await mkdir(path.dirname(file), { recursive: true });
-  await page.screenshot({ path: file, fullPage: true });
+  await page.screenshot({ path: file, fullPage: options.fullPage ?? true });
 }

@@ -96,6 +96,30 @@ def test_a_protected_route_can_be_called_with_a_bearer_header(client: Client) ->
 
 
 @override_settings(CORS_ALLOWED_ORIGINS=[TRUSTED_ORIGIN])
+def test_the_checkout_preflight_allows_the_idempotency_key(client: Client) -> None:
+    """`POST /orders` carries `Idempotency-Key` (`M4.3`), and a custom header is not sent until the
+    preflight names it.
+
+    This is the one that bit, and it bit silently. The browser asked, the answer did not list the
+    header, and so the request was never made: nothing reached the server, nothing reached the log,
+    and the checkout read as a click that did nothing. The assertion is therefore on the header the
+    answer lists rather than on anything the request would have answered, because there is no
+    response to assert on — that is the whole failure.
+    """
+    response = client.options(
+        "/api/v1/orders",
+        headers={
+            "Origin": TRUSTED_ORIGIN,
+            "Access-Control-Request-Method": "POST",
+            "Access-Control-Request-Headers": "authorization,content-type,idempotency-key",
+        },
+    )
+
+    assert response.status_code == 200
+    assert "idempotency-key" in response["Access-Control-Allow-Headers"].lower()
+
+
+@override_settings(CORS_ALLOWED_ORIGINS=[TRUSTED_ORIGIN])
 def test_the_request_id_is_exposed_to_the_browser(client: Client) -> None:
     """`NFR-5` says correlation ids cross the API and the web app.
 

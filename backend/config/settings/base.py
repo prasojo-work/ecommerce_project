@@ -10,6 +10,7 @@ All environment-specific values are read from the environment (12-factor); see
 from pathlib import Path
 
 import environ
+from corsheaders.defaults import default_headers
 
 from config.env import INSECURE_DEVELOPMENT_KEY
 from core.middleware import REQUEST_ID_HEADER
@@ -214,6 +215,13 @@ CORS_ALLOWED_ORIGINS = env.list("CORS_ALLOWED_ORIGINS", default=[])
 # package refuses to combine credentials with a wildcard, and a wildcard would defeat the origin
 # guard on `/auth/refresh` at the same time.
 CORS_ALLOW_CREDENTIALS = True
+
+# A custom request header is not sent until CORS names it, and `Idempotency-Key` is the one the web
+# app sends (`M4.3`: `POST /orders` is idempotent by it). The browser asks permission in a preflight
+# and, when the answer does not list that header, refuses the request before making it — so the
+# checkout read as a request that never happened rather than as a refusal. The package's own list
+# plus that one, rather than the one alone, so `default_headers` keeps its advances.
+CORS_ALLOW_HEADERS = [*default_headers, "idempotency-key"]
 
 # A response header is invisible to JavaScript unless CORS says otherwise, and the correlation id is
 # the one response header the web app has to read: it is how an error a shopper saw is matched to the
