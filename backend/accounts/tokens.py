@@ -41,6 +41,19 @@ class TokenError(Exception):
     """A token is missing, malformed, expired, revoked, or not valid for this operation."""
 
 
+class _Replayed(Exception):
+    """Internal: a rotated token's replacement has been spent, so a copy is in circulation.
+
+    Carried out of the transaction as an exception rather than left as a flag inside it, because the
+    sweep that follows has to happen *after* `atomic()` has rolled back — and a write made inside a
+    block that is about to roll back is a write that does not survive.
+    """
+
+    def __init__(self, user: User) -> None:
+        super().__init__(user.pk)
+        self.user: User = user
+
+
 @dataclass(frozen=True)
 class TokenPair:
     """A freshly minted pair, plus what a client needs to reason about expiry."""
@@ -86,8 +99,8 @@ def decode(token: str, expected_type: str) -> dict[str, Any]:
     return claims
 
 
-def issue_tokens(user: User) -> TokenPair:
-    """A fresh pair, with the refresh half recorded so that it can be revoked."""
+def _issue_pair(user: User) -> tuple[TokenPair, RefreshToken]:
+    """A fresh pair, and the row recording its refresh half, so a caller can link the two."""
     jti = uuid.uuid4()
     refresh_token, refresh_expires_at = _encode(
         str(user.pk),
@@ -95,19 +108,27 @@ def issue_tokens(user: User) -> TokenPair:
         timedelta(seconds=settings.REFRESH_TOKEN_TTL_SECONDS),
         jti=jti,
     )
-    RefreshToken.objects.create(user=user, jti=jti, expires_at=refresh_expires_at)
+    row = RefreshToken.objects.create(user=user, jti=jti, expires_at=refresh_expires_at)
 
     access_token, _ = _encode(
         str(user.pk),
         ACCESS_TOKEN_TYPE,
         timedelta(seconds=settings.ACCESS_TOKEN_TTL_SECONDS),
     )
-    return TokenPair(
-        access_token=access_token,
-        refresh_token=refresh_token,
-        access_expires_in=int(settings.ACCESS_TOKEN_TTL_SECONDS),
-        refresh_expires_at=refresh_expires_at,
+    return (
+        TokenPair(
+            access_token=access_token,
+            refresh_token=refresh_token,
+            access_expires_in=int(settings.ACCESS_TOKEN_TTL_SECONDS),
+            refresh_expires_at=refresh_expires_at,
+        ),
+        row,
     )
+
+
+def issue_tokens(user: User) -> TokenPair:
+    """A fresh pair, with the refresh half recorded so that it can be revoked."""
+    return _issue_pair(user)[0]
 
 
 def resolve_access_token(token: str) -> User | None:
@@ -150,34 +171,63 @@ def rotate(refresh_token: str) -> tuple[User, TokenPair]:
     session — and the request is refused. A token revoked by an ordinary sign-out reaches the same
     branch, which is conservative but harmless: everything is already revoked, so it is a no-op.
 
+    One case is not a leak. A browser that navigates away while its refresh is in flight gets the
+    cancellation instead of the new cookie, and the next page load presents the old token again; the
+    replacement then went nowhere and nobody has ever held it. So while the replacement is unspent
+    and no older than `REFRESH_ROTATION_GRACE_SECONDS`, the replay is read as that retry — the
+    replacement is withdrawn, this token is pointed at its own successor, and a pair is issued. The
+    grace is what keeps that from being a hole: a stolen token is only ever *spent* by its
+    replacement being used, so a replay past the grace, or one whose replacement was spent, is a
+    leak again and the sweep stands.
+
     The presented row is locked for the duration, so two concurrent refreshes with one token cannot
     both mint a session. SQLite ignores `SELECT ... FOR UPDATE`; Postgres honours it.
     """
     claims = decode(refresh_token, REFRESH_TOKEN_TYPE)
     now = timezone.now()
+    grace = timedelta(seconds=settings.REFRESH_ROTATION_GRACE_SECONDS)
 
-    with transaction.atomic():
-        row = (
-            RefreshToken.objects.select_for_update()
-            .select_related("user")
-            .filter(jti=claims["jti"])
-            .first()
-        )
-        if row is None:
-            raise TokenError(SESSION_UNKNOWN_MESSAGE)
+    try:
+        with transaction.atomic():
+            row = (
+                RefreshToken.objects.select_for_update()
+                .select_related("user", "replaced_by")
+                .filter(jti=claims["jti"])
+                .first()
+            )
+            if row is None:
+                raise TokenError(SESSION_UNKNOWN_MESSAGE)
 
-        reused = row.revoked_at is not None
-        if not reused:
-            if row.expires_at <= now:
-                raise TokenError(SESSION_EXPIRED_MESSAGE)
-            row.revoked_at = now
-            row.save(update_fields=["revoked_at", "updated_at"])
-        token_user = row.user
+            replacement = row.replaced_by
+            retry = (
+                replacement is not None
+                and replacement.revoked_at is None
+                and replacement.replaced_by_id is None
+                and replacement.created_at > now - grace
+            )
 
-    if reused:
-        # Outside the transaction on purpose: revoking the whole family has to survive the
-        # rejection below, and a raise inside `atomic()` would roll it back.
-        revoke_all(token_user)
-        raise TokenError(SESSION_REUSED_MESSAGE)
+            if row.revoked_at is None:
+                if row.expires_at <= now:
+                    raise TokenError(SESSION_EXPIRED_MESSAGE)
+                row.revoked_at = now
+                row.save(update_fields=["revoked_at", "updated_at"])
+            elif not retry:
+                raise _Replayed(row.user)
+            elif replacement is not None:
+                # Withdrawn before a fresh pair supersedes it: nobody can have received it, but a
+                # live token is a live session until it is revoked.
+                replacement.revoked_at = now
+                replacement.save(update_fields=["revoked_at", "updated_at"])
 
-    return token_user, issue_tokens(token_user)
+            # Pointed at the successor so a later replay can ask what became of the replacement
+            # rather than only that there was one.
+            pair, successor = _issue_pair(row.user)
+            row.replaced_by = successor
+            row.save(update_fields=["replaced_by"])
+    except _Replayed as replayed:
+        # Outside the transaction on purpose: revoking the whole family has to survive the rollback
+        # the raise above triggered, and a write inside `atomic()` would go back with it.
+        revoke_all(replayed.user)
+        raise TokenError(SESSION_REUSED_MESSAGE) from None
+
+    return row.user, pair

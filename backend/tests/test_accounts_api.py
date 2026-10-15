@@ -28,6 +28,7 @@ from accounts.tokens import (
     ACCESS_TOKEN_TYPE,
     REFRESH_TOKEN_TYPE,
     SESSION_EXPIRED_MESSAGE,
+    SESSION_REUSED_MESSAGE,
     SESSION_UNKNOWN_MESSAGE,
     TokenError,
     decode,
@@ -401,18 +402,69 @@ def test_a_refresh_row_that_has_expired_is_refused(client: Client, user: User) -
     assert response.json()["error"]["message"] == SESSION_EXPIRED_MESSAGE
 
 
-def test_reusing_a_rotated_token_ends_every_session(client: Client, user: User) -> None:
-    """A revoked token presented again means a copy is in circulation, so nothing survives."""
+def test_reusing_a_rotated_token_after_its_replacement_was_used_ends_every_session(
+    client: Client, user: User
+) -> None:
+    """A revoked token presented again means a copy is in circulation, so nothing survives.
+
+    The claim the replay has to answer is what happened to the replacement, not that one exists: a
+    replacement that was *used* proves the legitimate client received it, so the copy is the only
+    other holder. A replacement nobody ever used is the interrupted-reply case below.
+    """
     login(client)
     copied = client.cookies[settings.REFRESH_COOKIE_NAME].value
 
     refresh(client)  # the legitimate client moves on and gets a replacement
+    assert live_tokens(user) == 1
+    refresh(client)  # and spends it, which is what retires the copy's claim to be a retry
     assert live_tokens(user) == 1
 
     client.cookies[settings.REFRESH_COOKIE_NAME] = copied
     response = refresh(client)
 
     assert response.status_code == 401
+    assert live_tokens(user) == 0
+
+
+def test_replaying_a_token_whose_reply_never_arrived_reissues_the_session(
+    client: Client, user: User
+) -> None:
+    """The live failure this branch exists for. A browser that navigates while its refresh is in
+    flight is handed a cancellation rather than the new cookie, so the replacement is never used and
+    never held — and the next page load presents the old token again. Reading that strictly as reuse
+    revoked every session the customer had, on every one of their devices, for a reply that went
+    nowhere. It is the same exchange finishing instead, with the replacement withdrawn on the way
+    out: a token nobody can have received is still a live session until it is revoked."""
+    login(client)
+    interrupted = client.cookies[settings.REFRESH_COOKIE_NAME].value
+
+    refresh(client)  # the reply, and the cookie that carried it, were thrown away
+    assert live_tokens(user) == 1
+
+    client.cookies[settings.REFRESH_COOKIE_NAME] = interrupted
+    response = refresh(client)
+
+    assert response.status_code == 200
+    assert response.cookies[settings.REFRESH_COOKIE_NAME].value != interrupted
+    assert live_tokens(user) == 1
+
+
+def test_a_replay_past_the_grace_is_ended_as_reuse(client: Client, user: User) -> None:
+    """The grace is what keeps the branch above from being a hole, so it has to be a *bound*: the
+    same replay, made after the window, is a leak again and the sweep stands."""
+    login(client)
+    interrupted = client.cookies[settings.REFRESH_COOKIE_NAME].value
+
+    refresh(client)
+    RefreshToken.objects.filter(revoked_at__isnull=True).update(
+        created_at=timezone.now() - timedelta(seconds=settings.REFRESH_ROTATION_GRACE_SECONDS + 1)
+    )
+
+    client.cookies[settings.REFRESH_COOKIE_NAME] = interrupted
+    response = refresh(client)
+
+    assert response.status_code == 401
+    assert response.json()["error"]["message"] == SESSION_REUSED_MESSAGE
     assert live_tokens(user) == 0
 
 

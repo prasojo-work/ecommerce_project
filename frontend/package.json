@@ -13,9 +13,10 @@
     "format:check": "prettier --check .",
     "test": "vitest run",
     "test:watch": "vitest",
-    "audit:routes": "playwright test",
+    "audit:routes": "playwright test --grep-invert @journey",
     "axe:audit": "playwright test e2e/a11y.spec.ts",
-    "perf:audit": "playwright test e2e/perf.spec.ts"
+    "perf:audit": "playwright test e2e/perf.spec.ts",
+    "journey:audit": "playwright test --grep @journey"
   },
   "dependencies": {
     "next": "16.4.0",

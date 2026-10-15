@@ -65,6 +65,12 @@ JWT_ALGORITHM = "HS256"
 ACCESS_TOKEN_TTL_SECONDS = env.int("ACCESS_TOKEN_TTL_SECONDS", default=15 * 60)
 REFRESH_TOKEN_TTL_SECONDS = env.int("REFRESH_TOKEN_TTL_SECONDS", default=14 * 24 * 60 * 60)
 
+# How long a rotated token is still readable as "the reply never arrived" rather than "a copy is in
+# circulation" (`accounts.tokens.rotate`). A browser that navigates away while its refresh is in
+# flight gets a cancellation instead of the new cookie, and the replacement is then spent by nobody;
+# that reading expires, so a token replayed later is still treated as a leak.
+REFRESH_ROTATION_GRACE_SECONDS = env.int("REFRESH_ROTATION_GRACE_SECONDS", default=120)
+
 # The refresh cookie is the only place the refresh token exists client-side, so its scope is as
 # narrow as the routes allow. `Secure` and `SameSite` are raised in production, where the API and
 # the web app are genuinely different sites.

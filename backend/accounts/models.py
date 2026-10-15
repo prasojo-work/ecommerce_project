@@ -148,6 +148,11 @@ class RefreshToken(TimeStampedModel):
     Only the `jti` claim is stored, never the token. That is enough to revoke and to detect reuse,
     and a leaked database cannot be replayed against the API: the `jti` sits *inside* a signed JWT,
     so on its own it cannot be turned back into a token without the signing key.
+
+    `replaced_by` records which token superseded this one, so a replay can ask whether the
+    replacement was ever *used* rather than only that it existed. A rotated token whose replacement
+    was never spent is a reply that never arrived (the browser cancelled the request), not a copy in
+    circulation, and `accounts.tokens.rotate` reads the two differently.
     """
 
     user = models.ForeignKey(
@@ -158,6 +163,13 @@ class RefreshToken(TimeStampedModel):
     jti = models.UUIDField(unique=True)
     expires_at = models.DateTimeField()
     revoked_at = models.DateTimeField(null=True, blank=True)
+    replaced_by = models.OneToOneField(
+        "self",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="replaces",
+    )
 
     class Meta(TimeStampedModel.Meta):
         ordering = ("-created_at", "id")
