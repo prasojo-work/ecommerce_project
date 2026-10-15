@@ -1518,6 +1518,7 @@ ADMIN_EMAIL=… ADMIN_PASSWORD=… CONSOLE_BASE_URL=http://127.0.0.1:8000 \
 | --- | --- | --- |
 | Local stack | **passes**, 10–12 s | completes: confirmation, then the order read back from `/orders` |
 | The deploy, 2026-10-15 | **fails at sign-in** | `POST /auth/refresh` answers `500` |
+| The deploy, 2026-10-16 | **passes**, 21.5 s | completes, once the fix below was pushed — this is `M7`'s exit criterion, measured |
 
 **The live failure, and what it is.** Measured rather than reasoned: register a probe account against
 the deploy, then replay the refresh with the cookie it set —
@@ -1543,14 +1544,18 @@ locally in one line rather than inferred:
 NotSupportedError: FOR UPDATE cannot be applied to the nullable side of an outer join
 ```
 
-`fddd774` reads the replacement as its own query, and only for a row that is already revoked. It is
-committed and **not pushed**, so production is running the broken revision: every full page load calls
-`/auth/refresh` (`M2.4` keeps the access token in memory only), so **a session cannot survive a page
-load on the live storefront**, and the journey cannot get past sign-in. The action is a push — that is
-the whole fix — and then the journey run against the deploy is what flips `M7`'s exit criterion. Two
-probe accounts created while measuring this (`probe-*@…lysheim.test`, and the journey's own
-`browser-check@example.com`) are left in the demo database; they are harmless and deletable from the
-console once an operator exists.
+`fddd774` reads the replacement as its own query, and only for a row that is already revoked. At the
+time of the fault it was committed and **not yet pushed**, so production was running the broken
+revision: every full page load calls `/auth/refresh` (`M2.4` keeps the access token in memory only),
+so **a session could not survive a page load on the live storefront**, and the journey could not get
+past sign-in. The action was a push — that was the whole fix.
+
+**Resolved, 2026-10-16.** The push landed and Render redeployed. Measured the same way, with the same
+two commands: `register` still `201`, and `refresh` now **`200`** with an access token. The journey
+against the deploy then completed end to end in 21.5 s, which is `M7`'s exit criterion met by
+measurement rather than by assumption. A second probe account and one demo order
+(`browser-check@example.com`) were created on the live database in the process; both are deletable
+from the console, and the order is indistinguishable from the demo data around it.
 
 ### 7.12 The console's own CSS and JS
 

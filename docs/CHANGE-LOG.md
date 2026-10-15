@@ -6,6 +6,30 @@
 
 ## History
 
+### 2026-10-16 — v0.1.61 — `M7` closes, on a measurement rather than a hope
+
+The push happened, Render redeployed from `autoDeployTrigger: commit`, and the fault `v0.1.58`
+diagnosed and `v0.1.59` measured is gone. Same two commands, same order: `POST /auth/register` still
+answers `201`, and `POST /auth/refresh` now answers **`200`** with an access token where it answered
+`500`. A session survives a page load on the live storefront again.
+
+That was the last thing standing between `M7` and its exit criteria, so the journey was pointed at the
+deploy a second time and **completed end to end in 21.5 s**: register, browse, add to cart, address,
+shipping quote, payment, mock settlement, confirmation, and the order read back at `/orders/<number>`
+— a real browser against the real stack, which is the check `M2.7` opened in the middle of the project
+and `M7.2` could only record as missing. `ROADMAP.md` §2's `M7` row is `[x]`.
+
+Both exit criteria were measured rather than assumed: the README is published, and the live URL passes
+a journey. What the roadmap records alongside that, rather than quietly tidying, is that `f3bf31a` —
+the console's own stylesheets — is committed and not yet deployed, so the live `/admin/` still renders
+unstyled until the next push. It changes no exit criterion; it is simply the next thing.
+
+The cost of this verification, named because it wrote to production: two probe accounts
+(`probe2-*@…lysheim.test`) and one demo order under the journey's own account
+(`browser-check@example.com`). All are deletable from the console and sit unnoticed among the seeded
+demo data. A verification that writes nothing is not available for a checkout, and pretending
+otherwise would have meant shipping the session fault.
+
 ### 2026-10-16 — v0.1.60 — the console that had no stylesheet
 
 A question, not a bug report: *"why is the admin ugly, and did you change the UI?"* The answer was

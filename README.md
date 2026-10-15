@@ -16,14 +16,6 @@ verified rather than assumed.
 > committed with its tests and its evidence; the milestone-by-milestone record is
 > [`docs/04-delivery/ROADMAP.md`](docs/04-delivery/ROADMAP.md), and the reasoning behind each
 > decision is in [`docs/decisions/`](docs/decisions/).
->
-> **A known fault on the current deploy, found by pointing the end-to-end test at it.** A signed-in
-> session does not stick: it is restored from `POST /auth/refresh`, and that endpoint answers `500`
-> on the revision that is deployed — it takes a row lock across a *nullable* join, which Postgres
-> refuses. Browsing the catalogue is unaffected, because it needs no session; the account, cart,
-> checkout and orders surfaces are. The cause and the one-line fix are in
-> [`RUNBOOK.md`](docs/04-delivery/RUNBOOK.md) §7.11, the fix is already committed on `main`, and it
-> takes effect with the next push.
 
 ## What a shopper can do
 

@@ -30,7 +30,7 @@ Status legend: `[ ]` planned · `[~]` in progress · `[x]` done.
 | M3 | Cart | A cart a signed-in shopper can fill | Add/update/remove, stock-capped, behind the bearer token | `[x]` |
 | M4 | Checkout & orders | Mock purchase end to end | Order created, paid, history shown | `[x]` |
 | M6 | Hardening | Quality evidence produced | a11y/perf/security reports committed | `[x]` |
-| M7 | Launch | Public demo hardened and finalised | Live URL passes a smoke journey; README published | `[~]` |
+| M7 | Launch | Public demo hardened and finalised | Live URL passes a smoke journey; README published | `[x]` |
 | M8 | Data track (Phase 2) | Analytics on real events | Funnel dashboard built on events | `[ ]` |
 
 ## 3. Milestone detail
@@ -261,6 +261,17 @@ Status legend: `[ ]` planned · `[~]` in progress · `[x]` done.
   screenshots captured happily at 47 KB each where a styled one is 131 KB. Fixed with WhiteNoise, its
   two per-environment settings and a build-time `collectstatic`; asserted by
   `tests/test_console_static.py`; the console screenshots re-captured. `v0.1.60` has the measurement.
+
+**`M7` closes here, and §2's row is `[x]` because both exit criteria were measured rather than
+assumed.** The README is published. The live URL passes the journey: once `fddd774` and `4b9fe9e`
+reached the hosts, `POST /auth/refresh` on the deploy answered `200` with an access token where it had
+answered `500`, and `A11Y_BASE_URL=https://…vercel.app pnpm journey:audit` completed end to end in
+21.5 s — register, cart, checkout, mock settlement, confirmation, and the order read back at
+`/orders/<number>`. That is a browser driving the deployed stack, which is the check `M2.7` opened and
+`M7.2` could only report as missing. One caveat is recorded rather than tidied away: `f3bf31a` — the
+console's stylesheets — is committed and **not yet pushed** at the time of writing, so a reviewer who
+opens the live `/admin/` before that push sees the unstyled console `M7.3a` describes. It changes no
+exit criterion here, and it is the next push.
 
 ### M8 — Data track (Phase 2, deferred)
 
