@@ -38,6 +38,15 @@ SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
 # reason a deploy fails to come up.
 SECURE_REDIRECT_EXEMPT = [r"^healthz$"]
 
+# The admin's stylesheets and scripts as `collectstatic` writes them: hashed for far-future caching,
+# compressed, and served by WhiteNoise (`MIDDLEWARE` in `base.py`). The manifest is built into the
+# image, which is why this storage is switched on only here — a checkout that has never collected
+# would raise on a missing manifest entry rather than quietly serve an unhashed file.
+STORAGES = {
+    "default": {"BACKEND": "django.core.files.storage.FileSystemStorage"},
+    "staticfiles": {"BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage"},
+}
+
 # The API and the web app are different sites in production (Render and Vercel), so the refresh
 # cookie has to be `SameSite=None` to survive the cross-site call — and browsers only accept
 # `SameSite=None` together with `Secure` (`ADR-0009`).

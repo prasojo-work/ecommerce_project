@@ -252,6 +252,15 @@ Status legend: `[ ]` planned · `[~]` in progress · `[x]` done.
   pass closed a type gate the deploy never sees: `replaced_by_id` on a self-referential FK trips
   `basedpyright` because the field is declared against the string `"self"` (`ADR-0014`'s gap, from the
   field side rather than the reverse one).
+- [x] `M7.3a` The console had never had a stylesheet, and this is where that surfaced — asked, plainly,
+  *why the admin is ugly*. Nothing served `/static/` at all: no `STATIC_ROOT`, no WhiteNoise, no
+  `collectstatic` in the image, so every admin stylesheet had been a `404` since `M5.1` and the console
+  rendered as bare HTML — in development too, because this project serves the API with `uvicorn` rather
+  than `runserver`. It survived a milestone that screenshotted the console because unstyled HTML still
+  behaves: the headings and tables render, the links work, every behavioural assertion passes, and the
+  screenshots captured happily at 47 KB each where a styled one is 131 KB. Fixed with WhiteNoise, its
+  two per-environment settings and a build-time `collectstatic`; asserted by
+  `tests/test_console_static.py`; the console screenshots re-captured. `v0.1.60` has the measurement.
 
 ### M8 — Data track (Phase 2, deferred)
 

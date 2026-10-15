@@ -146,6 +146,13 @@ MIDDLEWARE = [
     # to sit above anything that could answer first — `CommonMiddleware` most of all.
     "corsheaders.middleware.CorsMiddleware",
     "django.middleware.security.SecurityMiddleware",
+    # Serves the console's own CSS and JS, and nothing else does. The container runs `uvicorn` rather
+    # than `runserver`, so the development server's automatic static handling is not in play, and
+    # Render serves no files from a Docker image. Without this every `/static/admin/...` request is a
+    # `404`, and Django's admin renders as unstyled HTML — which reads as "the UI is broken" rather
+    # than as a missing stylesheet. Placed directly under `SecurityMiddleware`, which is where
+    # WhiteNoise documents it belongs.
+    "whitenoise.middleware.WhiteNoiseMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
     # The admin's forms are the only thing in this backend that leans on Django's CSRF protection:
@@ -201,6 +208,10 @@ USE_I18N = True
 USE_TZ = True
 
 STATIC_URL = "static/"
+# Where `collectstatic` writes the admin's CSS and JS, and what WhiteNoise serves them from. The
+# directory was already in `.gitignore` before anything wrote to it (`M0`); this is the setting that
+# was missing, which is why the console had no stylesheet in any environment.
+STATIC_ROOT = BASE_DIR / "staticfiles"
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 # Cross-origin access for the decoupled frontend (`ADR-0011`: the web app on Vercel, the API on

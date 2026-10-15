@@ -1552,6 +1552,50 @@ probe accounts created while measuring this (`probe-*@…lysheim.test`, and the 
 `browser-check@example.com`) are left in the demo database; they are harmless and deletable from the
 console once an operator exists.
 
+### 7.12 The console's own CSS and JS
+
+The admin is the only part of this backend that serves files rather than JSON, and nothing else
+serves them: the container runs `uvicorn`, not `manage.py runserver`, so the development server's
+automatic static handling is not in play, and Render serves no files from a Docker image. WhiteNoise
+in `MIDDLEWARE` is what answers `/static/…`, and it did not exist until `v0.1.60` — before that, every
+stylesheet was a `404` and the console rendered as unstyled HTML in **development as well as
+production**, which meant neither environment could be used to rule the other out.
+
+Two settings, one per environment, and they must not be swapped:
+
+| | Serves from | Needs `collectstatic`? |
+| --- | --- | --- |
+| `dev` | the static **finders** (`WHITENOISE_USE_FINDERS`) | no — a fresh checkout has a working console |
+| `prod` | `STATIC_ROOT`, through `CompressedManifestStaticFilesStorage` | **yes**, at image build |
+
+`collectstatic` runs in the `Dockerfile`, not on the boot path: the assets are immutable, so
+collecting them once per deploy buys nothing and adds work to a cold start. It runs under
+`DJANGO_ENV=prod` with a placeholder `DJANGO_SECRET_KEY`, because `prod.py` refuses to import without
+one; the build signs nothing and the real key arrives as an environment variable at run time.
+
+Check it in one line, against either host — `200` and a four-figure `size_download` means the console
+has a stylesheet, `404` means it does not:
+
+```bash
+curl -sS -o /dev/null -w "%{http_code} %{size_download}\n" "$API/static/admin/css/base.css"
+```
+
+Rebuild the collection by hand (it writes to `backend/staticfiles/`, which is git-ignored):
+
+```bash
+cd backend
+DJANGO_ENV=prod DJANGO_SECRET_KEY=local-verify DJANGO_ALLOWED_HOSTS=example.invalid \
+  uv run python manage.py collectstatic --noinput
+```
+
+Expected: 130 files copied, ~390 post-processed, and `staticfiles/staticfiles.json` carrying a hashed
+name for every asset (`admin/css/base.css → admin/css/base.<hash>.css`). A missing manifest is not a
+cosmetic failure under `prod` settings — the storage raises rather than serving an unhashed file, so an
+image built without the collect step fails loudly on the first admin page rather than looking unstyled.
+
+`tests/test_console_static.py` asserts both an asset and its content type, so this cannot regress
+without a test failing.
+
 ## 8. Troubleshooting
 
 > Accumulates as real problems occur (e.g. Postgres connection, port conflicts, cold-start
@@ -1597,6 +1641,22 @@ console once an operator exists.
     -H 'Access-Control-Request-Headers: authorization,content-type,idempotency-key' \
     | grep -i access-control-allow-headers
   ```
+- **The admin renders unstyled — bare HTML, no CSS, in development and in production alike.** Every
+  `/static/admin/…` request is a `404`. Nothing serves the console's assets by default: `uvicorn` does
+  not, the way `manage.py runserver` does, and Render serves no files from a Docker image. Confirm it
+  in one line (`404` → the fault below; `200` with a four-figure byte count → something else):
+
+  ```bash
+  curl -sS -o /dev/null -w "%{http_code} %{size_download}\n" "$API/static/admin/css/base.css"
+  ```
+
+  A correct setup answers `200` and about `24 538` bytes. The three things that have to be true, and
+  each has been missing at some point: WhiteNoise is in `MIDDLEWARE`, `STATIC_ROOT` is set, and the
+  image runs `collectstatic` at build time. `RUNBOOK.md` §7.12 has the detail and the expected
+  `collectstatic` output. **This is the failure mode worth remembering the shape of**: unstyled HTML
+  still renders headings, tables and working links, so every behavioural test passes, screenshots
+  capture without error, and the page looks "unfinished" rather than broken. The tell is the image
+  size — an unstyled console screenshot is ~47 KB where a styled one is ~131 KB.
 - **A Render deploy fails at start-up with `python manage.py migrate … : not found`.** A compound
   command in `render.yaml`'s `dockerCommand`. Render strips a leading `/bin/sh -c` from that field and
   runs the remainder through its own shell, so the quotes that a `&&` chain needs turn the entire

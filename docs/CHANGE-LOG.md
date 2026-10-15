@@ -6,6 +6,51 @@
 
 ## History
 
+### 2026-10-16 — v0.1.60 — the console that had no stylesheet
+
+A question, not a bug report: *"why is the admin ugly, and did you change the UI?"* The answer was
+that nothing had been changed — and that **nothing was being served**. Django's admin was arriving
+without a single one of its stylesheets.
+
+**The fault had been there since `M5.1`.** `base.py` set `STATIC_URL` and nothing else: no
+`STATIC_ROOT` for `collectstatic` to write to, no WhiteNoise to serve it, and no `collectstatic` step
+in the `Dockerfile`. So every request the admin page makes for its own CSS and JS —
+`/static/admin/css/base.css` first — was a `404`, in every environment. The page rendered as bare
+HTML: right structure, right words, no styling at all. It looked like a console somebody had started
+and abandoned, which is exactly how it was reported.
+
+**Why it survived a milestone that screenshotted the console.** Because unstyled HTML still *behaves*.
+The headings render, the tables have rows, the links navigate, the forms post — so every behavioural
+assertion in `tests/test_admin.py` passed, the three console screenshots were captured without error,
+and nothing anywhere asserted that a page could load its own assets. The tell was in the file sizes
+and nobody looked: the committed `12-admin-products.png` was **47 KB**, and the same screenshot after
+the fix is **131 KB**. A styled admin is nearly three times the pixels; the old one was small because
+there was nothing on the page to compress.
+
+**The fix is a dependency and four settings**, which is the shape of a problem that hid this long:
+`whitenoise` in `MIDDLEWARE` directly under `SecurityMiddleware` (where its documentation puts it),
+`STATIC_ROOT = BASE_DIR / "staticfiles"`, `WHITENOISE_USE_FINDERS` in `dev.py` so a checkout serves the
+console without a collect step, and `CompressedManifestStaticFilesStorage` in `prod.py` for hashed,
+compressed files. The image runs `collectstatic` at **build** time rather than on the boot path: the
+console's assets are immutable, so collecting them once per deploy buys nothing and slows a cold start
+on a plan that already pays for its sleeps. `.gitignore` had carried `/staticfiles/` since `M0` — the
+rule was written for a setting that was never added, which is what made this look like a thing that had
+already been handled.
+
+**Evidence.** `/static/admin/css/base.css` before: `404`, 179 bytes of Django's 404 page. After:
+`200`, `24 538` bytes, `text/css`. `collectstatic` under production settings: 130 files, 390
+post-processed, and `staticfiles.json` carrying `admin/css/base.css → admin/css/base.6398cd16ee3d.css`.
+Two tests now assert it (`tests/test_console_static.py`) — one stylesheet and one script, so a fix that
+special-cased a single path would not pass — and the console screenshots are re-captured, so the README
+now shows the console rather than the absence of one.
+
+Two things worth naming for the next person. `collectstatic` runs at build time under `DJANGO_ENV=prod`
+with a placeholder `DJANGO_SECRET_KEY`, because `prod.py` refuses to import without one and signs
+nothing during a build; the real key arrives as an environment variable at run time. And the
+`404` was equally present *locally*, because this project serves the API with `uvicorn` rather than
+`manage.py runserver` — the development server's automatic static handling is not in play, so local
+and deployed failed identically and neither could be used to rule the other out.
+
 ### 2026-10-15 — v0.1.59 — `M7.3`: the README, and the deploy that cannot keep a session
 
 The last increment of `M7`, and it is mostly the README — which had gone stale in the way READMEs

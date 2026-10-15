@@ -5,7 +5,10 @@ __pycache__/
 venv/
 *.sqlite3
 /media/
-/staticfiles/
+# Collected static files. Not anchored to the repository root: `STATIC_ROOT` is
+# `backend/staticfiles/`, so a root-anchored rule would match nothing and `git add -A` would commit
+# every collected stylesheet (521 files, at the time this was found).
+staticfiles/
 .ruff_cache/
 .mypy_cache/
 .basedpyright/
