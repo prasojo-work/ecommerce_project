@@ -9,7 +9,7 @@ import { audit } from "@/test/axe";
 
 const PRODUCT: ProductCardData = {
   category: { name: "Seating", slug: "seating" },
-  color: "Oak",
+  color: "Natural",
   id: 1,
   image: { alt: "Aalto Chair in oak, three-quarter view", path: "/images/aalto.webp", position: 0 },
   in_stock: true,
@@ -61,5 +61,28 @@ describe("ProductCard", () => {
     render(<ProductCard product={PRODUCT} />);
 
     expect(screen.getByText("$1,299.00")).toBeDefined();
+  });
+
+  it("carries the spec line `UX-DIRECTION.md` section 4 rule 2 requires", () => {
+    // Rule 2: "No product tile without a spec line." Material, finish and availability were all in
+    // the payload and all discarded before `M7.4`, which is why the tile read as a price tag.
+    render(<ProductCard product={PRODUCT} />);
+
+    expect(screen.getByText("Oak · Natural · In stock")).toBeDefined();
+  });
+
+  it("says out of stock in words, not only in colour", () => {
+    render(<ProductCard product={{ ...PRODUCT, in_stock: false }} />);
+
+    expect(screen.getByText("Oak · Natural · Out of stock")).toBeDefined();
+  });
+
+  it("drops the parts a product does not declare rather than printing empty separators", () => {
+    // `material` and `color` are both `blank=True`, so the line is assembled from what exists.
+    // "· · In stock" would be the failure this asserts against.
+    render(<ProductCard product={{ ...PRODUCT, material: "", color: "" }} />);
+
+    expect(screen.getByText("In stock")).toBeDefined();
+    expect(screen.queryByText(/·/)).toBeNull();
   });
 });

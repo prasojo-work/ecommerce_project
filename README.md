@@ -216,6 +216,8 @@ The documentation is a first-class deliverable, not an afterthought. Start here:
 - [`docs/PLAN.md`](docs/PLAN.md) — the living master plan and the evidence gates
 - [`docs/01-business/STRATEGY.md`](docs/01-business/STRATEGY.md) — market, model, positioning
 - [`docs/02-product/SCOPE.md`](docs/02-product/SCOPE.md) — the user stories and non-functional targets
+- [`docs/02-product/UX.md`](docs/02-product/UX.md) — information architecture, flows and the states matrix
+- [`docs/02-product/UX-DIRECTION.md`](docs/02-product/UX-DIRECTION.md) — the visual grammar: "The Spec Sheet"
 - [`docs/03-architecture/ARCHITECTURE.md`](docs/03-architecture/ARCHITECTURE.md) — C4 views and the domain
 - [`docs/03-architecture/API.md`](docs/03-architecture/API.md) — the HTTP contract
 - [`docs/04-delivery/ROADMAP.md`](docs/04-delivery/ROADMAP.md) — milestones, increments and status

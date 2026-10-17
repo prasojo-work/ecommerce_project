@@ -273,6 +273,35 @@ console's stylesheets — is committed and **not yet pushed** at the time of wri
 opens the live `/admin/` before that push sees the unstyled console `M7.3a` describes. It changes no
 exit criterion here, and it is the next push.
 
+### M7.4 — The Spec Sheet (post-MVP, 2026-10-17)
+
+The founder's review of the finished storefront was one sentence — *"the current UI/UX feels boring"*
+— and this increment is the answer to it. It is the first work after `M7`, and it is deliberately
+visual rather than functional: nothing in the API, the schema or the domain changed.
+
+- [x] `M7.4` **A design direction, written down before it was coded.**
+  [`../02-product/UX-DIRECTION.md`](../02-product/UX-DIRECTION.md) turns the feeling into seven named
+  causes with files behind them — an empty hero, a type scale that stopped at `3rem`, one container
+  width and one rhythm, uniform card chrome, an accent used too politely to see, **a tile that showed
+  a name and a price while `material`, `color` and `in_stock` sat unused in the payload**, and no way
+  into the catalogue from the header. The concept is "The Spec Sheet": the label is the identity, the
+  display serif is the loud half of a loud/quiet field, and colour arrives in one saturated block per
+  page instead of as a tint.
+- [x] **Implemented as tokens, a tile, a hero and a spec table.** New type steps (`6xl`, `7xl`),
+  `Fraunces` at one weight as `--font-display`, `h1`/`h2` in the display family site-wide; the tile
+  gains the spec line (`Oak · Natural · In stock`), a square frame, a hairline rule and a
+  display-size price; the home page gains a display hero and the terracotta band; the product page's
+  existing `<dl>` becomes a ruled spec table; the header gains `Shop`. The skeleton was rebuilt to
+  match the new tile, because a skeleton that is the wrong height is worse than none.
+- [x] **Verified against every gate that existed before it.** 22 vitest files (four new assertions on
+  the spec line, including the empty-material case), `tsc`/`eslint`/`prettier` clean, axe-clean on
+  11/11 routes, LCP 740 ms and 1 092 ms against the 2 500 ms budget, first-load JS 147.8 KiB, p95
+  49.8 ms, and the journey passing in 10.6 s with all eleven storefront screenshots re-captured from
+  that run. The `NFR-1` risk of a second web font was measured rather than assumed: it cost nothing.
+- [ ] **Not in this increment, and named so it is not mistaken for done:** motion, dark mode, reviews,
+  wishlist, promo codes, and the "Room, not grid" concept — which needs an image budget before it can
+  be built honestly (§5 of the direction document).
+
 ### M8 — Data track (Phase 2, deferred)
 
 - [ ] `M8.x` Per `ARCHITECTURE.md` §9 and `_working/TODO_data-engineer.md`; ADRs written at the start of Phase 2.

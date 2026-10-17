@@ -1646,6 +1646,17 @@ without a test failing.
     -H 'Access-Control-Request-Headers: authorization,content-type,idempotency-key' \
     | grep -i access-control-allow-headers
   ```
+- **The journey hangs at sign-in while the a11y and perf audits pass.** The page renders, every
+  preflight answers `200`, and no `POST` ever arrives — because the origin in `A11Y_BASE_URL` is not
+  the one the API trusts. `CORS_ALLOWED_ORIGINS` and the `/auth/refresh` origin guard (`ADR-0009`) name
+  `http://localhost:3000`, so `http://127.0.0.1:3000` is a *different origin* and the browser refuses
+  the request after its preflight. The server-rendered audits are unaffected, which is what makes this
+  look like a UI regression rather than a configuration mismatch; the tell is in the API log — an
+  `OPTIONS` with no `POST` behind it, and a `403` on `/auth/refresh`. Use the origin the API knows:
+
+  ```bash
+  A11Y_BASE_URL=http://localhost:3000 SHOTS_DIR=../docs/assets/screenshots pnpm journey:audit
+  ```
 - **The admin renders unstyled — bare HTML, no CSS, in development and in production alike.** Every
   `/static/admin/…` request is a `404`. Nothing serves the console's assets by default: `uvicorn` does
   not, the way `manage.py runserver` does, and Render serves no files from a Docker image. Confirm it

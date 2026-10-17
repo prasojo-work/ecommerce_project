@@ -1,13 +1,12 @@
 /* LYSHEIM design tokens and base styles.
  *
- * The values are the single source of truth from docs/02-product/UX.md section 2. Declaring
- * them inside @theme makes Tailwind generate utilities from them — bg-canvas, text-ink,
- * max-w-measure — so components compose utilities instead of hand-written CSS. Never encode
- * state by colour alone (SCOPE.md NFR-2).
+ * The values are the single source of truth from docs/02-product/UX.md section 2, revised by
+ * docs/02-product/UX-DIRECTION.md ("The Spec Sheet", M7.4). Declaring them inside @theme makes
+ * Tailwind generate utilities from them — bg-canvas, text-ink, max-w-measure — so components compose
+ * utilities instead of hand-written CSS. Never encode state by colour alone (SCOPE.md NFR-2).
  *
- * Spacing and radii deliberately have no custom entries: the project's 4px scale and its
- * 8px/16px radii are exactly Tailwind's defaults (p-1 = 4px, rounded-lg = 8px,
- * rounded-2xl = 16px).
+ * Spacing and radii deliberately have no custom entries: the project's 4px scale and its 8px/16px
+ * radii are exactly Tailwind's defaults (p-1 = 4px, rounded-lg = 8px, rounded-2xl = 16px).
  */
 
 @import "tailwindcss";
@@ -22,11 +21,18 @@
   --color-primary: #2f6b4f;
   --color-primary-ink: #ffffff;
   --color-accent: #b4552e;
+  /* White on the accent is 4.92:1, which clears AA for normal text — measured, not assumed, because
+   * the band it sits on is the one saturated surface in the design. */
+  --color-accent-ink: #ffffff;
   --color-success: #2f6b4f;
   --color-warning: #8a5a00;
   --color-danger: #a5372c;
 
-  /* Type scale (rem) */
+  /* Type scale (rem).
+   *
+   * The top of the scale is what `UX-DIRECTION.md` section 3 calls the loud half: a display heading
+   * at 56–72px against 12–16px body. The original scale stopped at 3rem, which left every page at
+   * one volume level — the diagnosis in section 1, cause 2. */
   --text-xs: 0.75rem;
   --text-sm: 0.875rem;
   --text-base: 1rem;
@@ -36,11 +42,17 @@
   --text-3xl: 1.875rem;
   --text-4xl: 2.375rem;
   --text-5xl: 3rem;
+  --text-6xl: 4rem;
+  --text-7xl: 5rem;
 
   /* Body line length capped at ~70 characters (UX.md section 2) */
   --container-measure: 70ch;
 
+  /* Two families with two jobs: `sans` for interface text, `display` for the one loud heading on a
+   * page. `display` falls back to a serif before the webfont loads rather than to the UI sans, so a
+   * slow font network degrades to a calmer page instead of a mismatched one. */
   --font-sans: var(--font-inter), system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-display: var(--font-fraunces), Georgia, "Times New Roman", serif;
 }
 
 /* Cross-cutting rules that must hold on every route. Anything component-specific belongs in a
@@ -51,12 +63,26 @@
     color: var(--color-ink);
   }
 
+  /* Section headings take the display family site-wide, including the screens this increment does not
+   * otherwise restyle (cart, checkout, sign-in). `h3` and below stay in the UI sans: a product name
+   * is a label, not a headline. */
+  h1,
+  h2 {
+    font-family: var(--font-display);
+    font-weight: 600;
+    letter-spacing: -0.02em;
+  }
+
   h1,
   h2,
   h3,
   h4 {
-    line-height: 1.2;
+    line-height: 1.1;
     text-wrap: balance;
+  }
+
+  p {
+    text-wrap: pretty;
   }
 
   a {

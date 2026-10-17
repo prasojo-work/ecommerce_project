@@ -6,6 +6,61 @@
 
 ## History
 
+### 2026-10-17 — v0.1.62 — `M7.4`: the storefront stops being beige
+
+The MVP shipped complete, correct and boring, and the founder said so in one sentence: *"the current
+UI/UX feels boring."* A feeling is not a defect report, so the increment began by turning it into
+one — seven causes, each with a file behind it — and then by deciding what the storefront should look
+like instead. That decision is
+[`docs/02-product/UX-DIRECTION.md`](../02-product/UX-DIRECTION.md), adopted here.
+
+**The diagnosis, briefly.** The hero was text and nothing else (`M1` bought that for LCP and it was
+right then); the type scale topped out at `3rem` against 14px body, so every page had one volume
+level; one container width and one spacing rhythm ran through everything; every product was the same
+`rounded-2xl` rectangle at 4:3; terracotta was used "sparingly" and vanished; and — the cause that
+mattered most — **the tile showed a name and a price while `material`, `color` and `in_stock` sat in
+the payload unused.** A quiet page that withholds information is boring twice over. `UX.md` §2's brief
+("calm, editorial, warm neutrals") was not wrong; calm is achieved by *removing* contrast, and contrast
+is what makes a page feel designed.
+
+**The concept: "The Spec Sheet".** Household goods are bought by people about to measure a wall, and
+IKEA's real design idea is that the label tells you everything. So the identity is the label:
+
+- **The spec line** — `Oak · Natural · In stock` — under every tile, in full as a table on the product
+  page. Assembled from the parts that exist, so a product with no material reads `In stock` rather
+  than `· · In stock`.
+- **A loud/quiet field.** One display serif at 56–72px (`Fraunces`, one weight) against 12–16px
+  interface text; two families with two jobs. `h1`/`h2` take the display family site-wide, including
+  the screens this increment does not otherwise restyle.
+- **One saturated block per page.** The terracotta band closing the home page — white on `#B4552E` is
+  4.92:1, measured, because it is the one surface where a guess would fail an audit.
+- **Rules, not cards.** A hairline above the tile's meta block; radii survive only on the image frame,
+  which is now square. The image inside is still never cropped (`ADR-0012` excludes `BY-ND` from
+  cropping and the UI cannot see a licence).
+- **A way into the catalogue.** The header had none — cart, orders and account, but no products
+  except the brand link. It has a `Shop` entry now.
+
+**Evidence, all measured.** 22 vitest files green including four new tile assertions (spec line,
+out-of-stock wording, and the empty-material case); `tsc`, `eslint` and `prettier` clean; axe-clean on
+**11/11** routes with the new palette and headings; LCP **740 ms** on the catalogue and **1 092 ms** on
+a product page against the 2 500 ms budget — the display font cost nothing measurable, which was the
+risk in §7 of the direction document; first-load JS 147.8 KiB; catalogue p95 49.8 ms; the journey
+passes end to end in 10.6 s on the new UI, and the 11 storefront screenshots in this repository were
+re-captured from that run (`02-home.png` went from a flat page to 359 KB of type, imagery and one
+terracotta band).
+
+**One mistake worth recording, because it will happen again.** The first browser audits were pointed
+at `http://127.0.0.1:3000` and the journey stalled for a minute. Accessibility and performance passed
+— they only read server-rendered HTML — but sign-in never completed: the browser sent its CORS
+preflight (`OPTIONS` → `200`), and then **blocked the actual request**, because the API's
+`CORS_ALLOWED_ORIGINS` and the `/auth/refresh` origin guard (`ADR-0009`) know `localhost:3000`, not
+`127.0.0.1:3000`. The API log had the tell — a preflight with no POST behind it. `RUNBOOK.md` §8 now
+carries the symptom.
+
+**What this deliberately did not do.** No reviews, wishlist, promo codes, search or checkout changes;
+no schema or API change (every field the spec line needs already existed); no motion system, because a
+page that moves before it has hierarchy is noise on noise; no dark mode.
+
 ### 2026-10-16 — v0.1.61 — `M7` closes, on a measurement rather than a hope
 
 The push happened, Render redeployed from `autoDeployTrigger: commit`, and the fault `v0.1.58`

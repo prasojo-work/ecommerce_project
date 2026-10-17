@@ -81,8 +81,10 @@ async function ProductDetail({ params }: Pick<PageProps<"/products/[slug]">, "pa
       <ProductGallery images={product.images} />
       <div className="flex flex-col gap-6">
         <div className="flex flex-col gap-2">
-          <h1 className="text-3xl">{product.name}</h1>
-          <p className="text-xl">{formatPrice(product.price)}</p>
+          <h1 className="text-4xl text-ink">{product.name}</h1>
+          {/* The price in the display family, at a size the name still beats: `UX-DIRECTION.md`
+              section 3 makes the price a catalog's second-loudest line, not a caption. */}
+          <p className="font-display text-2xl tabular-nums">{formatPrice(product.price)}</p>
           {/* Redundant by design: the words carry the state, so the colour is not the only signal
               (`UX.md` section 7). */}
           <p
@@ -94,7 +96,10 @@ async function ProductDetail({ params }: Pick<PageProps<"/products/[slug]">, "pa
 
         <p className="max-w-measure text-muted">{product.description}</p>
 
-        <dl className="flex max-w-measure flex-col gap-2 text-sm">
+        {/* The spec table (`UX-DIRECTION.md` section 3): rules between rows and tabular numerals, so
+            the facts read as a label rather than as three paragraphs. Same `<dl>` semantics as
+            before — the styling changed, the meaning did not. */}
+        <dl className="max-w-measure divide-y divide-border border-t border-border text-sm">
           <DetailRow label="Material" value={product.material} />
           <DetailRow label="Colour" value={product.color} />
           {dimensions.length > 0 ? (
@@ -110,9 +115,9 @@ async function ProductDetail({ params }: Pick<PageProps<"/products/[slug]">, "pa
 
 function DetailRow({ label, value }: { label: string; value: string }) {
   return (
-    <div className="flex gap-2">
+    <div className="grid grid-cols-[6rem_1fr] gap-3 py-2">
       <dt className="text-muted">{label}</dt>
-      <dd>{value}</dd>
+      <dd className="tabular-nums">{value}</dd>
     </div>
   );
 }

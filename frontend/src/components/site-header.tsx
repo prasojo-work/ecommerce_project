@@ -19,18 +19,31 @@ import { useSession } from "@/components/session-provider";
  *
  * The cart and orders entries sit beside the account one and read the same three states, which is
  * why the nav is labelled for all three rather than for the account alone.
+ *
+ * `M7.4` added the `Shop` entry (`UX-DIRECTION.md` section 1, cause 7): until then the header had no
+ * way into the catalogue at all — a shopper could reach the cart, the orders and the account, but
+ * not the products, except by clicking the brand or finding the home page's one call to action.
  */
 export function SiteHeader() {
   const { status, user, signOut } = useSession();
 
   return (
     <header className="border-b border-border bg-surface">
-      <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-6 py-4">
+      <div className="mx-auto flex max-w-6xl items-center gap-8 px-6 py-4">
         <Link href="/" className="text-lg tracking-tight text-ink">
           LYSHEIM
         </Link>
 
-        <nav aria-label="Account, cart, and orders" className="flex items-center gap-4 text-sm">
+        <nav aria-label="Catalog" className="flex items-center text-sm">
+          <Link href="/products" className="inline-flex min-h-11 items-center">
+            Shop
+          </Link>
+        </nav>
+
+        <nav
+          aria-label="Account, cart, and orders"
+          className="ml-auto flex items-center gap-4 text-sm"
+        >
           <CartLink />
           {status === "restoring" ? (
             <span className="inline-block h-5 min-w-40" aria-hidden="true" />
